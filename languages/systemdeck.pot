@@ -1,0 +1,65 @@
+# Copyright (C) 2026 SystemDeck
+# This file is distributed under the same license as the SystemDeck package.
+msgid ""
+msgstr ""
+"Project-Id-Version: SystemDeck\n"
+"Report-Msgid-Bugs-To: https://systemdeck.dev\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"PO-Revision-Date: 2026-02-10 18:37+0000\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+
+#: systemdeck.php:229
+msgid "Close"
+msgstr ""
+
+#: core/MenuEngine.php:247
+msgid "Collapse Menu"
+msgstr ""
+
+#: systemdeck.php:210
+msgid "Dock Base"
+msgstr ""
+
+#: systemdeck.php:206
+msgid "Dock Left"
+msgstr ""
+
+#: systemdeck.php:214
+msgid "Dock Right"
+msgstr ""
+
+#: systemdeck.php:222
+msgid "Full Screen"
+msgstr ""
+
+#: systemdeck.php:191
+msgid "Minimize Dock"
+msgstr ""
+
+#: systemdeck.php:218
+msgid "Standard Dock"
+msgstr ""
+
+#: core/MenuEngine.php:140
+msgid "System"
+msgstr ""
+
+#: systemdeck.php:29
+msgid "SystemDeck requires PHP 8.0 or higher."
+msgstr ""
+
+#: systemdeck.php:38
+msgid "SystemDeck requires WordPress 6.7 or higher."
+msgstr ""
+
+#: systemdeck.php:455
+msgid "Toggle SystemDeck"
+msgstr ""
+
+#: core/MenuEngine.php:172
+msgid "Workspaces"
+msgstr ""
+

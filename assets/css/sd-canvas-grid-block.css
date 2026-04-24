@@ -1,0 +1,517 @@
+.sd-canvas-grid-host {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+    align-items: start;
+    width: 100%;
+}
+
+.sd-canvas-grid-block {
+    width: 100% !important;
+    max-width: none !important;
+}
+
+/* Gutenberg's outer block wrapper can shrink this block inside flow layouts; force full row width. */
+.editor-styles-wrapper .block-editor-block-list__block[data-type="systemdeck/canvas-grid"],
+.editor-styles-wrapper .block-editor-block-list__block.wp-block-systemdeck-canvas-grid {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 100% !important;
+    flex-basis: 100% !important;
+}
+
+.editor-styles-wrapper #sd-canvas-root.wp-block-group,
+.editor-styles-wrapper .sd-canvas-template.wp-block-group {
+    max-width: none !important;
+    width: 100% !important;
+}
+
+.wp-block-systemdeck-canvas-grid,
+.wp-block-systemdeck-canvas-grid>.block-editor-inner-blocks,
+.wp-block-systemdeck-canvas-grid>.block-editor-inner-blocks>.block-editor-block-list__layout {
+    width: 100% !important;
+    max-width: none !important;
+}
+
+/* Force full-width editing canvas for SystemDeck containers in Site/Post editor iframes. */
+.editor-styles-wrapper .wp-block-group.sd-canvas-shell,
+.editor-styles-wrapper .wp-block-group.sd-canvas-template,
+.editor-styles-wrapper .wp-block-post-content .wp-block-group.sd-canvas-shell,
+.editor-styles-wrapper .wp-block-post-content .wp-block-group.sd-canvas-template {
+    width: 100% !important;
+    max-width: none !important;
+}
+
+.editor-styles-wrapper .wp-block-group.sd-canvas-shell>.block-editor-inner-blocks,
+.editor-styles-wrapper .wp-block-group.sd-canvas-shell>.block-editor-inner-blocks>.block-editor-block-list__layout,
+.editor-styles-wrapper .wp-block-group.sd-canvas-template>.block-editor-inner-blocks,
+.editor-styles-wrapper .wp-block-group.sd-canvas-template>.block-editor-inner-blocks>.block-editor-block-list__layout {
+    width: 100% !important;
+    max-width: none !important;
+}
+
+.editor-styles-wrapper .wp-block-systemdeck-widgets,
+.editor-styles-wrapper .block-editor-block-list__block.wp-block-systemdeck-widgets {
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    justify-self: stretch !important;
+    align-self: start !important;
+}
+
+.editor-styles-wrapper .wp-block-systemdeck-widgets .sd-widget-block-canvas,
+.editor-styles-wrapper .wp-block-systemdeck-widgets .postbox,
+.editor-styles-wrapper .wp-block-systemdeck-widgets .inside {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+}
+
+.editor-styles-wrapper .wp-block-systemdeck-widgets,
+.editor-styles-wrapper .wp-block-systemdeck-widgets * {
+    word-break: normal !important;
+    overflow-wrap: anywhere;
+}
+
+.sd-canvas-grid-host>.wp-block,
+.sd-canvas-grid-host>[data-type] {
+    min-width: 0;
+}
+
+.wp-block-systemdeck-canvas-grid>.block-editor-inner-blocks>.block-editor-block-list__layout,
+.wp-block-systemdeck-canvas-grid .block-editor-block-list__layout,
+[data-type="systemdeck/canvas-grid"] .block-editor-block-list__layout,
+.sd-canvas-grid-host .block-editor-block-list__layout,
+.sd-canvas-grid-host .block-editor-block-list__layout.is-root-container {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 20px;
+    width: 100% !important;
+    max-width: none !important;
+}
+
+.wp-block-systemdeck-canvas-grid>.block-editor-inner-blocks>.block-editor-block-list__layout>.block-editor-block-list__block {
+    min-width: 0;
+}
+
+.sd-canvas-grid-host__inner {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 20px !important;
+    width: 100% !important;
+    max-width: none !important;
+}
+
+/**
+ * SystemDeck Editor Overrides
+ *
+ * Loads via `enqueue_block_assets` — runs inside the FSE/block-editor canvas
+ * iframe AND on the admin page that hosts the editor sidebar.
+ *
+ * Purpose:
+ *  - Re-expose SD tokens to .editor-styles-wrapper (canvas iframe, no #systemdeck).
+ *  - Port shell UI helpers (#systemdeck .sd-btn-icon etc.) to the editor context.
+ *  - Bridge widget-block styling so it looks identical in Admin, FSE, and Frontend.
+ *
+ * Selector strategy:
+ *  - Inside the editor iframe: .editor-styles-wrapper
+ *  - On the sidebar admin page: .sd-fse-sidebar, #sd-fse-sidebar
+ *  - No bare global rules — everything is scoped.
+ *
+ * TABLE OF CONTENTS:
+ * 1. Editor Canvas Token Bridge
+ * 2. Sidebar Shell UI (sd-btn-icon, header actions)
+ * 3. WP-Components Overrides (inside editor sidebar)
+ * 4. Widget Block Canvas Parity
+ */
+
+/* =========================================
+   1. EDITOR CANVAS TOKEN BRIDGE
+   Tokens for .editor-styles-wrapper (canvas iframe)
+   See Assets::get_dynamic_css() for scheme values — this
+   file covers structural fallbacks only.
+   ========================================= */
+
+.editor-styles-wrapper .sd-canvas-shell,
+.editor-styles-wrapper .sd-canvas-template {
+    padding: 0;
+    margin: 0;
+}
+
+.editor-styles-wrapper .sd-canvas-shell__intro {
+    margin: 0 0 8px;
+    color: var(--sd-text);
+    opacity: 0.8;
+}
+
+.editor-styles-wrapper .sd-canvas-shell__grid,
+.editor-styles-wrapper .sd-canvas-template__body {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.editor-styles-wrapper .sd-canvas-shell__grid>.sd-col-span-1,
+.editor-styles-wrapper .sd-canvas-template__body>.sd-col-span-1 {
+    grid-column: span 1 !important;
+}
+
+.editor-styles-wrapper .sd-canvas-shell__grid>.sd-col-span-2,
+.editor-styles-wrapper .sd-canvas-template__body>.sd-col-span-2 {
+    grid-column: span 2 !important;
+}
+
+.editor-styles-wrapper .sd-canvas-shell__grid>.sd-col-span-3,
+.editor-styles-wrapper .sd-canvas-template__body>.sd-col-span-3 {
+    grid-column: span 3 !important;
+}
+
+.editor-styles-wrapper .sd-canvas-shell__grid>.sd-col-span-4,
+.editor-styles-wrapper .sd-canvas-template__body>.sd-col-span-4 {
+    grid-column: span 4 !important;
+}
+
+@media (max-width: 1100px) {
+
+    .editor-styles-wrapper .sd-canvas-shell__grid,
+    .editor-styles-wrapper .sd-canvas-template__body {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .editor-styles-wrapper .sd-canvas-shell__grid>.sd-col-span-1,
+    .editor-styles-wrapper .sd-canvas-template__body>.sd-col-span-1 {
+        grid-column: span 1 !important;
+    }
+
+    .editor-styles-wrapper .sd-canvas-shell__grid>.sd-col-span-2,
+    .editor-styles-wrapper .sd-canvas-template__body>.sd-col-span-2 {
+        grid-column: span 2 !important;
+    }
+
+    .editor-styles-wrapper .sd-canvas-shell__grid>.sd-col-span-3,
+    .editor-styles-wrapper .sd-canvas-template__body>.sd-col-span-3 {
+        grid-column: span 2 !important;
+    }
+
+    .editor-styles-wrapper .sd-canvas-shell__grid>.sd-col-span-4,
+    .editor-styles-wrapper .sd-canvas-template__body>.sd-col-span-4 {
+        grid-column: span 2 !important;
+    }
+}
+
+@media (max-width: 700px) {
+
+    .editor-styles-wrapper .sd-canvas-shell__grid,
+    .editor-styles-wrapper .sd-canvas-template__body {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .editor-styles-wrapper .sd-canvas-shell__grid>[class*="sd-col-span-"],
+    .editor-styles-wrapper .sd-canvas-template__body>[class*="sd-col-span-"] {
+        grid-column: span 1 !important;
+    }
+}
+
+/* =========================================
+   2. SIDEBAR SHELL UI
+   Btn-icon and header action controls inside the FSE sidebar
+   ========================================= */
+
+.sd-fse-sidebar .sd-btn-icon,
+#sd-fse-sidebar .sd-btn-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: inherit;
+    opacity: 0.8;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    background: transparent;
+}
+
+.sd-fse-sidebar .sd-btn-icon:hover,
+#sd-fse-sidebar .sd-btn-icon:hover {
+    opacity: 1;
+    background: var(--sd-btn-icon-hover-bg, rgba(0, 0, 0, 0.06));
+}
+
+.sd-fse-sidebar .sd-btn-icon .dashicons,
+#sd-fse-sidebar .sd-btn-icon .dashicons {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+}
+
+/* =========================================
+   3. WP-COMPONENTS OVERRIDES
+   Inside FSE sidebar — keep parity with sd-common.css
+   ========================================= */
+
+.sd-fse-sidebar .components-form-toggle .components-form-toggle__track,
+#sd-fse-sidebar .components-form-toggle .components-form-toggle__track {
+    background: var(--sd-toggle-track-off, #dcdcde);
+    border-color: var(--sd-toggle-border-off, #8c8f94);
+    border-radius: 999px;
+}
+
+.sd-fse-sidebar .components-form-toggle .components-form-toggle__thumb,
+#sd-fse-sidebar .components-form-toggle .components-form-toggle__thumb {
+    background: var(--sd-toggle-thumb-off, #50575e);
+    box-shadow: 0 0 0 1px var(--sd-toggle-thumb-shadow, rgba(0, 0, 0, 0.04));
+}
+
+.sd-fse-sidebar .components-form-toggle.is-checked .components-form-toggle__track,
+#sd-fse-sidebar .components-form-toggle.is-checked .components-form-toggle__track {
+    background: var(--sd-button-color, var(--wp-admin-theme-color));
+    border-color: var(--sd-button-color, var(--wp-admin-theme-color));
+}
+
+.sd-fse-sidebar .components-form-toggle.is-checked .components-form-toggle__thumb,
+#sd-fse-sidebar .components-form-toggle.is-checked .components-form-toggle__thumb {
+    background: var(--sd-toggle-thumb, #ffffff);
+}
+
+.sd-fse-sidebar .components-base-control,
+#sd-fse-sidebar .components-base-control {
+    margin-bottom: 16px;
+}
+
+.sd-fse-sidebar .components-base-control:last-child,
+#sd-fse-sidebar .components-base-control:last-child {
+    margin-bottom: 0;
+}
+
+/* Focus ring  */
+.sd-fse-sidebar :is(input, select, textarea):focus,
+#sd-fse-sidebar :is(input, select, textarea):focus {
+    border-color: var(--sd-input-border-focus, var(--wp-admin-theme-color));
+    box-shadow: 0 0 0 1px var(--sd-focus-ring);
+    outline: 0;
+}
+
+/* =========================================
+   4. WIDGET BLOCK CANVAS PARITY
+   .sd-widget-block-host inside the editor iframe
+   =========================================  */
+
+/* Button colors inside widget blocks */
+.editor-styles-wrapper .sd-widget-block-host :where(.button) {
+    color: var(--sdw-link, var(--sd-button-color));
+    border-color: var(--sdw-link, var(--sd-button-color));
+}
+
+.editor-styles-wrapper .sd-widget-block-host :where(.button-primary) {
+    background: var(--sdw-link, var(--sd-button-color));
+    color: var(--sd-btn-primary-text, #ffffff);
+}
+
+/* Postbox chrome in editor — use editor surface tokens */
+.editor-styles-wrapper .sd-widget-block-host :where(.postbox) {
+    background: var(--sdw-bg, var(--sd-card-bg, #ffffff));
+    border-color: var(--sdw-border, var(--sd-border, #c3c4c7));
+}
+
+.editor-styles-wrapper .sd-widget-block-host :where(.postbox-header) {
+    background: transparent;
+    border-bottom-color: var(--sdw-border, var(--sd-border, #c3c4c7));
+    color: var(--sdw-heading, var(--sd-heading-color, #1d2327));
+}
+
+/* Ensure text colours resolve inside the editor canvas iframe */
+.editor-styles-wrapper .sd-widget-block-host {
+    color: var(--sdw-text, var(--sd-text, #3c434a));
+}
+
+/* Input focus in widget blocks inside the editor */
+.editor-styles-wrapper .sd-widget-block-host:where(input:focus, select:focus, textarea:focus) {
+    border-color: var(--sd-input-border-focus, var(--wp-admin-theme-color));
+    box-shadow: 0 0 0 1px var(--sd-focus-ring);
+    outline: 0;
+}
+
+.sd-widget-block-host {
+    --sdw-bg: var(--sd-card-bg, #ffffff);
+    --sdw-bg-subtle: var(--sd-surface-subtle, #f6f7f7);
+    --sdw-border: var(--sd-border, #dcdcde);
+    --sdw-text: var(--sd-text, #1d2327);
+    --sdw-text-muted: var(--sd-text-muted, #646970);
+    --sdw-heading: var(--sd-heading-color, #1d2327);
+    --sdw-link: var(--sd-highlight-color, #2271b1);
+    --sdw-link-hover: var(--sd-link-focus, #135e96);
+    --sdw-radius: 4px;
+    --sdw-space-1: 8px;
+    --sdw-space-2: 12px;
+    --sdw-space-3: 16px;
+    --sdw-space-4: 20px;
+
+    color: var(--sdw-text);
+}
+
+.editor-styles-wrapper .wp-block-systemdeck-widgets.sd-widget-block-host {
+    margin-block-start: 0;
+    margin-block-end: 0;
+}
+
+/* Keep span widths stable after Gutenberg drag/drop remounts. */
+.editor-styles-wrapper .block-editor-block-list__block.wp-block-systemdeck-widgets.sd-col-span-1 {
+    grid-column: span 1 !important;
+}
+
+.editor-styles-wrapper .block-editor-block-list__block.wp-block-systemdeck-widgets.sd-col-span-2 {
+    grid-column: span 2 !important;
+}
+
+.editor-styles-wrapper .block-editor-block-list__block.wp-block-systemdeck-widgets.sd-col-span-3 {
+    grid-column: span 3 !important;
+}
+
+.editor-styles-wrapper .block-editor-block-list__block.wp-block-systemdeck-widgets.sd-col-span-4 {
+    grid-column: span 4 !important;
+}
+
+.sd-widget-block-host[data-sd-theme="dark"] {
+    --sdw-bg: var(--sd-body-background, #1f2328);
+    --sdw-bg-subtle: var(--sd-card-header-bg, #2c3338);
+    --sdw-border: var(--sd-border, #3c434a);
+    --sdw-text: var(--sd-text, #f0f0f1);
+    --sdw-text-muted: var(--sd-text-muted, #bcc0c4);
+    --sdw-heading: var(--sd-heading-color, #f0f0f1);
+    --sdw-link: var(--sd-highlight-color, #72aee6);
+    --sdw-link-hover: var(--sd-link-focus, #8ec5ff);
+}
+
+.sd-widget-block-canvas {
+    border: 1px solid var(--sdw-border);
+    border-radius: var(--sdw-radius);
+    background: var(--sdw-bg);
+    color: var(--sdw-text);
+    padding: var(--sdw-space-2);
+    margin: 0;
+}
+
+.sd-widget-placeholder-block__meta>strong {
+    display: block;
+    margin: 0 0 2px;
+    color: var(--sdw-heading);
+    font-size: 14px;
+    line-height: 1.3;
+}
+
+.sd-widget-placeholder-block__meta>small {
+    display: block;
+    margin: 0;
+    color: var(--sdw-text-muted);
+}
+
+.sd-widget-slot-preview {
+    margin-top: 0;
+}
+
+.sd-widget-slot-preview__content {
+    margin: 0;
+}
+
+.sd-widget-block-host :where(.postbox) {
+    position: relative;
+    border: 1px solid var(--sdw-border);
+    border-radius: var(--sdw-radius);
+    background: var(--sdw-bg);
+    margin: 0;
+}
+
+.sd-widget-block-host :where(.postbox-header) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sdw-space-2);
+    padding: 0 var(--sdw-space-2);
+    border-bottom: 1px solid transparent;
+    background: transparent;
+    color: var(--sdw-heading);
+}
+
+.sd-widget-block-host :where(.postbox-header .hndle) {
+    margin: 0;
+    padding: var(--sdw-space-1) 0;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    line-height: 1.3;
+}
+
+.sd-widget-block-host :where(.inside) {
+    margin: 0;
+    padding: var(--sdw-space-2);
+    color: var(--sdw-text);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.sd-widget-block-host :where(h1, h2, h3, h4, h5, h6) {
+    color: var(--sdw-heading);
+    margin-top: 0;
+}
+
+.sd-widget-block-host :where(p, li, td, th, label, span) {
+    color: inherit;
+}
+
+.sd-widget-block-host :where(a) {
+    color: var(--sdw-link);
+}
+
+.sd-widget-block-host :where(a:hover, a:focus-visible) {
+    color: var(--sdw-link-hover);
+}
+
+.sd-widget-block-host :where(.button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 30px;
+    padding: 0 10px;
+    border: 1px solid var(--sdw-link);
+    border-radius: 3px;
+    background: var(--sdw-bg-subtle);
+    color: var(--sdw-link);
+    font-size: 13px;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.sd-widget-block-host :where(.button-primary) {
+    background: var(--sdw-link);
+    color: var(--sd-btn-primary-text, #ffffff);
+}
+
+.sd-widget-block-host :where(.button:hover, .button:focus-visible) {
+    border-color: var(--sdw-link-hover);
+    color: var(--sdw-link-hover);
+}
+
+.sd-widget-block-host:where(.button-primary:hover, .button-primary:focus-visible) {
+    background: var(--sdw-link-hover);
+    color: var(--sd-btn-primary-text, #ffffff);
+}
+
+.sd-widget-block-host:where(input[type="text"], input[type="search"], input[type="password"], select, textarea) {
+    width: 100%;
+    max-width: 100%;
+    border: 1px solid var(--sdw-border);
+    border-radius: var(--sdw-radius);
+    background: var(--sdw-bg);
+    color: var(--sdw-text);
+}
+
+.sd-widget-block-host :where(input:focus, select:focus, textarea:focus) {
+    border-color: var(--sdw-link);
+    box-shadow: 0 0 0 1px var(--sdw-link);
+    outline: 0;
+}
+
+.sd-widget-block-host :where(table) {
+    border-color: var(--sdw-border);
+}

@@ -1,0 +1,1021 @@
+/* ==========================================================================
+   1. WordPress postbox baseline alignment
+   ========================================================================== */
+
+#systemdeck .postbox {
+    display: block;
+    position: relative;
+    box-sizing: border-box;
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+#systemdeck .postbox-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #c3c4c7;
+    padding: 0 12px;
+}
+
+#systemdeck .postbox .hndle {
+    margin: 0;
+    padding: 12px 0;
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 1.4;
+    color: #1d2327;
+    cursor: default;
+}
+
+/* WordPress utility visibility helpers used by header controls */
+#systemdeck .hidden,
+#systemdeck .hide-if-js {
+    display: none !important;
+}
+
+#systemdeck .screen-reader-text {
+    border: 0;
+    clip: rect(1px, 1px, 1px, 1px);
+    -webkit-clip-path: inset(50%);
+    clip-path: inset(50%);
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute !important;
+    width: 1px;
+    word-wrap: normal !important;
+}
+
+#systemdeck .postbox .handle-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+#systemdeck .postbox .handle-actions .handle-order-higher,
+#systemdeck .postbox .handle-actions .handle-order-lower,
+#systemdeck .postbox .handle-actions .handlediv {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    color: #787c82;
+    cursor: pointer;
+}
+
+#systemdeck .postbox .handle-actions .handle-order-higher:hover,
+#systemdeck .postbox .handle-actions .handle-order-lower:hover,
+#systemdeck .postbox .handle-actions .handlediv:hover {
+    color: #1d2327;
+}
+
+#systemdeck .postbox .handle-actions .handle-order-higher:focus-visible,
+#systemdeck .postbox .handle-actions .handle-order-lower:focus-visible,
+#systemdeck .postbox .handle-actions .handlediv:focus-visible {
+    outline: 2px solid #2271b1;
+    outline-offset: 1px;
+    border-radius: 2px;
+}
+
+#systemdeck .postbox .handle-actions .handle-order-higher[aria-disabled="true"],
+#systemdeck .postbox .handle-actions .handle-order-lower[aria-disabled="true"] {
+    opacity: 0.45;
+    cursor: default;
+    pointer-events: none;
+}
+
+#systemdeck .postbox .order-higher-indicator::before,
+#systemdeck .postbox .order-lower-indicator::before,
+#systemdeck .postbox .toggle-indicator::before {
+    display: inline-block;
+    font: normal 20px/1 dashicons;
+    line-height: 1;
+    vertical-align: middle;
+    transform: translateY(-1px);
+    speak: never;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-decoration: none !important;
+}
+
+#systemdeck .postbox .order-higher-indicator::before {
+    content: "\f343";
+}
+
+#systemdeck .postbox .order-lower-indicator::before {
+    content: "\f347";
+}
+
+#systemdeck .postbox .toggle-indicator::before {
+    content: "\f142";
+}
+
+#systemdeck .postbox.closed .toggle-indicator::before {
+    content: "\f140";
+}
+
+#systemdeck .postbox .sd-handle-order-left .order-higher-indicator::before {
+    transform: rotate(-90deg);
+}
+
+#systemdeck .postbox .sd-handle-order-right .order-lower-indicator::before {
+    transform: rotate(-90deg);
+}
+
+#systemdeck .postbox .inside {
+    display: block;
+    box-sizing: border-box;
+    padding: 12px;
+    margin: 0;
+}
+
+#systemdeck .postbox.closed {
+    box-shadow: none;
+}
+
+#systemdeck .postbox.closed>.inside {
+    display: none;
+}
+
+.sd-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.35);
+    z-index: 100000;
+    align-items: center;
+    justify-content: center;
+}
+
+.sd-modal-overlay[style*="display: block"],
+.sd-modal-overlay[style*="display:block"] {
+    display: flex !important;
+}
+
+/* ==========================================================================
+   2. SystemDeck widget shell extensions
+   ========================================================================== */
+
+#systemdeck .postbox.sd-widget .handle-actions .sd-width-control {
+    display: flex;
+    align-items: center;
+}
+
+#systemdeck .postbox.sd-widget .sd-width-dropdown .components-dropdown-menu__toggle {
+    min-width: 30px;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+}
+
+#systemdeck .postbox.sd-widget .sd-width-dropdown .components-dropdown-menu__toggle .dashicon {
+    color: #787c82;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    line-height: 1;
+    transform: translateY(0);
+}
+
+#systemdeck .postbox.sd-widget .sd-width-dropdown .components-dropdown-menu__toggle .dashicons-editor-expand {
+    transform: translateY(1px);
+}
+
+#systemdeck .postbox.sd-widget .sd-width-dropdown .components-dropdown-menu__toggle:hover .dashicon {
+    color: #1d2327;
+}
+
+/* ==========================================================================
+   3. SystemDeck pin shell extensions
+   ========================================================================== */
+
+#systemdeck .postbox.sd-pin {
+    margin: 0;
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+#systemdeck .postbox.sd-pin>.inside {
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#systemdeck .postbox.sd-pin.is-compact>.inside {
+    padding: 4px;
+    gap: 4px;
+}
+
+#systemdeck .postbox.sd-pin.is-interactive {
+    cursor: pointer;
+    transition: box-shadow 0.1s linear;
+}
+
+#systemdeck .postbox.sd-pin.is-interactive:hover {
+    box-shadow: 0 0 0 1px rgba(34, 113, 177, 0.25);
+}
+
+#systemdeck .postbox.sd-pin.is-interactive:focus-visible {
+    outline: 2px solid #2271b1;
+    outline-offset: 2px;
+}
+
+.sd-pinned-item {
+    background: linear-gradient(180deg,
+            rgba(255, 255, 255, 0.98) 0%,
+            rgba(248, 249, 251, 0.98) 100%);
+    border: 1px solid color-mix(in srgb, var(--sd-border-color, #dcdcde) 86%, white);
+    border-radius: 4px;
+    padding: 12px 16px;
+    min-width: 0;
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+    position: relative;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.035),
+        0 1px 2px rgba(15, 23, 42, 0.03);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    transition: transform 0.16s ease, opacity 0.16s ease, border-color 0.2s,
+        box-shadow 0.2s;
+    cursor: grab;
+}
+
+.sd-pinned-item.is-pixi-metric {
+    padding: 12px !important;
+}
+
+.sd-pinned-pixi-surface {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    flex: 1 1 auto;
+    display: block;
+}
+
+.sd-pinned-pixi-surface canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.sd-pinned-item.is-dragging {
+    opacity: 0.72;
+    cursor: grabbing;
+}
+
+.sd-pinned-item.is-drop-target {
+    outline: 2px dashed color-mix(in srgb,
+            var(--sd-highlight-color, var(--sd-highlight)) 72%,
+            white);
+    outline-offset: 2px;
+    background-image: repeating-linear-gradient(-45deg,
+            rgba(34, 113, 177, 0.06) 0 8px,
+            transparent 8px 16px);
+}
+
+.sd-pinned-item:hover {
+    border-color: color-mix(in srgb, var(--sd-highlight) 45%, white);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05),
+        0 2px 4px rgba(15, 23, 42, 0.035);
+}
+
+.sd-pinned-item.active {
+    border-color: color-mix(in srgb, var(--sd-highlight) 52%, white);
+    box-shadow: inset 0 0 0 1px rgba(34, 113, 177, 0.28),
+        0 8px 22px rgba(34, 113, 177, 0.05), 0 2px 4px rgba(15, 23, 42, 0.035);
+}
+
+.sd-pinned-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--sd-text-muted, #646970);
+    letter-spacing: 0.06em;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.sd-pinned-label .dashicons {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    margin-right: 6px;
+    color: var(--sd-highlight-color, var(--sd-highlight));
+}
+
+.sd-pinned-value {
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--sd-text, var(--sd-text-main));
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sd-pinned-item .sd-pin-toggle {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    border: 1px solid color-mix(in srgb, var(--sd-border-color, #dcdcde) 88%, white);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.84);
+    color: var(--sd-text, var(--sd-text-main));
+    opacity: 0.55;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sd-pinned-item:hover .sd-pin-toggle {
+    opacity: 1;
+    color: var(--sd-highlight-color, var(--sd-highlight));
+}
+
+.sd-pinned-item.is-removing {
+    opacity: 0.42;
+    transform: scale(0.985);
+    pointer-events: none;
+}
+
+.sd-pinned-item.is-telemetry.sd-pin-template--samsung-lcd {
+    background: linear-gradient(180deg,
+            rgba(232, 241, 255, 0.98) 0%,
+            rgba(212, 227, 255, 0.96) 100%),
+        linear-gradient(90deg,
+            rgba(255, 255, 255, 0.12) 0 1px,
+            transparent 1px 100%);
+    border-color: rgba(69, 110, 201, 0.36);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.42),
+        0 8px 18px rgba(58, 93, 173, 0.08), 0 2px 4px rgba(15, 23, 42, 0.035);
+}
+
+.sd-pinned-item.is-telemetry.sd-pin-template--samsung-lcd .sd-pinned-label {
+    color: #33538c;
+    letter-spacing: 0.08em;
+}
+
+.sd-pinned-item.is-telemetry.sd-pin-template--samsung-lcd .sd-pinned-label .dashicons {
+    color: #3659a6;
+}
+
+.sd-pinned-item.is-telemetry.sd-pin-template--samsung-lcd .sd-pinned-value {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 16px;
+    font-weight: 700;
+    color: #1e3e73;
+    letter-spacing: 0.04em;
+}
+
+.sd-pinned-item.is-telemetry.sd-pin-template--tandy-dot {
+    background: radial-gradient(circle at 1px 1px,
+            rgba(255, 189, 89, 0.18) 1px,
+            transparent 0) 0 0 / 6px 6px,
+        linear-gradient(180deg,
+            rgba(56, 35, 18, 0.98) 0%,
+            rgba(36, 24, 14, 0.98) 100%);
+    border-color: rgba(255, 164, 59, 0.34);
+    box-shadow: inset 0 0 0 1px rgba(255, 178, 74, 0.08),
+        0 8px 20px rgba(24, 13, 5, 0.18);
+}
+
+.sd-pinned-item.is-telemetry.sd-pin-template--tandy-dot .sd-pinned-label {
+    color: rgba(255, 198, 110, 0.86);
+    font-family: "Courier New", Courier, monospace;
+    letter-spacing: 0.08em;
+}
+
+.sd-pinned-item.is-telemetry.sd-pin-template--tandy-dot .sd-pinned-label .dashicons {
+    color: #ffb14a;
+}
+
+.sd-pinned-item.is-telemetry.sd-pin-template--tandy-dot .sd-pinned-value {
+    font-family: "Courier New", Courier, monospace;
+    font-size: 15px;
+    font-weight: 700;
+    color: #ffd38e;
+    text-shadow: 0 0 8px rgba(255, 170, 80, 0.22);
+}
+
+.sd-pinned-item.is-telemetry.sd-pin-template--diagnostic-led {
+    background: linear-gradient(180deg,
+            rgba(253, 254, 255, 0.98) 0%,
+            rgba(241, 245, 249, 0.98) 100%);
+    border-color: rgba(25, 135, 84, 0.28);
+    box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.08),
+        0 6px 16px rgba(15, 23, 42, 0.04);
+}
+
+.sd-pinned-item.is-telemetry.sd-pin-template--diagnostic-led .sd-pinned-label {
+    color: #4b5563;
+}
+
+.sd-pinned-item.is-telemetry.sd-pin-template--diagnostic-led .sd-pinned-label .dashicons {
+    color: #0f766e;
+}
+
+.sd-pinned-item.is-telemetry.sd-pin-template--diagnostic-led .sd-pinned-value {
+    display: inline-flex;
+    align-self: flex-start;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(16, 185, 129, 0.12);
+    color: #065f46;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+/* ==========================================================================
+   4. Typography and heading normalization
+   ========================================================================== */
+
+#systemdeck .postbox .inside h2,
+#systemdeck .postbox .inside h3,
+#systemdeck .postbox .inside h4 {
+    margin-top: 0;
+    margin-bottom: 0.5em;
+    font-weight: 600;
+    color: #1d2327;
+}
+
+#systemdeck .postbox .inside p {
+    margin-top: 0;
+    margin-bottom: 1em;
+    color: #3c434a;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+#systemdeck .postbox .inside p:last-child {
+    margin-bottom: 0;
+}
+
+/* ==========================================================================
+   5. Buttons
+   ========================================================================== */
+
+/* Base Neutral Button Chrome */
+.button {
+    display: inline-block;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0 10px;
+    font-size: 13px;
+    line-height: 2.1538;
+    min-height: 30px;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    border: 1px solid #8c8f94;
+    border-radius: 3px;
+    background: #f6f7f7;
+    color: #2c3338;
+    vertical-align: middle;
+    -webkit-appearance: none;
+}
+
+#systemdeck .button:hover {
+    background: #f0f0f1;
+    border-color: #8c8f94;
+    color: #1d2327;
+}
+
+#systemdeck .button:focus {
+    border-color: #2271b1;
+    box-shadow: 0 0 0 1px #2271b1;
+    outline: 2px solid transparent;
+}
+
+#systemdeck .button:active {
+    background: #f6f7f7;
+    border-color: #8c8f94;
+    box-shadow: none;
+}
+
+/* Secondary / Outlined Accent Button */
+.button-secondary {
+    display: inline-block;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0 10px;
+    font-size: 13px;
+    line-height: 2.1538;
+    min-height: 30px;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    border: 1px solid #2271b1;
+    border-radius: 3px;
+    background: #f6f7f7;
+    color: #2271b1;
+    vertical-align: middle;
+    -webkit-appearance: none;
+}
+
+#systemdeck .button-secondary:hover {
+    background: #f0f0f1;
+    border-color: #0a4b78;
+    color: #0a4b78;
+}
+
+#systemdeck .button-secondary:focus {
+    border-color: #2271b1;
+    color: #0a4b78;
+    box-shadow: 0 0 0 1px #2271b1;
+    outline: 2px solid transparent;
+}
+
+#systemdeck .button-secondary:active {
+    background: #f6f7f7;
+    border-color: #8c8f94;
+    box-shadow: none;
+}
+
+/* Primary Button Chrome */
+.button-primary {
+    background: #2271b1;
+    border-color: #2271b1;
+    color: #fff;
+    box-shadow: 0 1px 0 #2271b1;
+}
+
+#systemdeck .button-primary:hover {
+    background: #135e96;
+    border-color: #135e96;
+    color: #fff;
+}
+
+#systemdeck .button-primary:focus {
+    border-color: #135e96;
+    color: #fff;
+    box-shadow: 0 0 0 1px #fff, 0 0 0 3px #2271b1;
+    outline: 2px solid transparent;
+}
+
+#systemdeck .button-primary:active {
+    background: #135e96;
+    border-color: #135e96;
+    box-shadow: none;
+}
+
+/* Base Button Link Chrome */
+.button-link {
+    display: inline-block;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    text-decoration: none;
+    cursor: pointer;
+    color: #2271b1;
+    font-size: 13px;
+    vertical-align: middle;
+}
+
+#systemdeck .button-link:hover,
+#systemdeck .button-link:focus {
+    color: #135e96;
+    text-decoration: underline;
+}
+
+#systemdeck .button-link:focus {
+    box-shadow: 0 0 0 1px #2271b1;
+    outline: 2px solid transparent;
+}
+
+/* Destructive / Danger Links */
+#systemdeck .button-link.delete,
+#systemdeck .button-link.trash {
+    color: #d63638;
+}
+
+#systemdeck .button-link.delete:hover,
+#systemdeck .button-link.trash:hover,
+#systemdeck .button-link.delete:focus,
+#systemdeck .button-link.trash:focus {
+    color: #d63638;
+    text-decoration: underline;
+}
+
+/* Disabled States */
+#systemdeck .button[disabled],
+#systemdeck .button:disabled,
+#systemdeck .button-primary[disabled],
+#systemdeck .button-primary:disabled,
+#systemdeck .button-secondary[disabled],
+#systemdeck .button-secondary:disabled {
+    color: #a7aaad !important;
+    border-color: #dcdcde !important;
+    background: #f6f7f7 !important;
+    box-shadow: none !important;
+    cursor: not-allowed;
+}
+
+/* Button Modifiers */
+.button.button-small {
+    font-size: 11px;
+    min-height: 24px;
+    line-height: 2;
+    padding: 0 8px;
+}
+
+#systemdeck .button.button-large {
+    font-size: 14px;
+    min-height: 32px;
+    line-height: 2.1428;
+    padding: 0 12px;
+}
+
+/* Action Grouping */
+.button-group {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* ==========================================================================
+   6. Forms and inputs
+   ========================================================================== */
+
+#systemdeck .input-text-wrap,
+#systemdeck .textarea-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+#systemdeck .input-text-wrap:last-child,
+#systemdeck .textarea-wrap:last-child {
+    margin-bottom: 0;
+}
+
+#systemdeck .postbox label {
+    display: inline-block;
+    font-weight: 500;
+    color: #1d2327;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="url"],
+input[type="number"],
+input[type="search"],
+input[type="password"],
+textarea,
+select {
+    max-width: 100%;
+    width: 100%;
+    border: 1px solid #8c8f94;
+    border-radius: 3px;
+    padding: 0 8px;
+    background: #fff;
+    color: #2c3338;
+    min-height: 30px;
+    box-shadow: 0 0 0 transparent;
+    transition: box-shadow 0.1s linear;
+}
+
+textarea {
+    resize: vertical;
+    padding: 6px 8px;
+}
+
+fieldset {
+    border: 0;
+    padding: 0;
+    margin: 0;
+}
+
+#systemdeck .description {
+    display: block;
+    color: #646970;
+    font-style: normal;
+    font-size: 13px;
+    margin-top: 4px;
+}
+
+#systemdeck .submit {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin: 16px 0 0 0;
+    padding: 0;
+    flex-wrap: wrap;
+}
+
+/* Reset inner margins for buttons dropped strictly into submit rows */
+#systemdeck .submit .button,
+#systemdeck .submit .button-primary,
+#systemdeck .submit .button-secondary,
+#systemdeck .submit .button-link {
+    margin: 0;
+}
+
+/* ==========================================================================
+   7. Tables and list-table style content
+   ========================================================================== */
+
+.postbox .inside .wp-list-table {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-spacing: 0;
+    width: 100%;
+    clear: both;
+    margin: 0;
+}
+
+#systemdeck .postbox .inside .wp-list-table th,
+#systemdeck .postbox .inside .wp-list-table td {
+    border-bottom: 1px solid #c3c4c7;
+    color: #3c434a;
+    padding: 8px 10px;
+    line-height: 1.5;
+    word-wrap: break-word;
+}
+
+#systemdeck .postbox .inside .wp-list-table th {
+    color: #1d2327;
+    font-weight: 400;
+}
+
+#systemdeck .postbox .inside .wp-list-table tr.striped>td {
+    background-color: #f6f7f7;
+}
+
+#systemdeck .postbox .inside .wp-list-table tr:last-child th,
+#systemdeck .postbox .inside .wp-list-table tr:last-child td {
+    border-bottom: 0;
+}
+
+#systemdeck .row-title {
+    font-weight: 600;
+    color: #2271b1;
+    text-decoration: none;
+}
+
+#systemdeck .row-title:hover {
+    color: #135e96;
+}
+
+#systemdeck .postbox .inside .row-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    color: #a7aaad;
+    font-size: 13px;
+    margin-top: 2px;
+}
+
+#systemdeck .postbox .inside .row-actions span {
+    display: inline-flex;
+    align-items: center;
+}
+
+#systemdeck .postbox .inside .row-actions a {
+    color: #2271b1;
+    text-decoration: none;
+}
+
+#systemdeck .postbox .inside .row-actions a:hover {
+    color: #135e96;
+}
+
+/* ==========================================================================
+   8. Comment, activity, and discussion patterns
+   ========================================================================== */
+
+.dashboard-comment-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #f0f0f1;
+}
+
+#systemdeck .dashboard-comment-wrap:last-child {
+    padding-bottom: 0;
+    margin-bottom: 0;
+    border-bottom: 0;
+}
+
+#systemdeck .comment-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #646970;
+    font-size: 13px;
+}
+
+#systemdeck .comment-meta img.avatar {
+    border-radius: 50%;
+    display: block;
+}
+
+#systemdeck .comment-meta cite {
+    font-style: normal;
+    font-weight: 600;
+    color: #1d2327;
+}
+
+#systemdeck .comment-content {
+    margin: 0;
+    color: #3c434a;
+}
+
+/* ==========================================================================
+   9. Notices, messages, and states
+   ========================================================================== */
+
+.notice {
+    background: #fff;
+    border-left: 4px solid #c3c4c7;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+    margin: 0 0 16px 0;
+    padding: 8px 12px;
+}
+
+#systemdeck .notice p {
+    margin: 0;
+    padding: 0;
+}
+
+#systemdeck .notice-info {
+    border-left-color: #72aee6;
+}
+
+#systemdeck .notice-warning {
+    border-left-color: #dba617;
+}
+
+#systemdeck .notice-success {
+    border-left-color: #00a32a;
+}
+
+#systemdeck .notice-error {
+    border-left-color: #d63638;
+}
+
+.sd-status-badge {
+    display: inline-block;
+    padding: 3px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    vertical-align: middle;
+}
+
+.sd-status-badge.is-good {
+    background-color: #00a32a;
+    color: #000;
+}
+
+.sd-status-badge.is-urgent {
+    background-color: #d63638;
+    color: #fff !important;
+}
+
+.sd-status-badge.is-high {
+    background-color: #dba617;
+    color: #000;
+}
+
+.sd-status-badge.is-moderate {
+    background-color: #72aee6;
+    color: #000;
+}
+
+.sd-status-badge.is-low {
+    background-color: #c3c4c7;
+    color: #000;
+}
+
+.sd-btn-icon.active {
+    color: #2271b1;
+}
+
+#systemdeck .postbox.sd-pin.is-loading,
+#systemdeck .postbox.sd-widget.is-loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+#systemdeck .postbox.sd-pin.has-error {
+    border-color: #d63638;
+}
+
+/* ==========================================================================
+   10. Pixi host surfaces
+   ========================================================================== */
+
+.sd-pixi-surface {
+    width: 100%;
+    display: block;
+    position: relative;
+    overflow: hidden;
+}
+
+#systemdeck .postbox.sd-widget.sd-pixi-widget .inside {
+    overflow: hidden;
+}
+
+.sd-dashboard-proxy-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    margin-right: -12px;
+    margin-left: -12px;
+}
+
+#systemdeck .postbox.sd-widget.sd-pixi-widget canvas,
+#systemdeck .postbox.sd-pin.sd-pixi-pin canvas {
+    display: block;
+    max-width: 100%;
+}
+
+#systemdeck .postbox.sd-pin .sd-pixi-surface {
+    min-height: 120px;
+}
+
+#systemdeck .postbox.sd-pin.is-compact .sd-pixi-surface {
+    min-height: 80px;
+}
+
+/* ==========================================================================
+   11. Shared utility content patterns
+   ========================================================================== */
+
+.sd-empty-state {
+    padding: 32px 24px;
+    text-align: center;
+    color: #646970;
+    background: #f6f7f7;
+    border: 1px dashed #c3c4c7;
+    border-radius: 3px;
+    margin-bottom: 12px;
+}
+
+.sd-meta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f1;
+}
+
+.sd-meta-row:last-child {
+    border-bottom: 0;
+}
+
+.sd-meta-label {
+    font-weight: 500;
+    color: #1d2327;
+}
+
+.sd-meta-value {
+    color: #646970;
+}
+
+.sd-footer-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    padding-top: 12px;
+    margin-top: 12px;
+    border-top: 1px solid #f0f0f1;
+    gap: 8px;
+}
+
+/* Utility — shared across all SystemDeck widgets */
+.sd-hidden {
+    display: none !important;
+}

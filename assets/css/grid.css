@@ -1,0 +1,39 @@
+/* ==========================================================================
+   SystemDeck Grid Runtime Styles (non-Command Center)
+   ========================================================================== */
+
+/* Widget grid drag/drop visuals */
+body.is-dragging-metaboxes #systemdeck .sd-workspace-grid {
+    outline: 3px dashed #646970;
+    outline-offset: -4px;
+}
+
+body.is-dragging-metaboxes #systemdeck .sd-grid-widget.is-drop-target {
+    outline: 3px dashed #c3c4c7;
+    outline-offset: -3px;
+}
+
+/* Pin grid layout container */
+#sd-pinned-metrics-root,
+.sd-pinned-metrics-root {
+    display: block;
+    margin-bottom: 18px;
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.sd-pinned-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 12px;
+    align-items: stretch;
+    justify-items: stretch;
+    align-content: flex-start;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.sd-pinned-grid.is-dragging .sd-pinned-item {
+    border-style: dashed;
+    border-color: color-mix(in srgb, var(--sd-highlight-color, var(--sd-highlight)) 35%, white);
+}

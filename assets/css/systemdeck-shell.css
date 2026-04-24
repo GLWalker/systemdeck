@@ -1,0 +1,1372 @@
+/**
+ * SystemDeck Shell Core Framework
+ * Critical structure and layout logic. Modification requires explicit permission.
+ *
+ * ⚠️ LOCKED FILE - DO NOT MODIFY
+ * For customizations and styling overrides, use:
+ * ANYTHING BUT THIS!
+ *
+ * TABLE OF CONTENTS:
+ * 1. Variables
+ * 2. Scoped Reset
+ * 3. Setup (Links & Typography)
+ * 4. System Framework
+ * 5. Docking System
+ * 6. Resize Handles
+ * 7. Deck Menu
+ * 8. Workspace Inner
+ */
+
+/* =========================================
+   VARIABLES
+   ========================================= */
+
+#systemdeck {
+    --sd-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+
+    --sd-header-h: 40px;
+    --sd-base-font-size: 16px;
+    /* Anchor for em units */
+    --sd-min-dock-h: 40px;
+    --sd-sidebar-w: 400px;
+    --sd-menu-wide: 160px;
+    --sd-menu-folded: 36px;
+    --sd-z-drawer: 99998;
+    --sd-transition: 0.15s ease-in-out;
+
+    --sd-breakpoint-sm: 360px;
+    --sd-breakpoint-md: 782px;
+    --sd-breakpoint-lg: 783px;
+
+    --sd-breakpoint-xl: 1200px;
+
+    --sd-breakpoint-xxl: 1400px;
+
+    --sd-resize-glow: var(--wp--preset--color--vivid-cyan-blue);
+    --sd-resize-glow-blur: 8px;
+    --sd-resize-glow-spread: -6px;
+
+    --wp--preset--color--black: #000000;
+    --wp--preset--color--cyan-bluish-gray: #abb8c3;
+    --wp--preset--color--white: #ffffff;
+    --wp--preset--color--pale-pink: #f78da7;
+    --wp--preset--color--vivid-red: #cf2e2e;
+    --wp--preset--color--luminous-vivid-orange: #ff6900;
+    --wp--preset--color--luminous-vivid-amber: #fcb900;
+    --wp--preset--color--light-green-cyan: #7bdcb5;
+    --wp--preset--color--vivid-green-cyan: #00d084;
+    --wp--preset--color--pale-cyan-blue: #8ed1fc;
+    --wp--preset--color--vivid-cyan-blue: #0693e3;
+    --wp--preset--color--vivid-purple: #9b51e0;
+
+    /* Core semantic colors (fallback/light mode) */
+    --sd-body-background: #f2f2f2;
+    --sd-card-bg: #ffffff;
+    --sd-border: #c3c4c7;
+    --sd-text: #3c434a;
+    --sd-text-muted: #646970;
+
+    --sd-heading-color: #1d2327;
+    --sd-card-header-bg: #feffff;
+
+    --sd-box-shadow: rgba(255, 255, 255, 0.5);
+
+    /* Core semantic states (fallback/light mode) */
+    --sd-success: #00a32a;
+    /* standard WP success */
+    --sd-error: #d63638;
+    /* standard WP error */
+    --sd-warning: #f0b849;
+
+    /* ── Semantic component tokens ── */
+
+    /* Button: text on filled primary bg (always inverse of primary bg) */
+    --sd-btn-primary-text: var(--sd-card-bg, #ffffff);
+
+    /* Toggle switch states — WP-admin parity */
+    --sd-toggle-track-off: #dcdcde;
+    --sd-toggle-border-off: #8c8f94;
+    --sd-toggle-thumb-off: #50575e;
+    --sd-toggle-thumb: var(--sd-card-bg, #ffffff);
+    --sd-toggle-thumb-shadow: rgba(0, 0, 0, 0.04);
+
+    /* Input baseline */
+    --sd-input-bg: var(--sd-card-bg, #ffffff);
+    --sd-input-text: #2c3338;
+    --sd-border-dark: #8c8f94;
+
+    /* Surface overlays and decorative shadows */
+    --sd-btn-icon-hover-bg: rgba(255, 255, 255, 0.1);
+    --sd-shadow-overlay: rgba(0, 0, 0, 0.2);
+    --sd-resize-tab-shadow: #cccccc;
+
+    /* ── PHP-owned vars (set by Assets.php get_shell_vars per user's admin colour scheme) ──
+	   These are listed here as reference only with fallback values.
+	   PHP inline CSS always overrides them with exact per-scheme hex values. */
+    --sd-menu-background: #1d2327;
+    /* menu-bg */
+    --sd-menu-text: #fff;
+    /* menu-text */
+    --sd-menu-highlight-background: #2271b1;
+    /* menu-highlight-bg */
+    --sd-menu-highlight-text: #fff;
+    /* menu-highlight-text */
+    --sd-menu-highlight-icon: #72aee6;
+    /* icon-focus */
+    --sd-menu-current-background: #2271b1;
+    /* menu-highlight-bg */
+    --sd-menu-current-text: #fff;
+    --sd-menu-current-icon: #fff;
+    --sd-menu-submenu-background: #2c3338;
+    /* submenu-bg */
+    --sd-menu-submenu-text: #c3c4c7;
+    /* submenu-text */
+    --sd-menu-submenu-focus-text: #72aee6;
+    /* submenu-focus */
+    --sd-menu-icon: #a7aaad;
+    /* icon-base */
+    --sd-link: #2271b1;
+    /* menu-highlight-bg */
+    --sd-link-focus: #72aee6;
+    /* submenu-focus */
+    --sd-highlight-color: #2271b1;
+    /* menu-highlight-bg */
+
+    /* ── CSS-only semantic tokens (not scheme-dependent) ── */
+
+    /* Button colours */
+    --sd-button-color: var(--sd-highlight-color, #2271b1);
+    --sd-button-color-hover: var(--sd-link-focus, #72aee6);
+    /* Notification / badge */
+    --sd-notification-color: var(--sd-warning, #f0b849);
+
+    /* Inputs */
+    --sd-input-border: var(--sd-border-dark, #8c8f94);
+    --sd-input-border-focus: var(--sd-highlight-color, #2271b1);
+    --sd-focus-ring: color-mix(in srgb,
+            var(--sd-highlight-color, #2271b1) 35%,
+            transparent);
+}
+
+body.sd-is-resizing #systemdeck {
+    --sd-resize-glow-blur: 12px;
+}
+
+/* =========================================
+   SCOPED RESET
+   ========================================= */
+/* Fix text selection colours (prevent white-on-white or unreadable highlights) */
+#systemdeck *::selection {
+    background: var(--sd-highlight-color);
+    color: var(--sd-menu-highlight-text, #ffffff);
+}
+
+#systemdeck *::-moz-selection {
+    background: var(--sd-highlight-color);
+    color: var(--sd-menu-highlight-text, #ffffff);
+}
+
+/* Remove inherited margins & paddings */
+#systemdeck h1,
+#systemdeck h2,
+#systemdeck h3,
+#systemdeck h4,
+#systemdeck h5,
+#systemdeck h6,
+#systemdeck p,
+#systemdeck blockquote,
+#systemdeck figure,
+#systemdeck dl,
+#systemdeck dd,
+#systemdeck ul,
+#systemdeck ol,
+#systemdeck pre {
+    margin: 0;
+    padding: 0;
+}
+
+/* Lists behave predictably */
+#systemdeck ul,
+#systemdeck ol {
+    list-style: none;
+}
+
+/* Typography normalization */
+#systemdeck,
+#systemdeck * {
+    font-family: var(--sd-font-family) !important;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+#systemdeck {
+    font-size: var(--sd-base-font-size);
+    line-height: 1.4;
+    /*
+    font-weight: 400;
+    font-style: normal;
+    */
+    text-size-adjust: 100%;
+}
+
+/* Inputs & buttons inherit typography */
+#systemdeck input,
+#systemdeck textarea,
+#systemdeck select,
+#systemdeck button {
+    font: inherit;
+    color: inherit;
+    line-height: inherit;
+}
+
+#systemdeck h2#sd-workspace-title {
+    font-size: var(--sd-base-font-size);
+    line-height: 1.4;
+    font-weight: 400;
+    font-style: normal;
+
+}
+
+/* Neutralize button weirdness — exclude WP-style .button and Gutenberg components */
+#systemdeck button:not(.button):not(.components-button):not(.sd-btn-icon) {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+/* WP-style .button elements — restore structural props nuked by the reset above.
+   Excludes icon/header/toggle/link buttons that should never carry a visible border.
+   Color/background are handled by sd-common.css via CSS vars. */
+#systemdeck .button:not(.sd-btn-icon):not(.handlediv):not(.sd-widget-shell__toggle):not(.sd-width-dropdown__toggle):not(.button-link),
+#systemdeck button.button:not(.sd-btn-icon):not(.handlediv):not(.sd-widget-shell__toggle):not(.sd-width-dropdown__toggle):not(.button-link) {
+    border-style: solid !important;
+    border-width: 1px !important;
+    padding: 0 10px !important;
+    line-height: 2.15384615 !important;
+    min-height: 30px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    cursor: pointer !important;
+    text-decoration: none !important;
+    font-size: 13px !important;
+    border-radius: 3px !important;
+    white-space: nowrap;
+}
+
+#systemdeck .button.handlediv,
+#systemdeck .button.sd-widget-shell__toggle {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+#systemdeck .button.handlediv:hover,
+#systemdeck .button.sd-widget-shell__toggle:hover,
+#systemdeck .button.handlediv:focus,
+#systemdeck .button.sd-widget-shell__toggle:focus {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+/* .button-link — icon/text hybrid, no border, inherits color from parent */
+#systemdeck .button.button-link,
+#systemdeck button.button.button-link {
+    border: none !important;
+    background: none !important;
+    padding: 0 4px !important;
+    min-height: 0 !important;
+    line-height: 1 !important;
+    vertical-align: middle !important;
+}
+
+/* Disabled buttons — copy WP admin's native approach exactly:
+   The browser + WP theme already handle the visual; we just reinforce it. */
+#systemdeck .button:disabled,
+#systemdeck button.button:disabled,
+#systemdeck .button[aria-disabled="true"] {
+    opacity: 0.6;
+    cursor: default;
+}
+
+/* Images & media behave */
+#systemdeck img,
+#systemdeck svg,
+#systemdeck video,
+#systemdeck canvas {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+/* Prevent theme styles from leaking in */
+#systemdeck a {
+    color: var(--sd-link);
+    text-decoration: none;
+}
+
+#systemdeck a:hover,
+#systemdeck a:active,
+#systemdeck a:focus {
+    color: var(--sd-link-focus);
+    text-decoration: none;
+}
+
+/* Tables reset */
+#systemdeck table {
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+#systemdeck .dashicons {
+    font-family: dashicons !important;
+    line-height: 1.2;
+    vertical-align: middle;
+}
+
+#systemdeck .sd-btn-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: inherit;
+    opacity: 0.8;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    background: transparent;
+}
+
+#systemdeck .sd-btn-icon:hover {
+    opacity: 1;
+    background: var(--sd-btn-icon-hover-bg);
+}
+
+#systemdeck .sd-btn-icon .dashicons {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+}
+
+/* Custom Scrollbars */
+#systemdeck *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+#systemdeck *::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#systemdeck *::-webkit-scrollbar-thumb {
+    background-color: var(--sd-border);
+    border-radius: 3px;
+    border: 2px solid transparent;
+    /* Creates padding effect if background-clip is used, but simple is better */
+    opacity: 0.5;
+}
+
+#systemdeck *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--sd-highlight-color);
+}
+
+/* Firefox Scrollbar */
+#systemdeck * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--sd-border) transparent;
+}
+
+/* =========================================
+   SYSTEM FRAMEWORK
+   ========================================= */
+
+#systemdeck {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+
+    position: fixed;
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0 !important;
+    width: 100vw;
+    max-width: 100%;
+    height: auto;
+    background: var(--sd-body-background);
+    color: var(--sd-text);
+    z-index: var(--sd-z-drawer);
+    border: none;
+    box-shadow: 0 6px 6px -6px var(--sd-box-shadow);
+    pointer-events: auto !important;
+    overflow: visible !important;
+}
+
+/* Handle Admin Bar on Frontend */
+body.admin-bar #systemdeck.sd-context-retail.full-dock,
+body.admin-bar #systemdeck.sd-context-retail.right-dock,
+body.admin-bar #systemdeck.sd-context-retail.left-dock {
+    /* If full height, respect admin bar */
+    top: 32px;
+    height: calc(100vh - 32px);
+}
+
+@media screen and (max-width: 782px) {
+
+    body.admin-bar #systemdeck.sd-context-retail.full-dock,
+    body.admin-bar #systemdeck.sd-context-retail.right-dock,
+    body.admin-bar #systemdeck.sd-context-retail.left-dock {
+        top: 46px;
+        height: calc(100vh - 46px);
+    }
+}
+
+#systemdeck #sd-header-bar {
+    flex: 0 0 var(--sd-header-h);
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    position: relative;
+    z-index: 100;
+    padding: 1px 16px 1px 3px;
+    gap: 12px;
+}
+
+#systemdeck #sd-wrap {
+    display: flex;
+    flex: 1;
+    width: 100%;
+    overflow: hidden;
+}
+
+#systemdeck #sd-menumain {
+    flex: 0 0 var(--sd-menu-wide);
+    width: var(--sd-menu-wide);
+    transition: flex-basis var(--sd-transition), width var(--sd-transition);
+    display: flex;
+    flex-direction: column;
+}
+
+#systemdeck #sd-menumain.folded {
+    flex: 0 0 var(--sd-menu-folded);
+    width: var(--sd-menu-folded);
+}
+
+#systemdeck #sd-workspace-content {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    width: auto;
+    min-width: 0;
+    position: relative;
+
+}
+
+/* =========================================
+   DOCKING SYSTEM
+   ========================================= */
+
+#systemdeck.standard-dock {
+    height: 60vh;
+}
+
+#systemdeck.full-dock {
+    height: calc(100vh - 32px);
+    width: 100vw;
+}
+
+#systemdeck.right-dock {
+    left: auto;
+    height: calc(100vh - 32px);
+    width: var(--sd-sidebar-w);
+
+    box-shadow: -2px 0 10px var(--sd-box-shadow);
+
+    border-left: 1px solid var(--sd-border);
+}
+
+#systemdeck.left-dock {
+    right: auto;
+    height: calc(100vh - 32px);
+    width: var(--sd-sidebar-w);
+
+    box-shadow: 2px 0 10px var(--sd-box-shadow);
+
+    border-right: 1px solid var(--sd-border);
+}
+
+body.block-editor-page #systemdeck.full-dock,
+body.block-editor-page #systemdeck.right-dock,
+body.block-editor-page #systemdeck.left-dock,
+body.site-editor-php #systemdeck.full-dock,
+body.site-editor-php #systemdeck.right-dock,
+body.site-editor-php #systemdeck.left-dock {
+    height: calc(100vh - 60px);
+}
+
+#systemdeck.base-dock {
+    height: var(--sd-header-h);
+}
+
+#systemdeck.right-base-dock {
+    left: auto;
+    height: var(--sd-header-h);
+    width: var(--sd-sidebar-w);
+}
+
+#systemdeck.left-base-dock {
+    right: auto;
+    width: var(--sd-sidebar-w);
+    height: var(--sd-header-h);
+}
+
+/* Minimized State: Transform the entire deck into a circle */
+
+#systemdeck.min-dock {
+    height: var(--sd-min-dock-h) !important;
+    width: var(--sd-min-dock-h) !important;
+    left: 0.33rem !important;
+    bottom: 0.33rem !important;
+    border-radius: 50%;
+    max-width: var(--sd-min-dock-h) !important;
+    min-width: var(--sd-min-dock-h) !important;
+    box-shadow: 0 4px 15px var(--sd-box-shadow) !important;
+    background: transparent;
+}
+
+/* Adjust the header bar inside the circle */
+#systemdeck.min-dock #sd-header-bar {
+    height: var(--sd-min-dock-h) !important;
+    width: var(--sd-min-dock-h) !important;
+    display: block;
+    padding: 0 !important;
+    margin: 0 auto !important;
+    position: relative;
+    border: none !important;
+    box-shadow: none !important;
+    flex: none !important;
+    border-radius: 50%;
+    background: transparent;
+}
+
+#systemdeck.min-dock #sd-header-bar .sd-drawer-icon.sd-btn-icon {
+    height: var(--sd-min-dock-h) !important;
+    width: var(--sd-min-dock-h) !important;
+    margin: -0.12em 0.25em 0.25em -0.12em;
+    border-radius: 50%;
+}
+
+/* Incognito Mode: Invisible until hovered */
+#systemdeck.min-dock.incognito {
+    opacity: 0;
+    pointer-events: auto;
+}
+
+#systemdeck.min-dock.incognito:hover {
+    opacity: 1;
+}
+
+/* Visibility Control for Min/Base Docks */
+#systemdeck.base-dock #sd-wrap,
+#systemdeck.right-base-dock #sd-wrap,
+#systemdeck.left-base-dock #sd-wrap,
+#systemdeck.min-dock #sd-wrap,
+#systemdeck.min-dock .sd-header-left,
+#systemdeck.min-dock .sd-header-right {
+    visibility: hidden;
+    height: 0;
+    overflow: hidden;
+    pointer-events: none;
+    opacity: 0;
+}
+
+#systemdeck.sd-closed.right-dock,
+#systemdeck.sd-closed.right-base-dock {
+    transform: translateX(100%);
+}
+
+#systemdeck.sd-closed.left-dock,
+#systemdeck.sd-closed.left-base-dock {
+    transform: translateX(-100%);
+}
+
+#systemdeck.sd-closed.standard-dock,
+#systemdeck.sd-closed.full-dock,
+#systemdeck.sd-closed.base-dock,
+#systemdeck.sd-closed.min-dock {
+    transform: translateY(100%);
+}
+
+/* =========================================
+   RESIZE HANDLES
+   ========================================= */
+
+/* Custom Resize Handles (Manual Implementation) */
+.sd-handle-resize {
+    position: absolute;
+    z-index: 99999;
+    background: transparent;
+    touch-action: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 1. The Border Line (Hidden until hover) */
+.sd-handle-resize::before {
+    content: "";
+    position: absolute;
+    background-color: var(--wp--preset--color--vivid-cyan-blue);
+    opacity: 0;
+
+    transition: opacity 0.15s ease,
+        box-shadow 0.25s cubic-bezier(0.2, 0.9, 0.3, 1);
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* 2. The TAB (The dashicon container) */
+.sd-handle-resize .dashicons {
+    background: var(--sd-menu-background);
+    color: var(--sd-menu-text);
+    font-size: 1.33em;
+
+    padding: 0.5em 1em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-top: 2px solid var(--wp--preset--color--vivid-cyan-blue);
+    border-bottom: 1px solid transparent;
+
+    border-radius: 6px;
+
+    opacity: 0;
+    transform: scale(1);
+
+    transition: all 0.2s cubic-bezier(0.1, 0.9, 0.2, 1);
+    box-shadow: 0 2px 5px var(--sd-shadow-overlay);
+    pointer-events: none;
+    z-index: 10;
+
+    text-shadow: 0 1px 0 var(--sd-resize-tab-shadow),
+        0 2px 0 color-mix(in srgb, var(--sd-resize-tab-shadow) 73%, transparent),
+        0 3px 0 color-mix(in srgb, var(--sd-resize-tab-shadow) 60%, transparent),
+        0 4px 4px var(--sd-shadow-overlay);
+}
+
+/* Hover State: Show Line and Tab with Delay */
+.sd-handle-resize:hover::before,
+.sd-handle-resize:hover .dashicons {
+    opacity: 1;
+    transform: scale(1);
+    transition-delay: 0.2s;
+}
+
+/* Active Resize: Show Immediately */
+body.sd-is-resizing .sd-handle-resize::before,
+body.sd-is-resizing .sd-handle-resize .dashicons {
+    opacity: 1;
+    transform: scale(1);
+    transition-delay: 0s;
+}
+
+/* --- Dock Specifics --- */
+
+/* North Handle (Top Edge) */
+.sd-handle-n {
+    cursor: ns-resize;
+    height: 24px;
+    /* Big hit area */
+    width: 100%;
+    top: -12px;
+    /* Centered on edge */
+    left: 0;
+}
+
+/* Line: Horizontal across bottom of handle (which is top of dock) */
+.sd-handle-n::before {
+    width: 100%;
+    height: 2px;
+    bottom: 50%;
+    /* Center of hit area */
+    left: 0;
+    box-shadow: 0 calc(-1 * var(--sd-resize-glow-blur)) var(--sd-resize-glow-blur) var(--sd-resize-glow);
+}
+
+/* West Handle (Left Edge) - For Right Dock */
+.sd-handle-w {
+    cursor: ew-resize;
+    width: 24px;
+    height: 100%;
+    left: -12px;
+    top: 0;
+}
+
+/* Line: Vertical */
+.sd-handle-w::before {
+    width: 2px;
+    height: 100%;
+    left: 50%;
+    top: 0;
+    box-shadow: 6px 0 var(--sd-resize-glow-blur) var(--sd-resize-glow-spread) var(--sd-resize-glow);
+}
+
+/* East Handle (Right Edge) - For Left Dock */
+.sd-handle-e {
+    cursor: ew-resize;
+    width: 24px;
+    height: 100%;
+    right: -12px;
+    top: 0;
+}
+
+/* Line: Vertical */
+.sd-handle-e::before {
+    width: 2px;
+    height: 100%;
+    left: 50%;
+    top: 0;
+    box-shadow: 6px 0 var(--sd-resize-glow-blur) var(--sd-resize-glow);
+}
+
+/* Tab: Vertical (Rotate 90deg) */
+.sd-handle-w .dashicons,
+.sd-handle-e .dashicons {
+    /* 12px 24px */
+    /* Hardware fixed size */
+    transform: rotate(90deg) scale(0.9);
+}
+
+.sd-handle-w .dashicons {
+    border-top: 1px solid transparent;
+    border-bottom: 1px solid var(--wp--preset--color--vivid-cyan-blue);
+}
+
+.sd-handle-w:hover .dashicons,
+body.sd-is-resizing .sd-handle-w .dashicons,
+.sd-handle-e:hover .dashicons,
+body.sd-is-resizing .sd-handle-e .dashicons {
+    transform: rotate(90deg) scale(1);
+}
+
+/* =========================================
+   DECK MENU
+   ========================================= */
+
+#systemdeck #sd-menuwrap {
+    width: var(--sd-menu-wide);
+    height: 100%;
+}
+
+/* =========================================
+   WORKSPACE INNER
+   ========================================= */
+
+#systemdeck #sd-workspacewrap {
+    padding: 20px;
+    padding-right: 5px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+/* see sd-common.css 1295
+.sd-discovery-canvas {
+    border-right: 9px solid transparent;
+}
+*/
+/**
+ * SystemDeck Workspace Menu
+ * Header bar, sidebar navigation, and folded menu states.
+ *
+ * TABLE OF CONTENTS:
+ * 1. Header Bar
+ * 2. Menu Reset & Typography
+ * 3. Base Widths & Background
+ * 4. Top-Level Links
+ * 5. Current/Active States
+ * 6. Triangle Pointer
+ * 7. Submenus (Flyout & Stacked)
+ * 8. Icons
+ * 9. Collapse Button
+ * 10. Folded State
+ * 11. RTL Overrides
+ */
+
+/* =========================================
+   HEADER BAR
+   ========================================= */
+
+#systemdeck #sd-header-bar {
+    background-color: var(--sd-menu-background);
+    color: var(--sd-menu-text);
+    outline: 1px solid transparent;
+    font-size: 16px;
+}
+
+/* workspace header-bar title */
+#systemdeck #sd-header-bar h2#sd-workspace-title {
+    color: inherit;
+}
+
+/* Icons use separate color from text */
+#systemdeck #sd-header-bar .dashicons {
+    color: var(--sd-menu-icon);
+}
+
+/* Header Bar Button Hover */
+#systemdeck #sd-header-bar button:hover,
+#systemdeck #sd-header-bar .sd-btn-icon:hover,
+#systemdeck #sd-header-bar a:hover {
+    color: var(--sd-menu-submenu-focus-text);
+    background: var(--sd-menu-submenu-background);
+}
+
+#systemdeck #sd-header-bar button:hover .dashicons,
+#systemdeck #sd-header-bar .sd-btn-icon:hover .dashicons,
+#systemdeck #sd-header-bar a:hover .dashicons {
+    color: var(--sd-menu-submenu-focus-text);
+}
+
+#systemdeck #sd-header-bar .sd-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+#systemdeck #sd-header-bar .sd-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    /* Push to right */
+}
+
+#systemdeck.right-dock #sd-header-bar .sd-header-left,
+#systemdeck.right-dock #sd-header-bar .sd-header-right {
+    gap: 4px;
+    margin-right: auto;
+    /* Push to right */
+}
+
+#systemdeck #sd-header-bar .sd-drawer-icon.sd-btn-icon>.dashicons {
+    font-size: 1.33em !important;
+    margin-bottom: 0.25em;
+}
+
+#systemdeck #sd-header-bar .sd-dock-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+/* =========================================
+   MENU RESET & TYPOGRAPHY
+   ========================================= */
+
+#systemdeck #sd-menu {
+    list-style: none;
+    margin: 12px 0;
+    padding: 0;
+}
+
+#systemdeck #sd-menu li {
+    position: relative;
+    margin: 0;
+    padding: 0;
+}
+
+/* this was hidden in common.css */
+#systemdeck #sd-menu a:focus {
+    box-shadow: none;
+    outline: 1px solid transparent;
+    outline-offset: -1px;
+}
+
+/* Text Reset & Control */
+
+#systemdeck #sd-menu,
+#systemdeck #sd-menu * {
+    font-style: normal;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+#systemdeck #sd-menu a {
+    text-decoration: none;
+}
+
+/* Top-level menu text */
+#systemdeck #sd-menu .menu-top,
+#systemdeck #sd-menu .menu-top a,
+#systemdeck #sd-menu .wp-menu-name,
+#systemdeck #sd-menu li.wp-submenu-head {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+/* Submenu + secondary labels */
+#systemdeck #sd-menu .wp-submenu,
+#systemdeck #sd-menu .wp-submenu a,
+#systemdeck #sd-menu .collapse-button-label {
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.4;
+}
+
+/* Active submenu emphasis */
+#systemdeck #sd-menu .wp-submenu li.current>a {
+    font-weight: 800;
+}
+
+/* =========================================
+   BASE WIDTHS & BACKGROUND
+   ========================================= */
+
+#systemdeck #sd-menuwrap,
+#systemdeck #sd-menu,
+#systemdeck #sd-menu .wp-submenu {
+    width: var(--sd-menu-wide);
+    background-color: var(--sd-menu-background);
+
+}
+
+#systemdeck #sd-menuwrap {
+    position: relative;
+    z-index: 9990;
+}
+
+#systemdeck #sd-menu .wp-has-submenu.wp-menu-open .wp-submenu.wp-submenu-wrap {
+    padding: 0 !important;
+    width: 100% !important;
+    margin-left: -2 !important;
+
+}
+
+/* =========================================
+   TOP-LEVEL LINKS
+   ========================================= */
+
+#systemdeck #sd-menu a.menu-top {
+    display: block;
+    position: relative;
+    padding: 0;
+    color: var(--sd-menu-text);
+    box-shadow: inset 4px 0 0 0 transparent;
+    transition: box-shadow 0.1s linear, color 0.1s linear;
+}
+
+/* Menu labels */
+
+#systemdeck #sd-menu .wp-menu-name {
+    padding-left: var(--sd-menu-folded);
+    padding-right: 8px;
+    line-height: 34px;
+    word-break: break-word;
+}
+
+/* Top-level hover & focus (WP behavior) */
+
+#systemdeck #sd-menu li.menu-top:hover,
+#systemdeck #sd-menu li.menu-top:focus-within {
+    background: var(--sd-menu-highlight-background);
+}
+
+#systemdeck #sd-menu li.menu-top>a.menu-top:hover {
+    box-shadow: inset 4px 0 0 0 var(--sd-menu-highlight-text);
+    color: var(--sd-menu-highlight-text);
+}
+
+/* =========================================
+   CURRENT/ACTIVE STATES
+   ========================================= */
+
+/* Current parent (active top-level item) */
+
+#systemdeck #sd-menu>li:is(.current, .wp-has-current-submenu),
+#systemdeck #sd-menu>li:is(.wp-has-current-submenu):hover {
+    background: var(--sd-menu-current-background);
+}
+
+#systemdeck #sd-menu>li:is(.current, .wp-has-current-submenu)>a,
+#systemdeck #sd-menu>li:is(.current, .wp-has-current-submenu)>a>.wp-menu-name {
+    box-shadow: inset 4px 0 0 0 transparent;
+    color: var(--sd-menu-current-text);
+}
+
+#systemdeck #sd-menu li.wp-has-current-submenu div.wp-menu-image::before,
+#systemdeck #sd-menu li.wp-has-current-submenu:hover div.wp-menu-image::before {
+    color: var(--sd-menu-current-icon) !important;
+}
+
+/* =========================================
+   TRIANGLE POINTER
+   ========================================= */
+
+#systemdeck #sd-menu>li:is(.current, .wp-has-current-submenu, .wp-has-submenu:hover)::after {
+    content: "";
+    position: absolute;
+    top: 18px;
+    right: 0;
+
+    width: 0;
+    height: 0;
+
+    border: 8px solid transparent;
+    border-right-color: var(--sd-body-background);
+
+    margin-top: -8px;
+    pointer-events: none;
+    z-index: 101;
+
+    transition: border-color 0.1s ease-in-out;
+}
+
+#systemdeck #sd-menu>li.wp-has-submenu:hover:not(.current):not(.wp-has-current-submenu)::after {
+    border-right-color: var(--sd-menu-submenu-background);
+}
+
+/* =========================================
+   SUBMENUS (FLYOUT & STACKED)
+   ========================================= */
+
+/* Submenus (default = flyout) */
+
+#systemdeck #sd-menu .wp-submenu {
+    list-style: none;
+    position: absolute;
+    top: -1000em;
+    left: var(--sd-menu-wide);
+    padding: 6px 2px 6px 4px;
+
+    min-width: var(--sd-menu-wide);
+    background: var(--sd-menu-submenu-background);
+
+    transform: scale(1);
+    transition-delay: 0.2s;
+}
+
+/* Hover/focus flyout */
+#systemdeck #sd-menu li.wp-has-submenu:hover>.wp-submenu,
+#systemdeck #sd-menu li.wp-has-submenu>a.menu-top:focus+.wp-submenu {
+    top: 0;
+    transform: scale(1);
+    transition-delay: 0.2s;
+}
+
+#systemdeck #sd-menu li:hover>.wp-submenu,
+#systemdeck #sd-menu li:focus-within>.wp-submenu {
+    transform: translateX(0);
+}
+
+/* ACTIVE SUBMENU = STACKED */
+
+#systemdeck #sd-menu li.wp-has-current-submenu>.wp-submenu {
+    position: relative;
+    top: auto;
+    left: auto;
+    margin: 0 auto;
+    padding-left: 0;
+    box-shadow: none;
+    background: var(--sd-menu-submenu-background, #413256);
+    /* ectoplasm submenu bg */
+    background-clip: padding-box;
+}
+
+#systemdeck #sd-menu li.wp-has-current-submenu>.wp-submenu li {
+    background: transparent;
+}
+
+/* Submenu Header */
+
+#systemdeck #sd-menu .wp-submenu .wp-submenu-head {
+    display: none;
+}
+
+/* Submenu links */
+
+#systemdeck #sd-menu .wp-submenu a {
+    display: block;
+    padding: 6px 0 6px 12px;
+    margin: 0;
+    color: var(--sd-menu-submenu-text);
+    background: none;
+    cursor: pointer;
+    box-shadow: inset 4px 0 0 0 transparent;
+    transition: box-shadow 0.1s linear;
+}
+
+#systemdeck #sd-menu .wp-submenu a:hover,
+#systemdeck #sd-menu .wp-submenu a:focus {
+    box-shadow: inset 4px 0 0 0 var(--sd-menu-submenu-focus-text);
+    color: var(--sd-menu-submenu-focus-text);
+}
+
+/* Active submenu item = text only */
+#systemdeck #sd-menu .wp-submenu li.current>a {
+    background: none;
+    color: var(--sd-menu-submenu-text);
+}
+
+#systemdeck #sd-menu .wp-submenu li.sd-workspace-active>a {
+    box-shadow: inset 2px 0 0 0 color-mix(in srgb, var(--sd-menu-submenu-focus-text) 65%, transparent);
+    color: color-mix(in srgb, var(--sd-menu-submenu-text) 90%, #ffffff 10%);
+}
+
+#systemdeck #sd-menu .wp-submenu li.current>a:hover,
+#systemdeck #sd-menu .wp-submenu li.current>a:focus {
+    box-shadow: inset 4px 0 0 0 var(--sd-menu-submenu-focus-text);
+    color: var(--sd-menu-submenu-focus-text);
+}
+
+/* =========================================
+   ICONS
+   ========================================= */
+
+#systemdeck #sd-menu div.wp-menu-image {
+    float: left;
+    width: var(--sd-menu-folded);
+    height: 34px;
+    display: flex;
+    align-items: center;
+    /* vertical center */
+    justify-content: center;
+    text-align: center;
+}
+
+/* Icon pseudo-element */
+#systemdeck #sd-menu div.wp-menu-image::before {
+    color: var(--sd-menu-icon);
+    transition: color 0.1s ease-in-out;
+    padding: 0;
+}
+
+/* Icon color on hover/focus/active */
+#systemdeck #sd-menu li:hover div.wp-menu-image::before,
+#systemdeck #sd-menu li.current div.wp-menu-image::before {
+    color: var(--sd-menu-highlight-icon) !important;
+}
+
+/* =========================================
+   COLLAPSE BUTTON
+   ========================================= */
+
+#systemdeck #sd-collapse-menu {
+    margin-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+#systemdeck #sd-collapse-button {
+    display: flex;
+    width: 100%;
+    height: 34px;
+    margin: 0;
+    border: none;
+    padding: 0;
+    background: none;
+
+    color: var(--sd-menu-text);
+
+    cursor: pointer;
+    position: relative;
+    align-items: center;
+}
+
+#systemdeck #sd-collapse-button:hover,
+#systemdeck #sd-collapse-button:focus {
+    color: var(--sd-menu-submenu-focus-text);
+}
+
+#systemdeck #sd-collapse-button .collapse-button-icon {
+    width: var(--sd-menu-folded);
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--sd-menu-icon);
+}
+
+#systemdeck #sd-collapse-button .collapse-button-icon::after {
+    content: "\f148";
+    font-family: dashicons;
+    font-size: 20px;
+    transition: transform 0.1s ease;
+    display: block;
+    height: 20px;
+    width: 20px;
+    line-height: 1;
+}
+
+#systemdeck #sd-collapse-button .collapse-button-label {
+    padding-left: 0;
+    white-space: nowrap;
+    color: var(--sd-menu-text);
+}
+
+/* =========================================
+   FOLDED STATE
+   ========================================= */
+
+/* Reduce Width */
+#systemdeck #sd-menumain.folded #sd-menuwrap,
+#systemdeck #sd-menumain.folded #sd-menu,
+#systemdeck #sd-menumain.folded #sd-menu .wp-submenu {
+    width: var(--sd-menu-folded);
+}
+
+/* Submenus must be auto width when flyout */
+#systemdeck #sd-menumain.folded #sd-menu .wp-submenu {
+    width: auto;
+    min-width: var(--sd-menu-wide);
+}
+
+#systemdeck #sd-menumain.folded #sd-menu .wp-menu-name,
+#systemdeck #sd-menumain.folded #sd-collapse-button .collapse-button-label {
+    display: none;
+}
+
+#systemdeck #sd-menumain.folded #sd-menu .wp-menu-image {
+    float: none;
+    margin: 0 auto;
+}
+
+#systemdeck #sd-menumain.folded #sd-menu .wp-submenu-head:hover {
+    box-shadow: inset 4px 0 0 0 currentColor;
+    transition: box-shadow 0.1s linear;
+}
+
+#systemdeck #sd-menumain.folded #sd-menu>li:hover:is(.current, .wp-has-current-submenu)::after {
+    border: 0;
+    transition: none;
+}
+
+#systemdeck #sd-menumain #sd-menu .wp-submenu .wp-submenu-head {
+    padding: 5px 4px 5px 11px;
+    margin: -8px -1px 4px -5px;
+    border-width: 3px 1px 3px 5px;
+    border-style: solid;
+    border-color: transparent;
+    color: var(--sd-menu-submenu-text);
+}
+
+#systemdeck #sd-menumain #sd-menu .wp-has-current-submenu .wp-submenu .wp-submenu-head {
+    background: var(--sd-menu-current-background);
+
+    color: var(--sd-menu-current-text);
+}
+
+#systemdeck #sd-menumain.folded #sd-menu .wp-submenu-head {
+    display: block;
+}
+
+/* Folded Flyout: Override "Stacked" rule for Active Items */
+#systemdeck #sd-menumain.folded #sd-menu li.menu-top:hover .wp-submenu,
+#systemdeck #sd-menumain.folded #sd-menu li.menu-top:focus-within .wp-submenu,
+#systemdeck #sd-menumain.folded #sd-menu li.wp-has-current-submenu>.wp-submenu {
+    top: 0;
+    left: var(--sd-menu-folded);
+    position: absolute;
+    /* moved
+    display: none;
+    */
+    width: auto;
+    min-width: var(--sd-menu-wide);
+    background-color: var(--sd-menu-submenu-background);
+    box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
+}
+
+#systemdeck #sd-menumain.folded #sd-menu .wp-submenu {
+    display: none;
+}
+
+/* Fix z-index for flyouts to ensure they sit on top */
+#systemdeck #sd-menumain.folded #sd-menu .wp-submenu {
+    z-index: 10000;
+}
+
+/* Show Flyout on Hover/Focus */
+#systemdeck #sd-menumain.folded #sd-menu li.menu-top:hover .wp-submenu,
+#systemdeck #sd-menumain.folded #sd-menu li.menu-top:focus-within .wp-submenu {
+    display: block;
+}
+
+/* Hide triangle in folded */
+#systemdeck #sd-menumain.folded #sd-menu li.wp-has-current-submenu a.wp-has-current-submenu::after {
+    display: none;
+}
+
+/* Rotate Icon */
+#systemdeck #sd-menumain.folded #sd-collapse-button .collapse-button-icon::after {
+    transform: rotate(180deg);
+}
+
+/* =========================================
+   RTL OVERRIDES
+   ========================================= */
+
+/* Flip icon + label layout */
+.rtl #systemdeck #sd-menu div.wp-menu-image {
+    float: right;
+}
+
+.rtl #systemdeck #sd-menu .wp-menu-name {
+    padding-left: 8px;
+    padding-right: var(--sd-menu-folded);
+}
+
+/* Flip top-level inset highlight */
+.rtl #systemdeck #sd-menu a.menu-top {
+    box-shadow: inset -4px 0 0 0 transparent;
+}
+
+.rtl #systemdeck #sd-menu li.menu-top:hover>a.menu-top,
+.rtl #systemdeck #sd-menu li.menu-top:focus-within>a.menu-top,
+.rtl #systemdeck #sd-menu>li:is(.current, .wp-has-current-submenu)>a.menu-top {
+    box-shadow: inset -4px 0 0 0 var(--sd-menu-highlight-text);
+}
+
+/* Flip submenu flyout direction */
+.rtl #systemdeck #sd-menu .wp-submenu {
+    left: auto;
+    right: var(--sd-menu-wide);
+}
+
+/* Folded flyout direction */
+.rtl #systemdeck #sd-menumain.folded #sd-menu li.menu-top:hover .wp-submenu,
+.rtl #systemdeck #sd-menumain.folded #sd-menu li.menu-top:focus-within .wp-submenu,
+.rtl #systemdeck #sd-menumain.folded #sd-menu li.wp-has-current-submenu>.wp-submenu {
+    left: auto;
+    right: var(--sd-menu-folded);
+}
+
+/* Triangle pointer (top level) */
+.rtl #systemdeck #sd-menu>li::after {
+    right: auto;
+    left: 0;
+    border-right-color: transparent;
+    border-left-color: var(--sd-body-background);
+}
+
+.rtl #systemdeck #sd-menu>li.wp-has-submenu:hover:not(.current):not(.wp-has-current-submenu)::after {
+    border-left-color: var(--sd-menu-submenu-background);
+}
+
+/* Submenu links inset */
+.rtl #systemdeck #sd-menu .wp-submenu a {
+    padding-left: 0;
+    padding-right: 12px;
+    box-shadow: inset -4px 0 0 0 transparent;
+}

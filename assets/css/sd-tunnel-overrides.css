@@ -1,0 +1,513 @@
+/* SystemDeck Dashboard Tunnel Overrides
+ * Keep tunnel chrome stripped without clobbering WordPress admin widget styling.
+ */
+
+html,
+body,
+#wpwrap,
+#wpcontent,
+#wpbody,
+#wpbody-content {
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    background: transparent !important;
+}
+
+/* Remove admin shell chrome only. */
+#wpadminbar,
+#adminmenuwrap,
+#adminmenuback,
+#wpfooter,
+#screen-meta,
+#screen-meta-links {
+    display: none !important;
+}
+
+/* Tunnel host container only. */
+.sd-tunnel-content {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Let postbox/theme styles render naturally; only normalize spacing. */
+.sd-tunnel-content .postbox {
+    margin: 0;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* SystemDeck shell owns chrome for tunneled widgets. */
+.sd-tunnel-content .postbox-header {
+    display: none !important;
+}
+
+.sd-tunnel-content .postbox .inside {
+    margin: 0;
+}
+
+/* Keep widget internals full-width for embedded content. */
+.sd-tunnel-content iframe,
+.sd-tunnel-content canvas,
+.sd-tunnel-content img,
+.sd-tunnel-content table {
+    max-width: 100%;
+}
+
+/* Avoid accidental inherited centering from themes/plugins. */
+.sd-tunnel-content,
+.sd-tunnel-content * {
+    box-sizing: border-box;
+}
+
+/* --------------------------------------------------------------------------
+   Tunnel form/button reset baseline (mirrors SystemDeck common.css intent)
+   -------------------------------------------------------------------------- */
+
+.sd-tunnel-content .button {
+    display: inline-block !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 0 10px !important;
+    font-size: 13px !important;
+    line-height: 2.1538 !important;
+    min-height: 30px !important;
+    text-decoration: none !important;
+    white-space: nowrap !important;
+    cursor: pointer !important;
+    border: 1px solid #8c8f94 !important;
+    border-radius: 3px !important;
+    background: #f6f7f7 !important;
+    color: #2c3338 !important;
+    vertical-align: middle !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+}
+
+.sd-tunnel-content .button:hover {
+    background: #f0f0f1 !important;
+    border-color: #8c8f94 !important;
+    color: #1d2327 !important;
+}
+
+.sd-tunnel-content .button:focus {
+    border-color: #2271b1 !important;
+    box-shadow: 0 0 0 1px #2271b1 !important;
+    outline: 2px solid transparent !important;
+}
+
+.sd-tunnel-content .button-primary {
+    background: #2271b1 !important;
+    border-color: #2271b1 !important;
+    color: #fff !important;
+    box-shadow: 0 1px 0 #2271b1 !important;
+}
+
+.sd-tunnel-content .button-secondary {
+    border-color: #2271b1 !important;
+    color: #2271b1 !important;
+}
+
+.sd-tunnel-content .button-link {
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: #2271b1 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+}
+
+.sd-tunnel-content input[type="text"],
+.sd-tunnel-content input[type="email"],
+.sd-tunnel-content input[type="url"],
+.sd-tunnel-content input[type="number"],
+.sd-tunnel-content input[type="search"],
+.sd-tunnel-content input[type="password"],
+.sd-tunnel-content textarea,
+.sd-tunnel-content select {
+    max-width: 100% !important;
+    width: 100% !important;
+    border: 1px solid #8c8f94 !important;
+    border-radius: 3px !important;
+    padding: 0 8px !important;
+    background: #fff !important;
+    color: #2c3338 !important;
+    min-height: 30px !important;
+    box-shadow: 0 0 0 transparent !important;
+    transition: box-shadow 0.1s linear !important;
+}
+
+.sd-tunnel-content textarea {
+    resize: vertical !important;
+    padding: 6px 8px !important;
+}
+
+.sd-tunnel-content input[type="text"]:focus,
+.sd-tunnel-content input[type="email"]:focus,
+.sd-tunnel-content input[type="url"]:focus,
+.sd-tunnel-content input[type="number"]:focus,
+.sd-tunnel-content input[type="search"]:focus,
+.sd-tunnel-content input[type="password"]:focus,
+.sd-tunnel-content textarea:focus,
+.sd-tunnel-content select:focus {
+    border-color: #2271b1 !important;
+    box-shadow: 0 0 0 1px #2271b1 !important;
+    outline: 2px solid transparent !important;
+}
+
+.sd-tunnel-content input[type="text"]:focus-visible,
+.sd-tunnel-content input[type="email"]:focus-visible,
+.sd-tunnel-content input[type="url"]:focus-visible,
+.sd-tunnel-content input[type="number"]:focus-visible,
+.sd-tunnel-content input[type="search"]:focus-visible,
+.sd-tunnel-content input[type="password"]:focus-visible,
+.sd-tunnel-content textarea:focus-visible,
+.sd-tunnel-content select:focus-visible {
+    outline: 2px solid transparent !important;
+}
+
+.sd-tunnel-content .button-primary:hover {
+    background: #135e96 !important;
+    border-color: #135e96 !important;
+    color: #fff !important;
+}
+
+.sd-tunnel-content .button-primary:focus {
+    border-color: #135e96 !important;
+    color: #fff !important;
+    box-shadow: 0 0 0 1px #fff, 0 0 0 3px #2271b1 !important;
+}
+
+.sd-tunnel-content .button-secondary:hover {
+    background: #f0f0f1 !important;
+    border-color: #0a4b78 !important;
+    color: #0a4b78 !important;
+}
+
+.sd-tunnel-content .button-secondary:focus {
+    border-color: #2271b1 !important;
+    color: #0a4b78 !important;
+    box-shadow: 0 0 0 1px #2271b1 !important;
+}
+
+.sd-tunnel-content .button:active {
+    background: #f6f7f7 !important;
+    border-color: #8c8f94 !important;
+    box-shadow: none !important;
+}
+
+.sd-tunnel-content .button-primary:active {
+    background: #135e96 !important;
+    border-color: #135e96 !important;
+    box-shadow: none !important;
+}
+
+.sd-tunnel-content .button-secondary:active {
+    background: #f6f7f7 !important;
+    border-color: #8c8f94 !important;
+    box-shadow: none !important;
+}
+
+.sd-tunnel-content .button-link:hover,
+.sd-tunnel-content .button-link:focus {
+    color: #135e96 !important;
+    text-decoration: underline !important;
+}
+
+.sd-tunnel-content .button-link:focus {
+    box-shadow: 0 0 0 1px #2271b1 !important;
+}
+
+.sd-tunnel-content .button-link.delete,
+.sd-tunnel-content .button-link.trash {
+    color: #d63638 !important;
+}
+
+.sd-tunnel-content .button-link.delete:hover,
+.sd-tunnel-content .button-link.trash:hover,
+.sd-tunnel-content .button-link.delete:focus,
+.sd-tunnel-content .button-link.trash:focus {
+    color: #d63638 !important;
+    text-decoration: underline !important;
+}
+
+.sd-tunnel-content .button[disabled],
+.sd-tunnel-content .button:disabled,
+.sd-tunnel-content .button-primary[disabled],
+.sd-tunnel-content .button-primary:disabled,
+.sd-tunnel-content .button-secondary[disabled],
+.sd-tunnel-content .button-secondary:disabled {
+    color: #a7aaad !important;
+    border-color: #dcdcde !important;
+    background: #f6f7f7 !important;
+    box-shadow: none !important;
+    cursor: not-allowed !important;
+}
+
+.sd-tunnel-content .button.button-small {
+    font-size: 11px !important;
+    min-height: 24px !important;
+    line-height: 2 !important;
+    padding: 0 8px !important;
+}
+
+.sd-tunnel-content .button.button-large {
+    font-size: 14px !important;
+    min-height: 32px !important;
+    line-height: 2.1428 !important;
+    padding: 0 12px !important;
+}
+
+.sd-tunnel-content .button-group {
+    display: flex !important;
+    gap: 8px !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+}
+
+.sd-tunnel-content .input-text-wrap,
+.sd-tunnel-content .textarea-wrap {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+    margin-bottom: 12px !important;
+}
+
+.sd-tunnel-content .input-text-wrap:last-child,
+.sd-tunnel-content .textarea-wrap:last-child {
+    margin-bottom: 0 !important;
+}
+
+.sd-tunnel-content label {
+    display: inline-block !important;
+    font-weight: 500 !important;
+    color: #1d2327 !important;
+}
+
+.sd-tunnel-content fieldset {
+    border: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.sd-tunnel-content .description {
+    display: block !important;
+    color: #646970 !important;
+    font-style: normal !important;
+    font-size: 13px !important;
+    margin-top: 4px !important;
+}
+
+.sd-tunnel-content .submit {
+    gap: 8px !important;
+    align-items: center !important;
+    margin: 16px 0 0 0 !important;
+    padding: 0 !important;
+    flex-wrap: wrap !important;
+}
+
+.sd-tunnel-content .submit .button,
+.sd-tunnel-content .submit .button-primary,
+.sd-tunnel-content .submit .button-secondary,
+.sd-tunnel-content .submit .button-link {
+    margin: 0 !important;
+}
+
+.sd-tunnel-content .inside h2,
+.sd-tunnel-content .inside h3,
+.sd-tunnel-content .inside h4 {
+    margin-top: 0 !important;
+    margin-bottom: 0.5em !important;
+    font-weight: 600 !important;
+    color: #1d2327 !important;
+}
+
+.sd-tunnel-content .inside p {
+    margin-top: 0 !important;
+    margin-bottom: 1em !important;
+    color: #3c434a !important;
+    font-size: 13px !important;
+    line-height: 1.5 !important;
+}
+
+.sd-tunnel-content .inside p:last-child {
+    margin-bottom: 0 !important;
+}
+
+.sd-tunnel-content .inside .wp-list-table {
+    background: #fff !important;
+    border: 1px solid #c3c4c7 !important;
+    border-spacing: 0 !important;
+    width: 100% !important;
+    clear: both !important;
+    margin: 0 !important;
+}
+
+.sd-tunnel-content .inside .wp-list-table th,
+.sd-tunnel-content .inside .wp-list-table td {
+    border-bottom: 1px solid #c3c4c7 !important;
+    color: #3c434a !important;
+    padding: 8px 10px !important;
+    line-height: 1.5 !important;
+    word-wrap: break-word !important;
+}
+
+.sd-tunnel-content .inside .wp-list-table th {
+    color: #1d2327 !important;
+    font-weight: 400 !important;
+}
+
+.sd-tunnel-content .inside .wp-list-table tr.striped>td {
+    background-color: #f6f7f7 !important;
+}
+
+.sd-tunnel-content .inside .wp-list-table tr:last-child th,
+.sd-tunnel-content .inside .wp-list-table tr:last-child td {
+    border-bottom: 0 !important;
+}
+
+.sd-tunnel-content .row-title {
+    font-weight: 600 !important;
+    color: #2271b1 !important;
+    text-decoration: none !important;
+}
+
+.sd-tunnel-content .row-title:hover {
+    color: #135e96 !important;
+}
+
+.sd-tunnel-content .inside .row-actions {
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    flex-wrap: wrap !important;
+    color: #a7aaad !important;
+    font-size: 13px !important;
+    margin-top: 2px !important;
+}
+
+.sd-tunnel-content .inside .row-actions span {
+    display: inline-flex !important;
+    align-items: center !important;
+}
+
+.sd-tunnel-content .inside .row-actions a {
+    color: #2271b1 !important;
+    text-decoration: none !important;
+}
+
+.sd-tunnel-content .inside .row-actions a:hover {
+    color: #135e96 !important;
+}
+
+.sd-tunnel-content .notice {
+    background: #fff !important;
+    border-left: 4px solid #c3c4c7 !important;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04) !important;
+    margin: 0 0 16px 0 !important;
+    padding: 8px 12px !important;
+}
+
+.sd-tunnel-content .notice-info {
+    border-left-color: #72aee6 !important;
+}
+
+.sd-tunnel-content .notice-warning {
+    border-left-color: #dba617 !important;
+}
+
+.sd-tunnel-content .notice-success {
+    border-left-color: #00a32a !important;
+}
+
+.sd-tunnel-content .notice-error {
+    border-left-color: #d63638 !important;
+}
+
+/* Disable flaky WP community events module in tunneled dashboard widget context. */
+.sd-tunnel-content #community-events {
+    display: none !important;
+}
+
+.sd-tunnel-content .dashboard-comment-wrap {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    padding-bottom: 12px !important;
+    margin-bottom: 12px !important;
+    border-bottom: 1px solid #f0f0f1 !important;
+}
+
+.sd-tunnel-content .dashboard-comment-wrap:last-child {
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+    border-bottom: 0 !important;
+}
+
+.sd-tunnel-content .comment-meta {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    color: #646970 !important;
+    font-size: 13px !important;
+}
+
+.sd-tunnel-content .comment-meta img.avatar {
+    border-radius: 50% !important;
+    display: block !important;
+}
+
+.sd-tunnel-content .comment-meta cite {
+    font-style: normal !important;
+    font-weight: 600 !important;
+    color: #1d2327 !important;
+}
+
+.sd-tunnel-content .comment-content {
+    margin: 0 !important;
+    color: #3c434a !important;
+}
+
+.sd-tunnel-content .sd-empty-state {
+    padding: 32px 24px !important;
+    text-align: center !important;
+    color: #646970 !important;
+    background: #f6f7f7 !important;
+    border: 1px dashed #c3c4c7 !important;
+    border-radius: 3px !important;
+    margin-bottom: 12px !important;
+}
+
+.sd-tunnel-content .sd-meta-row {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 8px 0 !important;
+    border-bottom: 1px solid #f0f0f1 !important;
+}
+
+.sd-tunnel-content .sd-meta-row:last-child {
+    border-bottom: 0 !important;
+}
+
+.sd-tunnel-content .sd-meta-label {
+    font-weight: 500 !important;
+    color: #1d2327 !important;
+}
+
+.sd-tunnel-content .sd-meta-value {
+    color: #646970 !important;
+}
+
+.sd-tunnel-content .sd-footer-actions {
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    padding-top: 12px !important;
+    margin-top: 12px !important;
+    border-top: 1px solid #f0f0f1 !important;
+    gap: 8px !important;
+}

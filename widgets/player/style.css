@@ -1,0 +1,94 @@
+.sd-player-root {
+    display: grid;
+    gap: 10px;
+}
+
+.sd-player-now {
+    min-height: 18px;
+    font-size: 12px;
+    color: #1d2327;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sd-player-status-wrap {
+    display: flex;
+    justify-content: flex-start;
+}
+
+.sd-player-transport {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.sd-player-progress-row {
+    display: grid;
+    gap: 4px;
+}
+
+.sd-player-time {
+    font-size: 11px;
+    color: #646970;
+}
+
+.sd-player-controls-grid {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.sd-player-controls-grid label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.sd-player-eq-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.sd-player-eq-row label {
+    display: grid;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #1d2327;
+}
+
+.sd-player-load-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sd-player-queue {
+    display: grid;
+    gap: 4px;
+    max-height: 160px;
+    overflow: auto;
+}
+
+.sd-player-queue-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 8px;
+    font-size: 12px;
+}
+
+.sd-player-queue-item button {
+    min-width: 58px;
+}
+
+.sd-player-error {
+    font-size: 12px;
+    color: #d63638;
+}

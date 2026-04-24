@@ -1,0 +1,72 @@
+/* Pixi activation */
+.sd-hud-atlas-module.is-pixi-active .sd-hud-atlas__pixi-stage {
+    pointer-events: auto;
+}
+
+.sd-hud-atlas-module.is-pixi-active .sd-hud-atlas__fallback {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.sd-hud-atlas__anchor-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    overflow: visible;
+}
+
+.sd-hud-atlas__anchor {
+    position: absolute;
+    left: 0;
+    right: 0;
+    display: block;
+    height: 1px;
+    scroll-margin-top: 32px;
+}
+
+.sd-hud-atlas-module:not(.is-pixi-active) .sd-hud-atlas__fallback {
+    opacity: 1;
+    visibility: visible;
+}
+
+.sd-hud-atlas-module.is-pixi-active [data-role="legacy-dom"] {
+    display: none !important;
+}
+
+.sd-hud-atlas-module .sd-widget-body,
+.sd-hud-atlas-module .sd-widget-shell__inside {
+    padding: 0 !important;
+    overflow: visible !important;
+}
+
+.sd-hud-atlas-module canvas {
+    display: block;
+}
+
+.sd-hud-atlas__pixi-stage {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    min-height: 100%;
+    z-index: 0;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.sd-hud-atlas__fallback {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--sd-color-text-muted, #646970);
+    pointer-events: none;
+    transition: opacity 160ms ease, visibility 160ms ease;
+}

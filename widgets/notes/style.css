@@ -1,0 +1,315 @@
+.sd-note-view-modal .components-modal__frame {
+	max-height: min(90vh, 1000px);
+}
+
+.sd-note-view-modal .components-modal__content {
+	width: min(960px, 92vw);
+	max-width: 960px;
+	overflow-y: auto;
+}
+
+.sd-modal-close:hover {
+	color: #d63638 !important;
+}
+
+#systemdeck .sd-note-view-modal .sd-note-content-render,
+#systemdeck .sd-note-view-modal .sd-note-content-render p,
+#systemdeck .sd-note-view-modal .sd-note-content-render li,
+#systemdeck .sd-note-view-modal .sd-note-comments-section p,
+#systemdeck .sd-note-view-modal .sd-note-comments-section li,
+#systemdeck .sd-note-view-modal .sd-note-comment-form textarea {
+	font-size: 14px;
+}
+
+.sd-note-view-modal .components-modal__header-heading-container {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+}
+
+.sd-note-view-modal .components-modal__header-heading {
+	margin: 0;
+	line-height: 1.2;
+}
+
+/* 2. List Elements */
+.sd-note-pin-btn {
+	color: #a7aaad;
+	cursor: pointer;
+}
+.sd-note-pin-btn.active,
+.sd-note-pin-btn:hover {
+	color: #2271b1;
+}
+
+.sd-note-workspace-origin {
+	color: #646970;
+	font-size: 12px;
+}
+.sd-note-workspace-pinned {
+	color: #2271b1;
+}
+.sd-note-pipe {
+	color: #dcdcde;
+}
+.sd-note-priority {
+	font-size: 11px;
+	color: #646970;
+}
+.sd-note-workspace-private {
+	color: #8c8f94;
+	font-size: 11px;
+}
+
+.sd-note-date-label {
+	color: #8c8f94;
+}
+
+.sd-note-code-badge {
+	color: #1d2327;
+	margin-left: 4px;
+}
+.sd-note-code-badge .dashicons {
+	font-size: 12px;
+	margin-top: 2px;
+}
+
+.post-com-count-wrapper {
+	display: flex;
+	justify-content: center;
+}
+.sd-no-comments {
+	color: #8c8f94;
+	font-size: 14px;
+}
+.sd-note-context-link {
+	font-size: 11px;
+	text-decoration: none;
+	word-break: break-all;
+}
+.sd-note-no-context {
+	color: #8c8f94;
+}
+
+/* 3. Toolbar & Options */
+.sd-checkbox-label {
+	font-size: 12px;
+	color: #646970;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	cursor: pointer;
+}
+
+.sd-checkbox-label:hover {
+	color: #2271b1;
+}
+
+/* 4. Comments */
+.sd-note-reply {
+	margin-left: 34px;
+	border-left: 4px solid #dcdcde;
+	padding-left: 14px;
+	margin-top: 14px;
+}
+
+
+
+/* 6. CodeMirror Overrides */
+#sd-note-code-wrapper .CodeMirror {
+	height: 300px;
+	border: 1px solid #dcdcde !important;
+	border-radius: 4px;
+	box-sizing: border-box;
+	font-family: Consolas, Monaco, monospace !important;
+	font-size: 13px !important;
+	line-height: 1.5 !important;
+	background: #fdfdfd !important;
+	color: #3c434a !important;
+}
+
+#sd-note-code-wrapper .CodeMirror:focus-within,
+#sd-note-code-wrapper .CodeMirror.CodeMirror-focused {
+	border-color: #8c8f94 !important;
+	box-shadow: none !important;
+	outline: none !important;
+}
+
+#sd-note-code-wrapper .CodeMirror-gutters {
+	background-color: #f1f1f1 !important;
+	border-right: 1px solid #dcdcde !important;
+	padding-right: 5px !important;
+}
+#sd-note-code-wrapper .CodeMirror-linenumber {
+	color: #787c82 !important;
+	min-width: 20px !important;
+}
+
+#sd-note-code-wrapper .CodeMirror .cm-keyword {
+	color: #708 !important;
+	font-weight: 600 !important;
+}
+#sd-note-code-wrapper .CodeMirror .cm-atom {
+	color: #219 !important;
+}
+#sd-note-code-wrapper .CodeMirror .cm-number {
+	color: #164 !important;
+}
+#sd-note-code-wrapper .CodeMirror .cm-def {
+	color: #00f !important;
+}
+#sd-note-code-wrapper .CodeMirror .cm-variable-2 {
+	color: #05a !important;
+}
+#sd-note-code-wrapper .CodeMirror .cm-variable-3,
+#sd-note-code-wrapper .CodeMirror .cm-type {
+	color: #085 !important;
+}
+#sd-note-code-wrapper .CodeMirror .cm-comment {
+	color: #a50 !important;
+	font-style: normal !important;
+	font-weight: normal !important;
+}
+#sd-note-code-wrapper .CodeMirror .cm-string {
+	color: #a11 !important;
+}
+#sd-note-code-wrapper .CodeMirror .cm-string-2 {
+	color: #f50 !important;
+}
+#sd-note-code-wrapper .CodeMirror .cm-meta {
+	color: #555 !important;
+	font-weight: 600 !important;
+}
+#sd-note-code-wrapper .CodeMirror .cm-qualifier {
+	color: #555 !important;
+}
+#sd-note-code-wrapper .CodeMirror .cm-builtin {
+	color: #30a !important;
+}
+#sd-note-code-wrapper .CodeMirror .cm-bracket {
+	color: #997 !important;
+	font-weight: 600 !important;
+}
+#sd-note-code-wrapper .CodeMirror .cm-tag {
+	color: #170 !important;
+}
+#sd-note-code-wrapper .CodeMirror .cm-attribute {
+	color: #00c !important;
+}
+#sd-note-code-wrapper .CodeMirror .cm-hr {
+	color: #999 !important;
+}
+#sd-note-code-wrapper .CodeMirror .cm-link {
+	color: #00c !important;
+}
+#sd-note-code-wrapper .CodeMirror .cm-error {
+	color: #d63638 !important;
+}
+
+/* 7. Notes Specific Structure */
+.sd-notes-toolbar {
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	gap: 12px;
+	padding: 8px 12px;
+	border-bottom: 1px solid #dcdcde;
+}
+.sd-notes-table {
+	border: none;
+	border-bottom: 1px solid #dcdcde;
+}
+.sd-notes-pagination {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 4px 12px;
+}
+.sd-notes-form-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 20px;
+}
+.sd-notes-form-footer {
+	margin-top: 24px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+.sd-note-sticky-controls,
+.sd-notes-tools-left,
+.sd-notes-tools-right {
+	display: flex;
+	align-items: center;
+}
+.sd-notes-tools-left,
+.sd-notes-tools-right {
+	gap: 15px;
+}
+.sd-sticky-levels {
+	margin-left: 15px;
+	font-size: 13px;
+	color: #646970;
+	display: none;
+}
+.sd-sticky-levels label {
+	margin-right: 8px;
+}
+
+.sd-modal-header-actions {
+	display: flex;
+	align-items: center;
+}
+.sd-modal-body {
+	padding: 24px;
+}
+.sd-comments-heading {
+	margin-top: 0;
+	font-size: 14px;
+	margin-bottom: 16px;
+	font-weight: 600;
+}
+.sd-visit-link {
+	text-decoration: none;
+	align-items: center;
+	display: none;
+}
+.sd-visit-link .dashicons {
+	margin-right: 4px;
+}
+.sd-code-label {
+	font-weight: 600;
+	margin: 10px 0 4px 0;
+}
+.sd-error-text {
+	color: #d63638;
+	font-weight: 500;
+}
+.sd-empty-state {
+	display: block;
+	visibility: hidden;
+}
+.sd-loading-td {
+	padding: 12px;
+	text-align: center;
+	color: #646970;
+}
+
+#sd-note-code-wrapper,
+#sd-note-sticky-level-wrap,
+#sd-note-visit-link,
+#sd-note-read-visit-url,
+#sd-note-delete,
+.note-content-hidden,
+.note-code-hidden {
+	display: none;
+}
+
+/* .sd-hidden is defined in common.css */
+.sd-todo-checkbox {
+	margin-right: 6px;
+}
+.sd-todo-list {
+	margin-top: 4px;
+}

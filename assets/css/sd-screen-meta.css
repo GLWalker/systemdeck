@@ -1,0 +1,207 @@
+/* Screen Options & Help Tabs Revert - SystemDeck Port */
+
+#systemdeck #workspace-meta-container {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	z-index: 100;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	pointer-events: none;
+}
+
+#systemdeck #workspace-meta {
+	display: block;
+	margin: 0 !important;
+	width: min(560px, calc(100vw - 120px));
+	position: relative;
+	background-color: var(--sd-card-bg);
+	border: 1px solid var(--sd-border);
+	border-left: none;
+	box-shadow: 0 1px 1px var(--sd-box-shadow);
+	pointer-events: auto;
+	transform: translateX(-102%);
+	opacity: 0;
+	transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+#systemdeck #workspace-meta.is-open {
+	transform: translateX(0);
+	opacity: 1;
+}
+
+#systemdeck #workspace-meta[aria-hidden="true"] {
+	pointer-events: none;
+}
+
+#systemdeck #workspace-options-wrap {
+	margin: 0;
+	padding: 0 20px 12px;
+	position: relative;
+}
+
+#systemdeck .sd-workspace-meta-panel__header {
+	display: flex;
+	justify-content: flex-end;
+	padding: 8px 8px 0;
+}
+
+#systemdeck .sd-workspace-meta-panel__close {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 30px;
+	height: 30px;
+	border: 1px solid var(--sd-border);
+	border-radius: 4px;
+	background: transparent;
+	color: var(--sd-text-muted);
+	cursor: pointer;
+}
+
+#systemdeck .sd-workspace-meta-panel__close:hover,
+#systemdeck .sd-workspace-meta-panel__close:focus {
+	color: var(--sd-text);
+	border-color: var(--sd-highlight-color, var(--sd-border));
+	outline: none;
+}
+
+#systemdeck fieldset.metabox-prefs {
+	border: 0;
+	padding: 0;
+	margin: 0;
+	font-size: 14px;
+}
+
+#systemdeck #workspace-options-wrap legend {
+	margin: 0;
+	padding: 8px 0;
+	font-weight: 600;
+	border: 0;
+}
+
+#systemdeck .metabox-prefs label {
+	display: inline-block;
+	padding-right: 15px;
+	line-height: 2.35;
+	font-size: 13px; /* Ensure specific font size match */
+	color: var(--sd-text);
+}
+
+#systemdeck .metabox-prefs label a {
+	display: none;
+}
+
+#systemdeck .metabox-prefs input[type="checkbox"] {
+	margin-top: 0;
+	margin-right: 6px;
+	border: 1px solid var(--sd-border);
+	border-radius: 2px;
+	background: var(--sd-card-bg);
+	box-shadow: none;
+	vertical-align: text-top;
+}
+
+#systemdeck .metabox-prefs input[type="checkbox"]:checked {
+	background: var(--sd-highlight-color);
+	border-color: var(--sd-highlight-color);
+}
+
+#systemdeck .metabox-prefs input[type="checkbox"]:checked::before {
+	content: url("data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2020%2020%27%3E%3Cpath%20d%3D%27M14.83%204.89l1.34.94-5.81%208.38H9.02L5.78%209.67l1.34-1.25%202.57%202.4z%27%20fill%3D%27%23fff%27%2F%3E%3C%2Fsvg%3E");
+	display: block;
+	width: 16px;
+	height: 16px;
+	margin: -2px; /* Slight adjustment for custom SVG */
+}
+
+#systemdeck .metabox-prefs label input,
+#systemdeck .metabox-prefs label input[type="checkbox"] {
+	margin: -4px 5px 0 0;
+}
+
+#systemdeck .metabox-prefs .submit {
+	margin-top: 1em;
+	padding: 0;
+}
+
+/* Button Tab */
+#systemdeck #workspace-meta-links {
+	float: none;
+	margin-right: 0 !important;
+	pointer-events: auto; /* Re-enable pointer events */
+	position: absolute;
+	top: 8px;
+	left: 0;
+	z-index: 101;
+}
+
+#systemdeck #workspace-options-link-wrap {
+	float: none;
+	margin: 0;
+}
+
+#systemdeck #workspace-meta-links {
+	margin-bottom: 0;
+}
+
+#systemdeck #workspace-meta-links .workspace-meta-toggle {
+	position: relative;
+	top: 0;
+}
+
+#systemdeck #workspace-meta-links .show-widgets {
+	border: 1px solid var(--sd-border);
+	border-left: none;
+	border-top-right-radius: 4px;
+	border-bottom-right-radius: 4px;
+	height: auto;
+	margin-bottom: 0;
+	padding: 6px 10px 6px 12px;
+	background: var(--sd-card-bg);
+	color: var(--sd-text-muted);
+	line-height: 1.7;
+	box-shadow: 0 0 0 transparent;
+	transition: box-shadow 0.1s linear;
+	text-decoration: none;
+	font-size: 13px;
+	cursor: pointer;
+	font-weight: 400;
+}
+
+#systemdeck #workspace-meta-links .show-widgets:hover,
+#systemdeck #workspace-meta-links .show-widgets:active,
+#systemdeck #workspace-meta-links .show-widgets:focus {
+	color: var(--sd-text);
+	background: var(--sd-card-bg); /* Ensure bg stays white */
+}
+
+#systemdeck #workspace-meta-links .show-widgets:focus {
+	border-color: var(--sd-border);
+	box-shadow: none !important;
+	outline: none !important;
+}
+
+#systemdeck #workspace-meta-links .show-widgets:active {
+	transform: none;
+}
+
+#systemdeck #workspace-meta-links .show-widgets:after {
+	right: 0;
+	content: "\f345"/ "";
+	font: normal 20px/1 dashicons;
+	display: inline-block;
+	padding: 0 5px 0 0;
+	bottom: 2px;
+	position: relative;
+	vertical-align: bottom;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	text-decoration: none;
+}
+
+#systemdeck #workspace-meta-links .show-widgets.workspace-meta-active:after {
+	content: "\f341"/ "";
+}

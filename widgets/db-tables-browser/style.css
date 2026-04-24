@@ -1,0 +1,31 @@
+.sd-db-browser-summary {
+	margin-bottom: 12px;
+}
+
+.sd-db-browser-summary p {
+	margin: 0;
+}
+
+.sd-db-browser-sep {
+	margin: 0 6px;
+	color: #8c8f94;
+}
+
+.sd-db-browser-details {
+	margin-top: 12px;
+}
+
+.sd-db-browser-details > summary {
+	cursor: pointer;
+	font-weight: 600;
+	margin-bottom: 8px;
+}
+
+.sd-db-browser-table-wrap {
+	overflow: auto;
+	margin-top: 8px;
+}
+
+.sd-db-browser-table-wrap code {
+	white-space: nowrap;
+}

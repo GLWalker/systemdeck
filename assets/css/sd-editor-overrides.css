@@ -1,0 +1,242 @@
+/**
+ * SystemDeck Editor Overrides
+ *
+ * Editor-only styles for the SystemDeck canvas-grid and widget placeholder
+ * blocks. This file is intentionally scoped to SystemDeck block classes.
+ */
+
+/* ==========================================================================
+   1. Editor Canvas Width
+   ========================================================================== */
+.post-type-systemdeck_canvas .is-layout-constrained> :where(:not(.alignleft):not(.alignright):not(.alignfull)),
+.post-type-systemdeck_canvas .is-layout-flow> :where(:not(.alignleft):not(.alignright):not(.alignfull)),
+.post-type-systemdeck_canvas .editor-styles-wrapper .block-editor-block-list__layout.is-root-container>* {
+    max-width: none !important;
+    --wp--style--global--content-size: var(--wp--style--global--wide-size);
+}
+
+/* ==========================================================================
+   2. Canvas Grid Host
+   ========================================================================== */
+
+.sd-canvas-grid-block,
+.wp-block-systemdeck-canvas-grid,
+.editor-styles-wrapper .block-editor-block-list__block[data-type="systemdeck/canvas-grid"],
+.editor-styles-wrapper .block-editor-block-list__block.wp-block-systemdeck-canvas-grid {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 100% !important;
+    flex-basis: 100% !important;
+}
+
+.sd-canvas-grid-host,
+.sd-canvas-grid-host__inner,
+.wp-block-systemdeck-canvas-grid>.block-editor-inner-blocks,
+.wp-block-systemdeck-canvas-grid>.block-editor-inner-blocks>.block-editor-block-list__layout,
+.wp-block-systemdeck-canvas-grid .block-editor-block-list__layout,
+[data-type="systemdeck/canvas-grid"] .block-editor-block-list__layout {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+}
+
+/* Actual editor grid */
+.sd-canvas-grid-host__inner,
+.wp-block-systemdeck-canvas-grid>.block-editor-inner-blocks>.block-editor-block-list__layout,
+[data-type="systemdeck/canvas-grid"]>.block-editor-inner-blocks>.block-editor-block-list__layout,
+[data-type="systemdeck/canvas-grid"] .block-editor-block-list__layout {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 20px;
+    align-items: start;
+}
+
+/* ==========================================================================
+   3. Widget Blocks Inside Grid
+   ========================================================================== */
+
+.wp-block-systemdeck-widgets,
+.editor-styles-wrapper .wp-block-systemdeck-widgets,
+.editor-styles-wrapper .block-editor-block-list__block.wp-block-systemdeck-widgets {
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    margin-block-start: 0 !important;
+    margin-block-end: 0 !important;
+    justify-self: stretch;
+    align-self: start;
+}
+
+.wp-block-systemdeck-widgets * {
+    word-break: normal !important;
+    overflow-wrap: anywhere;
+}
+
+/* Column spans */
+.wp-block-systemdeck-widgets.sd-col-span-1 {
+    grid-column: span 1 !important;
+}
+
+.wp-block-systemdeck-widgets.sd-col-span-2 {
+    grid-column: span 2 !important;
+}
+
+.wp-block-systemdeck-widgets.sd-col-span-3 {
+    grid-column: span 3 !important;
+}
+
+.wp-block-systemdeck-widgets.sd-col-span-4 {
+    grid-column: span 4 !important;
+}
+
+/* ==========================================================================
+   4. Editor Responsive Behavior
+   ========================================================================== */
+
+/* Collapse to a single column only when the editor becomes truly narrow. */
+@media (max-width: 420px) {
+
+    .sd-canvas-grid-host__inner,
+    .wp-block-systemdeck-canvas-grid>.block-editor-inner-blocks>.block-editor-block-list__layout,
+    [data-type="systemdeck/canvas-grid"]>.block-editor-inner-blocks>.block-editor-block-list__layout,
+    [data-type="systemdeck/canvas-grid"] .block-editor-block-list__layout {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .wp-block-systemdeck-widgets[class*="sd-col-span-"] {
+        grid-column: span 1 !important;
+    }
+}
+
+/* ==========================================================================
+   5. Widget Block Shell
+   ========================================================================== */
+
+.sd-widget-block-host {
+    --sdw-bg: var(--sd-card-bg, #ffffff);
+    --sdw-bg-subtle: var(--sd-surface-subtle, #f6f7f7);
+    --sdw-border: var(--sd-border, #dcdcde);
+    --sdw-text: var(--sd-text, #1d2327);
+    --sdw-text-muted: var(--sd-text-muted, #646970);
+    --sdw-heading: var(--sd-heading-color, #1d2327);
+    --sdw-link: var(--wp-admin-theme-color, #2271b1);
+    --sdw-link-hover: var(--wp-admin-theme-color-darker-10, #135e96);
+    --sdw-radius: 4px;
+    --sdw-space-1: 8px;
+    --sdw-space-2: 12px;
+    color: var(--sdw-text);
+}
+
+.sd-widget-block-canvas,
+.sd-widget-block-host .postbox,
+.sd-widget-block-host .inside,
+.editor-styles-wrapper .wp-block-systemdeck-widgets .sd-widget-block-canvas,
+.editor-styles-wrapper .wp-block-systemdeck-widgets .postbox,
+.editor-styles-wrapper .wp-block-systemdeck-widgets .inside {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+}
+
+.sd-widget-block-canvas {
+    margin: 0;
+}
+
+.sd-widget-block-host .postbox {
+    position: relative;
+    margin: 0;
+    border: 1px solid var(--sdw-border);
+    border-radius: var(--sdw-radius);
+    background: var(--sdw-bg);
+    background-image: repeating-linear-gradient(45deg,
+            rgba(0, 0, 0, 0.02),
+            rgba(0, 0, 0, 0.02) 10px,
+            rgba(0, 0, 0, 0.03) 10px,
+            rgba(0, 0, 0, 0.03) 20px);
+}
+
+.sd-widget-block-host .postbox-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sdw-space-2);
+    padding: 0 var(--sdw-space-2);
+    border-bottom: 1px solid var(--sdw-border);
+    background: transparent;
+    color: var(--sdw-heading);
+}
+
+.sd-widget-block-host .postbox-header .hndle {
+    margin: 0;
+    padding: var(--sdw-space-1) 0;
+    color: var(--sdw-heading);
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    line-height: 1.3;
+}
+
+.sd-widget-block-host .inside {
+    margin: 0;
+    padding: var(--sdw-space-2);
+    color: var(--sdw-text);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.sd-widget-block-host .button,
+.sd-widget-block-host .button-primary {
+    min-height: 30px;
+}
+
+/* ==========================================================================
+   6. Placeholder Content
+   ========================================================================== */
+
+.sd-widget-slot-preview {
+    margin-top: 0;
+}
+
+.sd-widget-slot-preview__placeholder {
+    min-height: 132px;
+}
+
+.sd-widget-placeholder-block__meta>strong {
+    display: block;
+    margin: 0 0 2px;
+    color: var(--sdw-heading);
+    font-size: 14px;
+    line-height: 1.3;
+}
+
+.sd-widget-placeholder-block__meta>small {
+    display: block;
+    margin: 0;
+    color: var(--sdw-text-muted);
+}
+
+.sd-widget-placeholder-block__facts {
+    display: grid;
+    gap: 6px;
+    margin: 10px 0 0;
+}
+
+.sd-widget-placeholder-block__fact {
+    display: block;
+    color: var(--sdw-text-muted);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.sd-widget-placeholder-block__note {
+    margin: 14px 0 0;
+    max-width: 48ch;
+    color: var(--sdw-text);
+}
+
+.sd-widget-block-host {
+    background: repeating-linear-gradient(45deg,
+            rgba(0, 0, 0, 0.02),
+            rgba(0, 0, 0, 0.02) 10px,
+            rgba(0, 0, 0, 0.03) 10px,
+            rgba(0, 0, 0, 0.03) 20px);
+}
