@@ -21,12 +21,6 @@
     color: #646970;
 }
 
-.sd-vault-header-icon {
-    margin-right: 2px;
-    font-size: 16px;
-    margin-top: 1px;
-}
-
 #sd-vault-table {
     display: none;
 }
@@ -65,19 +59,6 @@
 
 #sd-vault-table .loading-text td {
     padding: 12px;
-}
-
-.sd-vault-pagination {
-    display: none;
-}
-
-.sd-vault-pagination .pagination-links {
-    display: flex;
-    align-items: center;
-}
-
-.sd-vault-pagination .paging-input {
-    margin: 0 8px;
 }
 
 #sd-vault-current-page,

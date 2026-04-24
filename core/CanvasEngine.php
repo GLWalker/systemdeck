@@ -111,15 +111,13 @@ class CanvasEngine
         wp_enqueue_style(
             'systemdeck-runtime',
             $build_url . 'systemdeck-runtime.css',
-            ['wp-components', 'sd-common', 'sd-screen-meta', 'dashicons'],
+            ['wp-components', 'sd-screen-meta', 'dashicons'],
             $assets['version']
         );
 
         wp_enqueue_script('sd-pixi-mount');
         wp_enqueue_script('sd-pixi-hud-engine');
         wp_enqueue_script('sd-metric-pin-renderers');
-        wp_enqueue_style('sd-system-status-module-style');
-        wp_enqueue_script('sd-system-status-module-app');
 
         if (file_exists($build_dir . 'style-systemdeck-runtime.css')) {
             wp_enqueue_style(

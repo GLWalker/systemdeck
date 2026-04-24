@@ -9,7 +9,7 @@
 	}
 
 	function triggerOpenPinManager() {
-		const event = new CustomEvent("systemdeck:open-screen-options", {
+		const event = new CustomEvent("systemdeck:open-pin-picker", {
 			detail: { source: "pin-runtime" },
 		})
 		document.dispatchEvent(event)

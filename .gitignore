@@ -22,3 +22,6 @@ postcss.config.js
 package.json
 package-lock.json
 .browserslistrc
+
+assets/css/sd-common.css
+*.bak

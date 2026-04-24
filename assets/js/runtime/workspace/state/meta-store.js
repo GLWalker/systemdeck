@@ -10,6 +10,7 @@ const getBootstrap = () => {
 
 const initialState = {
 	isDrawerOpen: false,
+	isPinPickerOpen: false,
 	registry: {}, // Capability: What exists
 	configs: {}, // Settings: How it looks
 	visibility: {}, // Intent: Is it turned on?
@@ -30,6 +31,14 @@ export const metaReducer = (state = initialState, action) => {
 					action.payload !== undefined
 						? action.payload
 						: !state.isDrawerOpen,
+			}
+		case "TOGGLE_PIN_PICKER":
+			return {
+				...state,
+				isPinPickerOpen:
+					action.payload !== undefined
+						? action.payload
+						: !state.isPinPickerOpen,
 			}
 
 		case "REGISTER_WIDGET_V2":

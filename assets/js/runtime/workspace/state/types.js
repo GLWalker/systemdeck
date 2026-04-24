@@ -42,3 +42,4 @@ export const SET_MENU_FOLDED = "SET_MENU_FOLDED"
 export const SET_ACTIVE_SCREEN = "SET_ACTIVE_SCREEN" // #system, #workspace-xyz
 export const SET_UI_MODE = "SET_UI_MODE" // runtime, config
 export const SET_REGISTRY_ENABLEMENT = "SET_REGISTRY_ENABLEMENT"
+export const TOGGLE_PIN_PICKER = "TOGGLE_PIN_PICKER"

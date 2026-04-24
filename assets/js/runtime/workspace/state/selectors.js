@@ -173,3 +173,7 @@ export const isWidgetVisible = (state, widgetId) => {
 export const isMetaDrawerOpen = (state) => {
 	return state.meta ? state.meta.isDrawerOpen : false
 }
+
+export const isPinPickerOpen = (state) => {
+	return state.meta ? !!state.meta.isPinPickerOpen : false
+}

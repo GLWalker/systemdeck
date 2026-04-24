@@ -990,7 +990,6 @@ class SystemDeck_Assets
             // Ensure shared core styles are registered/enqueued on frontend + admin.
             if (class_exists('\\SystemDeck\\Core\\Assets')) {
                 \SystemDeck\Core\Assets::register_all();
-                wp_enqueue_style('sd-common');
                 wp_enqueue_style('sd-screen-meta');
             }
             // Keep component styling parity between wp-admin and frontend shell.
@@ -1010,7 +1009,7 @@ class SystemDeck_Assets
                     wp_enqueue_style(
                         'systemdeck-runtime',
                         $build_url . 'systemdeck-runtime.css',
-                        ['wp-components', 'sd-common', 'sd-screen-meta', 'dashicons'],
+                        ['wp-components', 'sd-screen-meta', 'dashicons'],
                         $build_assets['version']
                     );
                 }

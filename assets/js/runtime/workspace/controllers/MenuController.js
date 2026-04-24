@@ -14,15 +14,37 @@ const WORKSPACE_OPTIONS_LAUNCHER = {
 	iconClass: "dashicons dashicons-admin-generic",
 }
 
+const PIN_PICKER_LAUNCHER = {
+	id: "sd-pin-picker-launcher",
+	title: "Pin Picker",
+	ariaLabel: "Open Pin Picker",
+	iconClass: "dashicons dashicons-chart-line",
+}
+
 export function initializeMenuController() {
 	const menuWrap = document.getElementById("sd-menuwrap")
 	if (!menuWrap) return
 	let workspaceOptionsLauncher = document.getElementById(
 		WORKSPACE_OPTIONS_LAUNCHER.id,
 	)
-	if (!workspaceOptionsLauncher) {
+	let pinPickerLauncher = document.getElementById(PIN_PICKER_LAUNCHER.id)
+	if (!workspaceOptionsLauncher || !pinPickerLauncher) {
 		const headerRight = document.querySelector("#systemdeck .sd-header-right")
 		if (headerRight) {
+			if (!pinPickerLauncher) {
+				pinPickerLauncher = document.createElement("button")
+				pinPickerLauncher.type = "button"
+				pinPickerLauncher.id = PIN_PICKER_LAUNCHER.id
+				pinPickerLauncher.className = "sd-btn-icon"
+				pinPickerLauncher.title = PIN_PICKER_LAUNCHER.title
+				pinPickerLauncher.setAttribute("aria-label", PIN_PICKER_LAUNCHER.ariaLabel)
+				pinPickerLauncher.style.display = "none"
+
+				const pinIcon = document.createElement("span")
+				pinIcon.className = PIN_PICKER_LAUNCHER.iconClass
+				pinPickerLauncher.appendChild(pinIcon)
+			}
+
 			workspaceOptionsLauncher = document.createElement("button")
 			workspaceOptionsLauncher.type = "button"
 			workspaceOptionsLauncher.id = WORKSPACE_OPTIONS_LAUNCHER.id
@@ -40,8 +62,10 @@ export function initializeMenuController() {
 
 			const dockControls = headerRight.querySelector(".sd-dock-controls")
 			if (dockControls) {
+				headerRight.insertBefore(pinPickerLauncher, dockControls)
 				headerRight.insertBefore(workspaceOptionsLauncher, dockControls)
 			} else {
+				headerRight.appendChild(pinPickerLauncher)
 				headerRight.appendChild(workspaceOptionsLauncher)
 			}
 		}
@@ -49,6 +73,11 @@ export function initializeMenuController() {
 	const setWorkspaceOptionsLauncherVisible = (isVisible) => {
 		if (!workspaceOptionsLauncher) return
 		workspaceOptionsLauncher.style.display = isVisible ? "" : "none"
+	}
+
+	const setPinPickerLauncherVisible = (isVisible) => {
+		if (!pinPickerLauncher) return
+		pinPickerLauncher.style.display = isVisible ? "" : "none"
 	}
 
 	const canOpenWorkspaceOptions = () => {
@@ -73,6 +102,8 @@ export function initializeMenuController() {
 
 		return true
 	}
+
+	const canOpenPinPicker = () => canOpenWorkspaceOptions()
 
 	const workspaceMenuNode = menuWrap.querySelector("#sd-menu-workspaces")
 	const workspaceTitleNode = document.getElementById("sd-workspace-title")
@@ -263,6 +294,14 @@ export function initializeMenuController() {
 		})
 	}
 
+	if (pinPickerLauncher) {
+		pinPickerLauncher.addEventListener("click", (e) => {
+			e.preventDefault()
+			if (!canOpenPinPicker()) return
+			dispatch(STORE_NAME).togglePinPicker(true)
+		})
+	}
+
 	const syncFromStore = () => {
 		const store = select(STORE_NAME)
 		if (!store) return
@@ -282,11 +321,13 @@ export function initializeMenuController() {
 			!!activeWorkspaceId &&
 			(canManageOptions || canManageWorkspaces) &&
 			!(activeWorkspace?.shared_incoming && activeWorkspace?.is_locked)
+		const showPinPickerLauncher = showWorkspaceOptionsLauncher
 
 		renderWorkspaceSubmenu(workspaces)
 		markWorkspaceActive(activeWorkspaceId)
 		syncWorkspaceHeaderTitle(uiMode, activeWorkspace, activeWorkspaceId)
 		setWorkspaceOptionsLauncherVisible(showWorkspaceOptionsLauncher)
+		setPinPickerLauncherVisible(showPinPickerLauncher)
 
 		// Keep menu state deterministic across reloads/navigation.
 		if (uiMode === "runtime" && activeWorkspaceId) {

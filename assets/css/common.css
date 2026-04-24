@@ -305,7 +305,7 @@
     gap: 6px;
     font-size: 11px;
     text-transform: uppercase;
-    color: var(--sd-text-muted, #646970);
+    color: #646970;
     letter-spacing: 0.06em;
     font-weight: 700;
     white-space: nowrap;
@@ -476,7 +476,7 @@
    ========================================================================== */
 
 /* Base Neutral Button Chrome */
-.button {
+#systemdeck .button {
     display: inline-block;
     box-sizing: border-box;
     margin: 0;
@@ -514,7 +514,7 @@
 }
 
 /* Secondary / Outlined Accent Button */
-.button-secondary {
+#systemdeck .button-secondary {
     display: inline-block;
     box-sizing: border-box;
     margin: 0;
@@ -553,7 +553,7 @@
 }
 
 /* Primary Button Chrome */
-.button-primary {
+#systemdeck .button-primary {
     background: #2271b1;
     border-color: #2271b1;
     color: #fff;
@@ -580,7 +580,7 @@
 }
 
 /* Base Button Link Chrome */
-.button-link {
+#systemdeck .button-link {
     display: inline-block;
     margin: 0;
     padding: 0;
@@ -635,7 +635,7 @@
 }
 
 /* Button Modifiers */
-.button.button-small {
+#systemdeck .button.button-small {
     font-size: 11px;
     min-height: 24px;
     line-height: 2;
@@ -650,11 +650,18 @@
 }
 
 /* Action Grouping */
-.button-group {
+#systemdeck .button-group {
     display: flex;
     gap: 8px;
     align-items: center;
     flex-wrap: wrap;
+}
+
+#systemdeck .button .sd-button-icon {
+    margin-right: 2px;
+    font-size: 110%;
+    color: inherit;
+    margin-top: 1px;
 }
 
 /* ==========================================================================
@@ -740,7 +747,7 @@ fieldset {
    7. Tables and list-table style content
    ========================================================================== */
 
-.postbox .inside .wp-list-table {
+#systemdeck .postbox .inside .wp-list-table {
     background: #fff;
     border: 1px solid #c3c4c7;
     border-spacing: 0;
@@ -1018,4 +1025,29 @@ fieldset {
 /* Utility — shared across all SystemDeck widgets */
 .sd-hidden {
     display: none !important;
+}
+
+#systemdeck .postbox .inside .sd-toolbar {
+    display: flex;
+    justify-content: flex-end !important;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border-bottom: 1px solid #dcdcde;
+}
+
+#systemdeck .postbox .inside .sd-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 12px;
+}
+
+#systemdeck .postbox .inside .paging-input {
+    margin: 0 8px;
+}
+
+#systemdeck .postbox .inside .pagination-links {
+    display: flex;
+    align-items: center;
 }

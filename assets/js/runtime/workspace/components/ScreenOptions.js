@@ -56,7 +56,6 @@ export default function ScreenOptions() {
 	const isPickerVisibleForWorkspace = (widget) => {
 		const widgetId = String(widget?.id || "")
 		if (!widgetId) return false
-		if (widgetId === "core.system-status") return false
 
 		if (typeof widget?.is_picker_visible === "boolean") {
 			return widget.is_picker_visible

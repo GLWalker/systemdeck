@@ -1,8 +1,10 @@
 <?php
+
 /**
  * SystemDeck Notes Module
  * A quick-access notepad widget for the workspace.
  */
+
 declare(strict_types=1);
 
 namespace SystemDeck\Widgets;
@@ -207,16 +209,18 @@ class Notes extends BaseWidget
 
     protected static function output(array $context): void
     {
-        ?>
+?>
         <div class="sd-notes-widget" id="sd-notes-widget">
-            <div class="sd-notes-toolbar">
-                <button type="button" class="button-link sd-context-filter-btn" id="sd-note-context-filter"
-                    title="<?php esc_attr_e('Show notes for this page only', 'systemdeck'); ?>">
-                    <span class="dashicons dashicons-filter"></span>
-                    <?php _e('This Page', 'systemdeck'); ?>
-                </button>
+            <div class="sd-toolbar">
+
                 <button type="button" class="button button-small button-primary" id="sd-note-new">
                     <?php _e('New Note', 'systemdeck'); ?>
+                </button>
+
+                <button type="button" class="button button-small sd-context-filter-btn" id="sd-note-context-filter"
+                    title="<?php esc_attr_e('Show notes for this page only', 'systemdeck'); ?>">
+                    <span class="dashicons dashicons-filter sd-button-icon"></span>
+                    <?php _e('This Page', 'systemdeck'); ?>
                 </button>
             </div>
 
@@ -243,7 +247,7 @@ class Notes extends BaseWidget
                 <?php _e('No notes found.', 'systemdeck'); ?>
             </div>
 
-            <div class="tablenav bottom sd-notes-pagination" id="sd-notes-pagination" style="display:none;">
+            <div class="tablenav bottom sd-pagination sd-notes-pagination" id="sd-notes-pagination" style="display:none;">
                 <div class="alignleft actions">
                     <span class="displaying-num" id="sd-notes-total-count"></span>
                 </div>
@@ -426,7 +430,7 @@ class Notes extends BaseWidget
                 </div>
             </div>
         </div>
-        <?php
+<?php
     }
 
     public static function ajax_get_notes($request): array

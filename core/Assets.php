@@ -216,8 +216,6 @@ class Assets
         $widget_asset_loader_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'assets/js/runtime/widget-asset-loader.js') ?: SYSTEMDECK_VERSION);
         $pin_runtime_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'pins/pin.js') ?: SYSTEMDECK_VERSION);
         $time_monitor_pixi_scene_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'widgets/time-monitor/pixi-scene.js') ?: SYSTEMDECK_VERSION);
-        $system_status_app_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'widgets/system-status/app.js') ?: SYSTEMDECK_VERSION);
-        $system_status_style_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'widgets/system-status/style.css') ?: SYSTEMDECK_VERSION);
         wp_register_script('sd-pixi-vendor', SYSTEMDECK_URL . 'assets/vendor/pixi/pixi.min.js', [], $pixi_ver, true);
         wp_register_script('sd-motion-vendor', SYSTEMDECK_URL . 'assets/vendor/pixi/motion.min.js', [], $motion_ver, true);
         wp_register_script('sd-pixi-mount', SYSTEMDECK_URL . 'assets/js/sd-pixi-mount.js', ['sd-pixi-vendor', 'sd-motion-vendor'], $pixi_mount_ver, true);
@@ -226,8 +224,6 @@ class Assets
         wp_register_script('sd-widget-asset-loader', SYSTEMDECK_URL . 'assets/js/runtime/widget-asset-loader.js', [], $widget_asset_loader_ver, true);
         wp_register_script('sd-pin-base-runtime', SYSTEMDECK_URL . 'pins/pin.js', [], $pin_runtime_ver, true);
         wp_register_script('sd-time-monitor-pixi-scene', SYSTEMDECK_URL . 'widgets/time-monitor/pixi-scene.js', ['sd-pixi-hud-engine'], $time_monitor_pixi_scene_ver, true);
-        wp_register_style('sd-system-status-module-style', SYSTEMDECK_URL . 'widgets/system-status/style.css', ['sd-common', 'dashicons'], $system_status_style_ver);
-        wp_register_script('sd-system-status-module-app', SYSTEMDECK_URL . 'widgets/system-status/app.js', ['jquery'], $system_status_app_ver, true);
     }
 
     /**

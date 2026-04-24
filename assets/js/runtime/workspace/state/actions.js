@@ -107,6 +107,11 @@ export const toggleMetaDrawer = (isOpen) => ({
 	payload: isOpen,
 })
 
+export const togglePinPicker = (isOpen) => ({
+	type: types.TOGGLE_PIN_PICKER,
+	payload: isOpen,
+})
+
 export const updateWidgetConfig = (id, config) => ({
 	type: "UPDATE_WIDGET_CONFIG",
 	payload: { id, config },

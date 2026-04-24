@@ -7,6 +7,7 @@ import PinRenderer from "../components/PinRenderer"
 import ErrorBoundary from "../components/ErrorBoundary"
 import WidgetShell from "../components/WidgetShell"
 import ScreenOptions from "../components/ScreenOptions"
+import PinPicker from "../components/PinPicker"
 import { STORE_NAME } from "../state/store"
 import { openWorkspaceViaSystemDeck } from "../runtime/workspaceLaunch"
 import {
@@ -358,7 +359,7 @@ export default function WorkspaceCanvas() {
 		}
 	}, [])
 
-	const { setLayoutItems, persistLayout, toggleMetaDrawer } = useDispatch(STORE_NAME)
+	const { setLayoutItems, persistLayout, toggleMetaDrawer, togglePinPicker } = useDispatch(STORE_NAME)
 
 	useEffect(() => {
 		const handleOpenScreenOptions = () => {
@@ -372,6 +373,19 @@ export default function WorkspaceCanvas() {
 			document.removeEventListener("systemdeck:open-screen-options", handleOpenScreenOptions)
 		}
 	}, [toggleMetaDrawer])
+
+	useEffect(() => {
+		const handleOpenPinPicker = () => {
+			if (typeof togglePinPicker === "function") {
+				togglePinPicker(true)
+			}
+		}
+
+		document.addEventListener("systemdeck:open-pin-picker", handleOpenPinPicker)
+		return () => {
+			document.removeEventListener("systemdeck:open-pin-picker", handleOpenPinPicker)
+		}
+	}, [togglePinPicker])
 
 	const [canonicalLayout, setCanonicalLayout] = useState([])
 	const [dragging, setDragging] = useState(false)
@@ -1232,7 +1246,7 @@ export default function WorkspaceCanvas() {
 
 	const PLATFORM_PIN_ACTIONS = {
 		open_pin_manager: () => {
-			toggleMetaDrawer?.(true)
+			togglePinPicker?.(true)
 			return true
 		},
 		player_stop: () => {
@@ -1258,6 +1272,7 @@ export default function WorkspaceCanvas() {
 	return (
 		<>
 			<ScreenOptions />
+			<PinPicker />
 			{resolvedPins.length > 0 && (
 				<section
 					className='sd-pinned-metrics-root'

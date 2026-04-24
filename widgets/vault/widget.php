@@ -363,14 +363,14 @@ class Vault extends BaseWidget
         <div class="sd-vault-wrapper" id="sd-vault-widget" data-workspace-id="<?php echo esc_attr($workspace_id); ?>">
 
             <div class="sd-vault-recent">
-                <div class="sd-notes-toolbar sd-vault-toolbar">
+                <div class="sd-toolbar">
                     <input type="file" id="sd-vault-file-input" class="sd-hidden" />
                     <button type="button" class="button button-small button-primary" id="sd-vault-upload-file">
-                        <span class="dashicons dashicons-upload sd-vault-header-icon" aria-hidden="true"></span>
+                        <span class="dashicons dashicons-upload sd-button-icon" aria-hidden="true"></span>
                         <?php _e('Upload to Vault', 'systemdeck'); ?>
                     </button>
                     <button type="button" class="button button-small" id="sd-vault-open-media">
-                        <span class="dashicons dashicons-admin-media sd-vault-header-icon" aria-hidden="true"></span>
+                        <span class="dashicons dashicons-admin-media sd-button-icon" aria-hidden="true"></span>
                         <?php _e('Add from Media Library', 'systemdeck'); ?>
                     </button>
                 </div>
@@ -397,7 +397,7 @@ class Vault extends BaseWidget
                     <?php _e('No files found in your vault.', 'systemdeck'); ?>
                 </div>
 
-                <div class="tablenav bottom sd-notes-pagination sd-vault-pagination" id="sd-vault-pagination" style="display:none;">
+                <div class="tablenav bottom sd-pagination sd-vault-pagination" id="sd-vault-pagination" style="display:none;">
                     <div class="alignleft actions">
                         <span class="displaying-num" id="sd-vault-total-count"></span>
                     </div>
@@ -610,7 +610,9 @@ class Vault extends BaseWidget
                             <div class="sd-vault-comments-modal-header-actions">
                                 <span id="sd-vault-comment-file-urgency" class="sd-status-badge is-low sd-hidden"></span>
                                 <button type="button" class="components-button has-icon" id="sd-vault-comments-close" aria-label="<?php esc_attr_e('Close dialog', 'systemdeck'); ?>">
-                                    <svg width="24" height="24" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13 11.8l6.1-6.3-1-1-6.1 6.2-6.1-6.2-1 1 6.1 6.3-6.5 6.7 1 1 6.5-6.6 6.5 6.6 1-1z"></path></svg>
+                                    <svg width="24" height="24" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                        <path d="M13 11.8l6.1-6.3-1-1-6.1 6.2-6.1-6.2-1 1 6.1 6.3-6.5 6.7 1 1 6.5-6.6 6.5 6.6 1-1z"></path>
+                                    </svg>
                                 </button>
                             </div>
                         </div>
@@ -1570,8 +1572,12 @@ class Vault extends BaseWidget
         // Access gate — delegates to core ObjectAccessGate.
         // Throws 'Access denied' for non-authors unless scope='pinned' + workspace access.
         \SystemDeck\Core\Services\ObjectAccessGate::resolve(
-            $id, self::CPT, get_current_user_id(),
-            '_sd_vault_scope', '_sd_vault_workspace_id', 'pinned'
+            $id,
+            self::CPT,
+            get_current_user_id(),
+            '_sd_vault_scope',
+            '_sd_vault_workspace_id',
+            'pinned'
         );
 
         $result = self::build_vault_file_payload($id);
@@ -1818,7 +1824,12 @@ class Vault extends BaseWidget
         ];
 
         \SystemDeck\Core\Services\ProjectionService::sync(
-            $file_id, $scope, $workspace_id, 'vault', $settings, 'pinned'
+            $file_id,
+            $scope,
+            $workspace_id,
+            'vault',
+            $settings,
+            'pinned'
         );
         error_log('[VAULT PROJECTION] sync complete');
     }
@@ -1930,8 +1941,12 @@ class Vault extends BaseWidget
 
         // Access gate — delegates to core ObjectAccessGate.
         \SystemDeck\Core\Services\ObjectAccessGate::resolve(
-            $file_id, self::CPT, get_current_user_id(),
-            '_sd_vault_scope', '_sd_vault_workspace_id', 'pinned'
+            $file_id,
+            self::CPT,
+            get_current_user_id(),
+            '_sd_vault_scope',
+            '_sd_vault_workspace_id',
+            'pinned'
         );
 
         return ['comments' => \SystemDeck\Core\Services\CommentService::get_comment_tree($file_id)];
@@ -1946,8 +1961,14 @@ class Vault extends BaseWidget
         self::get_scope_value($file_id);
 
         $comment_id = \SystemDeck\Core\Services\CommentService::add_comment(
-            $file_id, $content, $user_id, $parent_id,
-            self::CPT, '_sd_vault_scope', '_sd_vault_workspace_id', 'pinned'
+            $file_id,
+            $content,
+            $user_id,
+            $parent_id,
+            self::CPT,
+            '_sd_vault_scope',
+            '_sd_vault_workspace_id',
+            'pinned'
         );
 
         return ['status' => 'success', 'comment_id' => $comment_id];
