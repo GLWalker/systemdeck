@@ -427,6 +427,11 @@ body,
     border-left-color: #d63638 !important;
 }
 
+/* Suppress WP update nags that leak into tunneled widget bodies. */
+.sd-tunnel-content .notice.notice-warning.update-nag.inline {
+    display: none !important;
+}
+
 /* Disable flaky WP community events module in tunneled dashboard widget context. */
 .sd-tunnel-content #community-events {
     display: none !important;

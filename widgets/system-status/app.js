@@ -105,6 +105,47 @@
 		return button
 	}
 
+	function setHeaderLauncherVisible(isVisible) {
+		const button = document.getElementById(MODULE_LAUNCHER_ID)
+		if (!button) return
+		button.style.display = isVisible ? "" : "none"
+	}
+
+	function canOpenPinPicker() {
+		try {
+			const selector = window?.wp?.data?.select
+			if (typeof selector !== "function") return false
+			const store = selector("systemdeck/core")
+			if (!store) return false
+
+			const uiMode = typeof store.getUIMode === "function" ? store.getUIMode() : "runtime"
+			const activeWorkspaceId =
+				typeof store.getActiveWorkspaceId === "function"
+					? String(store.getActiveWorkspaceId() || "").trim()
+					: ""
+			const activeWorkspace =
+				typeof store.getActiveWorkspace === "function" ? store.getActiveWorkspace() : null
+			const userConfig = window.SYSTEMDECK_BOOTSTRAP?.config?.user || {}
+			const canManageOptions = !!userConfig.can_manage_options
+			const canManageWorkspaces = !!userConfig.can_manage_workspaces
+
+			if (uiMode !== "runtime" || !activeWorkspaceId) return false
+			if (!canManageOptions && !canManageWorkspaces) return false
+			if (activeWorkspace?.shared_incoming && activeWorkspace?.is_locked) {
+				return false
+			}
+
+			return true
+		} catch (_err) {
+			return false
+		}
+	}
+
+	function syncHeaderLauncherVisibility() {
+		ensureHeaderLauncher()
+		setHeaderLauncherVisible(canOpenPinPicker())
+	}
+
 	function getNonce() {
 		return window.SystemDeckSecurity?.nonce || window.sd_vars?.nonce || ""
 	}
@@ -845,9 +886,11 @@
 		$host.attr("data-workspace-id", resolveWorkspaceId($host))
 		initWidget(host)
 		ensureHeaderLauncher()
+		syncHeaderLauncherVisibility()
 	}
 
 	function openModulePicker() {
+		if (!canOpenPinPicker()) return
 		const host = ensureModuleHost()
 		if (!host) return
 		const $host = $(host)
@@ -890,6 +933,7 @@
 		.off("click.sdOpenTelemetricsPickerModule")
 		.on("click.sdOpenTelemetricsPickerModule", `#${MODULE_LAUNCHER_ID}`, function (e) {
 			e.preventDefault()
+			if (!canOpenPinPicker()) return
 			openModulePicker()
 		})
 
@@ -956,10 +1000,12 @@
 	$(document).ready(function () {
 		initAll()
 		initModuleHost()
+		syncHeaderLauncherVisibility()
 	})
 	$(document).on("sd_workspace_rendered", function () {
 		initAll()
 		initModuleHost()
+		syncHeaderLauncherVisibility()
 	})
 	document.addEventListener("systemdeck:widget:mount", function () {
 		initAll()
@@ -967,4 +1013,7 @@
 	document.addEventListener("systemdeck:pins-updated", function () {
 		initModuleHost()
 	})
+	if (typeof window?.wp?.data?.subscribe === "function") {
+		window.wp.data.subscribe(syncHeaderLauncherVisibility)
+	}
 })(jQuery)
