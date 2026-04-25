@@ -89,7 +89,7 @@
 
 .sd-widget-picker__toolbar {
 	display: grid;
-	grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) auto;
+	grid-template-columns: minmax(200px, 260px) minmax(0, 1fr) minmax(170px, 210px) auto;
 	gap: 16px;
 	padding: 16px 18px;
 	border-bottom: 1px solid #dcdcde;
@@ -112,7 +112,8 @@
 }
 
 .sd-widget-picker__source-select,
-.sd-widget-picker__search {
+.sd-widget-picker__search,
+.sd-widget-picker__activity-select {
 	width: 100%;
 	min-height: 30px;
 	line-height: 2;
@@ -126,7 +127,8 @@
 }
 
 .sd-widget-picker__source-select:focus,
-.sd-widget-picker__search:focus {
+.sd-widget-picker__search:focus,
+.sd-widget-picker__activity-select:focus {
 	border-color: #2271b1;
 	box-shadow: 0 0 0 1px #2271b1;
 	outline: 0;
@@ -473,7 +475,7 @@
 
 .sd-pin-picker__toolbar {
     display: grid;
-    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) auto;
+    grid-template-columns: minmax(200px, 260px) minmax(0, 1fr) minmax(170px, 210px) auto;
     gap: 16px;
     padding: 16px 18px;
     border-bottom: 1px solid #dcdcde;
@@ -496,7 +498,8 @@
 }
 
 .sd-pin-picker__source-select,
-.sd-pin-picker__search {
+.sd-pin-picker__search,
+.sd-pin-picker__activity-select {
     width: 100%;
     min-height: 30px;
     line-height: 2;
@@ -510,7 +513,8 @@
 }
 
 .sd-pin-picker__source-select:focus,
-.sd-pin-picker__search:focus {
+.sd-pin-picker__search:focus,
+.sd-pin-picker__activity-select:focus {
     border-color: #2271b1;
     box-shadow: 0 0 0 1px #2271b1;
     outline: 0;

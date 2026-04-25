@@ -14,6 +14,12 @@ const SOURCE_DEFS = [
 	{ id: "third_party", label: "Third-Party" },
 ]
 
+const makeActivityDefs = (activeCount, totalCount) => [
+	{ id: "all", label: `All (${totalCount})` },
+	{ id: "active", label: `Active (${activeCount})` },
+	{ id: "inactive", label: `Inactive (${Math.max(0, totalCount - activeCount)})` },
+]
+
 const getNonce = () =>
 	window.SystemDeckSecurity?.nonce ||
 	window.sd_vars?.nonce ||
@@ -431,6 +437,7 @@ export default function PinPicker() {
 	const [metricCatalog, setMetricCatalog] = useState([])
 	const [sourceId, setSourceId] = useState("all")
 	const [categoryId, setCategoryId] = useState("all")
+	const [activityFilter, setActivityFilter] = useState("all")
 	const [searchTerm, setSearchTerm] = useState("")
 	const [blockStatus, setBlockStatus] = useState(null)
 	const [isSyncing, setIsSyncing] = useState(false)
@@ -523,6 +530,7 @@ export default function PinPicker() {
 	useEffect(() => {
 		setCategoryId("all")
 		setSourceId("all")
+		setActivityFilter("all")
 		setSearchTerm("")
 		setBlockStatus(null)
 		setIsSyncing(false)
@@ -539,6 +547,14 @@ export default function PinPicker() {
 			if (sourceId !== "all" && metric.family !== sourceId) return false
 			if (categoryId !== "all" && metric.category !== categoryId)
 				return false
+			const pinDefinition = metric?.pin_definition || null
+			const metricId = String(
+				pinDefinition?.id ||
+					`metric_${String(metric?.key || "").replace(/[^a-z0-9_-]/gi, "_")}`,
+			)
+			const isActive = !!pinMap[metricId]
+			if (activityFilter === "active" && !isActive) return false
+			if (activityFilter === "inactive" && isActive) return false
 			if (!normalizedSearchTerm) return true
 			const haystack = [
 				metric.label,
@@ -551,7 +567,7 @@ export default function PinPicker() {
 				.toLowerCase()
 			return haystack.includes(normalizedSearchTerm)
 		})
-	}, [categoryId, metricCatalog, searchTerm, sourceId])
+	}, [activityFilter, categoryId, metricCatalog, pinMap, searchTerm, sourceId])
 
 	const categoryDefs = useMemo(
 		() => getCategoryDefs(metricCatalog, sourceId),
@@ -563,6 +579,25 @@ export default function PinPicker() {
 			SOURCE_DEFS.find((source) => source.id === sourceId)?.label ||
 			"All Sources",
 		[sourceId],
+	)
+	const activityCounts = useMemo(() => {
+		let active = 0
+		metricCatalog.forEach((metric) => {
+			const pinDefinition = metric?.pin_definition || null
+			const metricId = String(
+				pinDefinition?.id ||
+					`metric_${String(metric?.key || "").replace(/[^a-z0-9_-]/gi, "_")}`,
+			)
+			if (pinMap[metricId]) active += 1
+		})
+		return {
+			active,
+			total: metricCatalog.length,
+		}
+	}, [metricCatalog, pinMap])
+	const activityDefs = useMemo(
+		() => makeActivityDefs(activityCounts.active, activityCounts.total),
+		[activityCounts],
 	)
 	const hasPendingChanges = useMemo(() => {
 		const initial = initialPinMapRef.current || {}
@@ -712,6 +747,20 @@ export default function PinPicker() {
 									"systemdeck",
 								)}
 							/>
+						</div>
+						<div className='sd-pin-picker__toolbar-field'>
+							<select
+								className='sd-pin-picker__activity-select'
+								value={activityFilter}
+								onChange={(event) =>
+									setActivityFilter(event.target.value)
+								}>
+								{activityDefs.map((activity) => (
+									<option key={activity.id} value={activity.id}>
+										{activity.label}
+									</option>
+								))}
+							</select>
 						</div>
 						<div className='sd-pin-picker__toolbar-actions'>
 							<button

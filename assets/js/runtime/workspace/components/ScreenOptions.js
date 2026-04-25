@@ -13,6 +13,12 @@ const GROUP_DEFS = [
 	{ id: "third-party", label: "Third-Party" },
 ]
 
+const makeActivityDefs = (activeCount, totalCount) => [
+	{ id: "all", label: `All (${totalCount})` },
+	{ id: "active", label: `Active (${activeCount})` },
+	{ id: "inactive", label: `Inactive (${Math.max(0, totalCount - activeCount)})` },
+]
+
 const CORE_DASHBOARD_WIDGET_IDS = new Set([
 	"dashboard_activity",
 	"dashboard_right_now",
@@ -155,6 +161,7 @@ export default function ScreenOptions() {
 		[],
 	)
 	const [activeGroup, setActiveGroup] = useState("all")
+	const [activityFilter, setActivityFilter] = useState("all")
 	const [searchTerm, setSearchTerm] = useState("")
 	const [blockStatus, setBlockStatus] = useState(null)
 	const [isSyncing, setIsSyncing] = useState(false)
@@ -203,6 +210,7 @@ export default function ScreenOptions() {
 			initialLayoutItemsRef.current = cloneLayoutItems(layoutObj)
 			previewLayoutItemsRef.current = cloneLayoutItems(layoutObj)
 			setPendingWidgetIds(combined)
+			setActivityFilter("all")
 		} else {
 			initialWidgetIdsRef.current = null
 			initialLayoutItemsRef.current = null
@@ -256,14 +264,38 @@ export default function ScreenOptions() {
 			.sort((a, b) => a.title.localeCompare(b.title))
 	}, [visibleRegistryWidgets, enablement])
 
+	const pendingWidgetIdSet = useMemo(
+		() => new Set(Array.isArray(pendingWidgetIds) ? pendingWidgetIds : availableIds),
+		[pendingWidgetIds, availableIds],
+	)
+
+	const activityCounts = useMemo(() => {
+		let active = 0
+		pickerWidgets.forEach((widget) => {
+			if (pendingWidgetIdSet.has(widget.id)) active += 1
+		})
+		return {
+			active,
+			total: pickerWidgets.length,
+		}
+	}, [pickerWidgets, pendingWidgetIdSet])
+
+	const activityDefs = useMemo(
+		() => makeActivityDefs(activityCounts.active, activityCounts.total),
+		[activityCounts],
+	)
+
 	const filteredWidgets = useMemo(() => {
 		const term = searchTerm.trim().toLowerCase()
 		return pickerWidgets.filter((widget) => {
 			if (activeGroup !== "all" && widget.group !== activeGroup) return false
+			const isActive = pendingWidgetIdSet.has(widget.id)
+			if (activityFilter === "active" && !isActive) return false
+			if (activityFilter === "inactive" && isActive) return false
 			if (!term) return true
 			return widget.searchIndex.includes(term)
 		})
-	}, [pickerWidgets, activeGroup, searchTerm])
+	}, [pickerWidgets, activeGroup, activityFilter, pendingWidgetIdSet, searchTerm])
 
 	const groupCounts = useMemo(() => {
 		const counts = { all: pickerWidgets.length, core: 0, dashboard: 0, apps: 0, "third-party": 0 }
@@ -276,10 +308,6 @@ export default function ScreenOptions() {
 	}, [pickerWidgets])
 
 	const activeGroupDef = GROUP_DEFS.find((group) => group.id === activeGroup) || GROUP_DEFS[0]
-	const pendingWidgetIdSet = useMemo(
-		() => new Set(Array.isArray(pendingWidgetIds) ? pendingWidgetIds : availableIds),
-		[pendingWidgetIds, availableIds],
-	)
 	const hasPendingChanges = useMemo(() => {
 		const pending = Array.isArray(pendingWidgetIds) ? pendingWidgetIds : []
 		const initial = Array.isArray(initialWidgetIdsRef.current)
@@ -432,6 +460,18 @@ export default function ScreenOptions() {
 								onChange={(event) => setSearchTerm(event.target.value)}
 								placeholder={__("Search widgets...", "systemdeck")}
 							/>
+						</div>
+						<div className='sd-widget-picker__toolbar-field'>
+							<select
+								className='sd-widget-picker__activity-select'
+								value={activityFilter}
+								onChange={(event) => setActivityFilter(event.target.value)}>
+								{activityDefs.map((activity) => (
+									<option key={activity.id} value={activity.id}>
+										{activity.label}
+									</option>
+								))}
+							</select>
 						</div>
 						<div className='sd-widget-picker__toolbar-actions'>
 							<button
