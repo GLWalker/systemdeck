@@ -6,7 +6,7 @@ import {
 	useMemo,
 } from "@wordpress/element"
 import { useSelect, useDispatch } from "@wordpress/data"
-import { FormToggle, Icon, TabPanel } from "@wordpress/components"
+import { FormToggle, Icon, Spinner, TabPanel } from "@wordpress/components"
 import { __ } from "@wordpress/i18n"
 import { STORE_NAME } from "../runtime/workspace/state/store"
 import * as actions from "../runtime/workspace/state/actions"
@@ -1641,6 +1641,14 @@ export default function DiscoveryCanvas() {
 	return (
 		<div className='sd-discovery-canvas'>
 			{confirmNode}
+			{isLoading && (
+				<div className='sd-discovery-canvas__loading' aria-live='polite' aria-busy='true'>
+					<div className='sd-discovery-canvas__loading-card'>
+						<Spinner />
+						<span>{__("Working...", "systemdeck")}</span>
+					</div>
+				</div>
+			)}
 			{/* 1. Header Section */}
 			<div className='sd-canvas-header'>
 				<h2 className='wp-heading-inline'>

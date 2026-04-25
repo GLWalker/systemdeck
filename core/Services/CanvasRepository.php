@@ -38,6 +38,14 @@ final class CanvasRepository
         add_action('before_delete_post', [self::class, 'handle_native_cpt_deletion']);
         add_action('wp_trash_post', [self::class, 'handle_native_cpt_trash']);
         add_action('untrash_post', [self::class, 'handle_native_cpt_untrash']);
+        // Canvas posts are mutated frequently by the picker. Revisions add
+        // DB overhead with no recovery value for machine-managed content.
+        add_filter('wp_revisions_to_keep', [self::class, 'revisions_to_keep_for_canvas'], 10, 2);
+    }
+
+    public static function revisions_to_keep_for_canvas(int $num, \WP_Post $post): int
+    {
+        return $post->post_type === self::CPT ? 0 : $num;
     }
 
     public static function register_cpt(): void
@@ -56,7 +64,7 @@ final class CanvasRepository
             'show_in_menu' => false,
             'show_in_admin_bar' => false,
             'show_in_rest' => true,
-            'supports' => ['title', 'editor', 'revisions'],
+            'supports' => ['title', 'editor'],
             'capability_type' => 'post',
             'map_meta_cap' => true,
             'menu_icon' => 'dashicons-layout',

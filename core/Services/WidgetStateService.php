@@ -27,6 +27,11 @@ final class WidgetStateService
         AjaxHandler::handle_toggle_workspace_widget_block();
     }
 
+    public static function handle_sync_workspace_widget_list(): void
+    {
+        AjaxHandler::handle_sync_workspace_widget_list();
+    }
+
     public static function handle_set_widget_block_width(): void
     {
         AjaxHandler::handle_set_widget_block_width();

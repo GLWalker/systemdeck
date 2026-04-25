@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "@wordpress/element"
+import { useEffect, useMemo, useRef, useState } from "@wordpress/element"
 import { useSelect, useDispatch } from "@wordpress/data"
-import { Modal } from "@wordpress/components"
+import { Modal, Spinner } from "@wordpress/components"
 import { __ } from "@wordpress/i18n"
 import { STORE_NAME } from "../state/store"
 import "./PinPicker.css"
@@ -321,6 +321,78 @@ const getCategoryDefs = (metrics, activeSource) => {
 	return defs
 }
 
+const clonePinMap = (pins) =>
+	JSON.parse(JSON.stringify(pins && typeof pins === "object" ? pins : {}))
+
+const dispatchPinsUpdated = (workspaceId, pins) => {
+	document.dispatchEvent(
+		new CustomEvent("systemdeck:pins-updated", {
+			detail: { workspaceId, pins },
+		}),
+	)
+}
+
+const buildPreviewPinFromMetric = (metric) => {
+	const pinDefinition = metric?.pin_definition || {}
+	const nextPinId = String(
+		pinDefinition?.id ||
+			`metric_${String(metric?.key || "").replace(/[^a-z0-9_-]/gi, "_")}`,
+	)
+	const title = String(pinDefinition?.label || metric?.label || nextPinId)
+	const sourceKind = String(pinDefinition?.source_kind || metric?.family || "")
+	const sourceAuthority = String(
+		pinDefinition?.source_authority || metric?.authority || "",
+	)
+	const sourceId = String(pinDefinition?.source_id || metric?.key || "")
+
+	return normalizePinRecord({
+		id: nextPinId,
+		type: String(pinDefinition?.type || "metric"),
+		size: String(pinDefinition?.size || "1x1"),
+		renderer: normalizePinRenderer(pinDefinition?.renderer || "dom"),
+		title,
+		design_template: "default",
+		data: {
+			label: title,
+			icon: String(pinDefinition?.icon || getMetricIcon(metric)),
+			source_widget: String(metric?.key || "systemdeck.pin-registry"),
+			metric_key: String(pinDefinition?.metric_key || metric?.key || ""),
+			metric_family: String(metric?.family || ""),
+			metric_authority: String(metric?.authority || ""),
+			metric_mode: String(metric?.mode || ""),
+			category: String(metric?.category || ""),
+			description: String(pinDefinition?.description || metric?.description || ""),
+			value_label: String(pinDefinition?.value_label || formatMetricValue(metric)),
+			action: String(pinDefinition?.type === "metric" ? "" : "open"),
+			pin_definition_id: String(pinDefinition?.id || ""),
+			pin_source_kind: sourceKind,
+			pin_source_authority: sourceAuthority,
+			pin_source_id: sourceId,
+			value: String(metric?.value ?? ""),
+		},
+		settings: {
+			label: title,
+			icon: String(pinDefinition?.icon || getMetricIcon(metric)),
+			source_widget: String(metric?.key || "systemdeck.pin-registry"),
+			metric_key: String(pinDefinition?.metric_key || metric?.key || ""),
+			metric_family: String(metric?.family || ""),
+			metric_authority: String(metric?.authority || ""),
+			metric_mode: String(metric?.mode || ""),
+			category: String(metric?.category || ""),
+			description: String(pinDefinition?.description || metric?.description || ""),
+			value_label: String(pinDefinition?.value_label || formatMetricValue(metric)),
+			action: String(pinDefinition?.type === "metric" ? "" : "open"),
+			pin_definition_id: String(pinDefinition?.id || ""),
+			pin_source_kind: sourceKind,
+			pin_source_authority: sourceAuthority,
+			pin_source_id: sourceId,
+			grid_span: String(pinDefinition?.size || "1x1"),
+			renderer: normalizePinRenderer(pinDefinition?.renderer || "dom"),
+			design_template: "default",
+		},
+	})
+}
+
 const canOpenPinPickerForWorkspace = (
 	uiMode,
 	activeWorkspace,
@@ -360,6 +432,9 @@ export default function PinPicker() {
 	const [sourceId, setSourceId] = useState("all")
 	const [categoryId, setCategoryId] = useState("all")
 	const [searchTerm, setSearchTerm] = useState("")
+	const [blockStatus, setBlockStatus] = useState(null)
+	const [isSyncing, setIsSyncing] = useState(false)
+	const initialPinMapRef = useRef(null)
 
 	const canOpen = canOpenPinPickerForWorkspace(
 		uiMode,
@@ -399,6 +474,7 @@ export default function PinPicker() {
 						nextPinMap[normalizedPin.id] = normalizedPin
 				})
 				setPinMap(nextPinMap)
+				initialPinMapRef.current = clonePinMap(nextPinMap)
 
 				const pinDefinitions =
 					metricsPayload?.data?.pin_definitions &&
@@ -448,6 +524,11 @@ export default function PinPicker() {
 		setCategoryId("all")
 		setSourceId("all")
 		setSearchTerm("")
+		setBlockStatus(null)
+		setIsSyncing(false)
+		if (!isOpen) {
+			initialPinMapRef.current = null
+		}
 	}, [activeWorkspaceId, isOpen])
 
 	const filteredMetrics = useMemo(() => {
@@ -483,10 +564,30 @@ export default function PinPicker() {
 			"All Sources",
 		[sourceId],
 	)
+	const hasPendingChanges = useMemo(() => {
+		const initial = initialPinMapRef.current || {}
+		const currentIds = Object.keys(pinMap).sort()
+		const initialIds = Object.keys(initial).sort()
+		if (currentIds.length !== initialIds.length) return true
+		return currentIds.some((id, index) => id !== initialIds[index])
+	}, [pinMap])
 
 	if (!isOpen || !canOpen) return null
 
-	const handleTogglePin = async (metric) => {
+	const restoreInitialPins = () => {
+		const restored = clonePinMap(initialPinMapRef.current || {})
+		setPinMap(restored)
+		dispatchPinsUpdated(activeWorkspaceId, Object.values(restored))
+	}
+
+	const handleRequestClose = () => {
+		if (!isSyncing) {
+			restoreInitialPins()
+		}
+		togglePinPicker(false)
+	}
+
+	const handleTogglePin = (metric) => {
 		const pinDefinition = metric?.pin_definition || null
 		const existingPins = Object.values(pinMap).filter(
 			(pin) => pin && typeof pin === "object",
@@ -498,65 +599,93 @@ export default function PinPicker() {
 		const isPinned = existingPins.some((pin) => pin?.id === nextPinId)
 
 		if (isPinned) {
+			setBlockStatus({
+				type: "success",
+				message: __("Pin removed.", "systemdeck"),
+			})
 			const mergedPins = existingPins.filter(
 				(pin) => pin?.id !== nextPinId,
 			)
-			document.dispatchEvent(
-				new CustomEvent("systemdeck:pins-updated", {
-					detail: {
-						workspaceId: activeWorkspaceId,
-						pins: mergedPins,
-					},
-				}),
-			)
-			await postAction({
-				action: "sd_save_workspace_pins",
-				workspace_id: activeWorkspaceId,
-				pins: JSON.stringify(mergedPins),
-				nonce: getNonce(),
+			const nextPinMap = {}
+			mergedPins.forEach((pin) => {
+				if (pin?.id) nextPinMap[pin.id] = pin
 			})
+			setPinMap(nextPinMap)
+			dispatchPinsUpdated(activeWorkspaceId, mergedPins)
 			return
 		}
 
-		const payload =
-			pinDefinition?.type === "metric"
-				? await postAction({
-						action: "sd_create_metric_pin",
-						workspace_id: activeWorkspaceId,
-						metric_key: String(
-							pinDefinition.metric_key || metric.key || "",
-						),
-						nonce: getNonce(),
-				  })
-				: await postAction({
-						action: "sd_create_registry_pin",
-						workspace_id: activeWorkspaceId,
-						definition_id: String(
-							pinDefinition?.id || metric.key || "",
-						),
-						nonce: getNonce(),
-				  })
-
-		if (!payload?.success || !payload?.data?.pin) return
-		const normalizedPin = normalizePinRecord(payload.data.pin)
+		setBlockStatus({
+			type: "success",
+			message: __("Pin added.", "systemdeck"),
+		})
+		const normalizedPin = buildPreviewPinFromMetric(metric)
 		const mergedPins = [
 			...existingPins.filter((pin) => pin?.id !== normalizedPin.id),
 			normalizedPin,
 		]
-		document.dispatchEvent(
-			new CustomEvent("systemdeck:pins-updated", {
-				detail: { workspaceId: activeWorkspaceId, pins: mergedPins },
-			}),
-		)
+		const nextPinMap = {}
+		mergedPins.forEach((pin) => {
+			if (pin?.id) nextPinMap[pin.id] = pin
+		})
+		setPinMap(nextPinMap)
+		dispatchPinsUpdated(activeWorkspaceId, mergedPins)
+	}
+
+	const handleSavePins = async () => {
+		if (!activeWorkspaceId || isSyncing) return
+		if (!hasPendingChanges) {
+			togglePinPicker(false)
+			return
+		}
+
+		setIsSyncing(true)
+		try {
+			const payload = await postAction({
+				action: "sd_save_workspace_pins",
+				workspace_id: activeWorkspaceId,
+				pins: JSON.stringify(Object.values(pinMap)),
+				nonce: getNonce(),
+			})
+			if (!payload?.success) {
+				setBlockStatus({
+					type: "error",
+					message:
+						payload?.data?.message ||
+						__("Pin sync failed.", "systemdeck"),
+				})
+				setIsSyncing(false)
+				return
+			}
+			initialPinMapRef.current = clonePinMap(pinMap)
+			togglePinPicker(false)
+		} catch (_error) {
+			setBlockStatus({
+				type: "error",
+				message: __("Pin sync failed.", "systemdeck"),
+			})
+			setIsSyncing(false)
+		}
 	}
 
 	return (
 		<Modal
 			title={__("Pin Picker", "systemdeck")}
 			className='sd-telemetrics-picker-modal'
-			onRequestClose={() => togglePinPicker(false)}>
+			onRequestClose={handleRequestClose}>
 			<div className='sd-pin-picker__surface'>
 				<div className='sd-pin-picker'>
+					{isSyncing ? (
+						<div
+							className='sd-pin-picker__loading'
+							aria-live='polite'
+							aria-busy='true'>
+							<div className='sd-pin-picker__loading-card'>
+								<Spinner />
+								<span>{__("Saving pins...", "systemdeck")}</span>
+							</div>
+						</div>
+					) : null}
 					<div className='sd-pin-picker__toolbar'>
 						<div className='sd-pin-picker__toolbar-field'>
 							<select
@@ -583,6 +712,15 @@ export default function PinPicker() {
 									"systemdeck",
 								)}
 							/>
+						</div>
+						<div className='sd-pin-picker__toolbar-actions'>
+							<button
+								type='button'
+								className='button button-primary sd-pin-picker__save-btn'
+								disabled={!hasPendingChanges || isSyncing}
+								onClick={handleSavePins}>
+								{__("Save Pins", "systemdeck")}
+							</button>
 						</div>
 					</div>
 					<div className='sd-pin-picker__layout'>
@@ -612,6 +750,16 @@ export default function PinPicker() {
 									{`${sourceLabel} (${filteredMetrics.length})`}
 								</div>
 							</div>
+							{blockStatus ? (
+								<div
+									className={`sd-pin-picker__status ${
+										blockStatus.type === "success"
+											? "is-success"
+											: "is-error"
+									}`}>
+									{blockStatus.message}
+								</div>
+							) : null}
 							<div className='sd-pin-picker__list'>
 								{!filteredMetrics.length ? (
 									<div className='sd-pin-picker__empty'>
@@ -784,6 +932,7 @@ export default function PinPicker() {
 																? "button-secondary"
 																: "button-primary"
 														} sd-pin-picker__pin-btn`}
+														disabled={isSyncing}
 														onClick={() =>
 															handleTogglePin(
 																metric,

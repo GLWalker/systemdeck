@@ -34,6 +34,7 @@ final class WorkspaceAjaxController
     public static function handle_get_workspace_pins(): void { WorkspaceStateService::handle_get_workspace_pins(); }
     public static function handle_save_workspace_pins(): void { WorkspaceStateService::handle_save_workspace_pins(); }
     public static function handle_toggle_workspace_widget_block(): void { WorkspaceStateService::handle_toggle_workspace_widget_block(); }
+    public static function handle_sync_workspace_widget_list(): void { WorkspaceStateService::handle_sync_workspace_widget_list(); }
     public static function handle_set_widget_block_width(): void { WorkspaceStateService::handle_set_widget_block_width(); }
     public static function handle_set_widget_ui_state(): void { WorkspaceStateService::handle_set_widget_ui_state(); }
     public static function handle_sync_layout_to_editor(): void { WorkspaceStateService::handle_sync_layout_to_editor(); }

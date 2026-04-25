@@ -636,6 +636,7 @@ class AjaxHandler
             'get_workspace_pins' => [WorkspaceAjaxController::class, 'handle_get_workspace_pins'],
             'save_workspace_pins' => [WorkspaceAjaxController::class, 'handle_save_workspace_pins'],
             'toggle_workspace_widget_block' => [WorkspaceAjaxController::class, 'handle_toggle_workspace_widget_block'],
+            'sync_workspace_widget_list' => [WorkspaceAjaxController::class, 'handle_sync_workspace_widget_list'],
             'set_widget_block_width' => [WorkspaceAjaxController::class, 'handle_set_widget_block_width'],
             'set_widget_ui_state' => [WorkspaceAjaxController::class, 'handle_set_widget_ui_state'],
             'sync_layout_to_editor' => [WorkspaceAjaxController::class, 'handle_sync_layout_to_editor'],
@@ -816,6 +817,8 @@ class AjaxHandler
             'render_widget' => 'workspace_view',
             'resolve_widget' => 'workspace_view',
             'get_workspace_pins' => 'workspace_view',
+            'toggle_workspace_widget_block' => 'workspace_edit',
+            'sync_workspace_widget_list' => 'workspace_edit',
             'save_widget_selection' => 'workspace_manage',
             'save_registry_state' => 'workspace_manage',
             'get_access_policy' => 'workspace_manage',
@@ -1816,7 +1819,11 @@ class AjaxHandler
             ]);
         }
 
-        $canvas_id = \SystemDeck\Core\Services\CanvasRepository::ensure_canvas_for_workspace($workspace_id, $user_id);
+        $context = new Context($user_id, $workspace_id);
+        $canvas_id = (int) ($workspace_record['canvas_id'] ?? 0);
+        if ($canvas_id <= 0) {
+            $canvas_id = \SystemDeck\Core\Services\CanvasRepository::ensure_canvas_for_workspace($workspace_id, $user_id);
+        }
         if ($canvas_id <= 0) {
             wp_send_json_error(['message' => 'Unable to resolve workspace canvas'], 500);
         }
@@ -1827,6 +1834,10 @@ class AjaxHandler
         }
 
         $content = (string) $post->post_content;
+        $layout_items = self::index_layout_items((array) StorageEngine::get('layout', $context));
+        if (empty($layout_items)) {
+            $layout_items = self::index_layout_items(array_values(\SystemDeck\Core\Services\CanvasRepository::extract_runtime_blocks_from_content($content)));
+        }
         $target_alt = str_replace('.', '_', $widget_id);
         $found = false;
         $pattern = '/<!--\s+wp:systemdeck\/widgets\s+\{[^}]*"widgetId":"(?:'
@@ -1838,6 +1849,12 @@ class AjaxHandler
         if (is_string($updated_content) && $count > 0) {
             $content = $updated_content;
             $found = true;
+            foreach ($layout_items as $item_id => $item) {
+                $candidate = \SystemDeck\Core\Services\WidgetRuntimeBridge::sanitize_widget_id((string) (($item['settings']['widgetId'] ?? '')));
+                if ($candidate === $widget_id) {
+                    unset($layout_items[$item_id]);
+                }
+            }
         }
 
         $operation = 'removed';
@@ -1854,11 +1871,16 @@ class AjaxHandler
             if ($instance_seed === '') {
                 $instance_seed = 'w_' . substr(md5((string) mt_rand()), 0, 12);
             }
+            $position = self::next_overlay_widget_position($layout_items);
             $snippet = sprintf(
-                '<!-- wp:systemdeck/widgets {"widgetId":"%1$s","title":"%2$s","sdItemId":"%3$s"} /-->',
+                '<!-- wp:systemdeck/widgets {"widgetId":"%1$s","title":"%2$s","sdItemId":"%3$s","columnSpan":%4$d,"rowSpan":%5$d,"gridX":%6$d,"gridY":%7$d} /-->',
                 $widget_id,
                 $widget_title,
-                $instance_seed
+                $instance_seed,
+                (int) ($position['w'] ?? 2),
+                (int) ($position['h'] ?? 1),
+                (int) ($position['x'] ?? 0),
+                (int) ($position['y'] ?? 0)
             );
             if (strpos($content, '<!-- /wp:systemdeck/canvas-grid -->') !== false) {
                 $content = str_replace(
@@ -1869,6 +1891,25 @@ class AjaxHandler
             } else {
                 $content = rtrim($content) . "\n" . $snippet . "\n";
             }
+
+            $runtime_id = 'sd_canvas_' . $instance_seed;
+            $layout_items[$runtime_id] = [
+                'i' => $runtime_id,
+                'id' => $runtime_id,
+                'type' => 'block_widget_placeholder',
+                'title' => $widget_title,
+                'x' => (int) ($position['x'] ?? 0),
+                'y' => (int) ($position['y'] ?? 0),
+                'w' => self::normalize_widget_width((int) ($position['w'] ?? 2)),
+                'h' => max(1, (int) ($position['h'] ?? 1)),
+                'settings' => [
+                    'source' => 'canvas',
+                    'blockName' => 'systemdeck/widgets',
+                    'sdItemId' => $instance_seed,
+                    'widgetId' => $widget_id,
+                    'label' => $widget_title,
+                ],
+            ];
         }
 
         // Normalize any legacy core/grid wrapper after block insert/remove.
@@ -1890,54 +1931,57 @@ class AjaxHandler
             ) ?: $content;
         }
 
-        $updated = wp_update_post([
-            'ID' => $canvas_id,
-            'post_content' => $content,
-        ], true);
+        // Write directly to wp_posts to bypass the full WordPress post save
+        // pipeline. wp_update_post fires pre_post_update, sanitize_post,
+        // wp_after_insert_post, and every save_post listener — none of which
+        // are needed for a machine-managed content column update. We only
+        // touch post_content and post_modified, then invalidate the cache.
+        global $wpdb;
+        $now     = current_time('mysql');
+        $now_gmt = current_time('mysql', 1);
+        $rows_affected = $wpdb->update(
+            $wpdb->posts,
+            [
+                'post_content'      => $content,
+                'post_modified'     => $now,
+                'post_modified_gmt' => $now_gmt,
+            ],
+            ['ID' => $canvas_id],
+            ['%s', '%s', '%s'],
+            ['%d']
+        );
 
-        if (is_wp_error($updated)) {
+        if ($rows_affected === false) {
             wp_send_json_error(['message' => 'Could not update canvas content'], 500);
         }
 
-        $runtime_items = \SystemDeck\Core\Services\CanvasRepository::extract_runtime_blocks_from_content($content);
-        $layout_items = [];
-        foreach ($runtime_items as $runtime_id => $runtime_item) {
-            $layout_items[$runtime_id] = [
-                'i' => $runtime_id,
-                'id' => $runtime_id,
-                'type' => (string) ($runtime_item['type'] ?? 'block_html'),
-                'title' => (string) ($runtime_item['title'] ?? 'Block'),
-                'x' => (int) ($runtime_item['x'] ?? 0),
-                'y' => (int) ($runtime_item['y'] ?? 0),
-                'w' => self::normalize_widget_width((int) ($runtime_item['w'] ?? 2)),
-                'h' => (int) ($runtime_item['h'] ?? 1),
-                'settings' => (array) ($runtime_item['settings'] ?? ['source' => 'canvas']),
-            ];
-        }
-        $workspace_widget_ids = [];
-        $active_widget_instance_ids = [];
-        foreach ($runtime_items as $item) {
-            if (($item['type'] ?? '') === 'block_widget_placeholder') {
-                $instance_id = trim((string) ($item['i'] ?? $item['id'] ?? ''));
-                if ($instance_id !== '') {
-                    $active_widget_instance_ids[] = $instance_id;
-                }
-                $candidate = \SystemDeck\Core\Services\WidgetRuntimeBridge::sanitize_widget_id((string) (($item['settings']['widgetId'] ?? '')));
-                if ($candidate !== '') {
-                    $workspace_widget_ids[] = $candidate;
+        // Invalidate the object cache so get_post() returns fresh data.
+        clean_post_cache($canvas_id);
+
+        StorageEngine::save('layout', array_values($layout_items), $context);
+        $workspace_widget_ids = self::collect_workspace_widget_ids($layout_items);
+
+        // Only prune stale UI state on remove — nothing to prune on add.
+        if ($operation === 'removed') {
+            $active_widget_instance_ids = [];
+            foreach ($layout_items as $item) {
+                if (($item['type'] ?? '') === 'block_widget_placeholder') {
+                    $instance_id = trim((string) ($item['i'] ?? $item['id'] ?? ''));
+                    if ($instance_id !== '') {
+                        $active_widget_instance_ids[] = $instance_id;
+                    }
                 }
             }
-        }
-        $workspace_widget_ids = array_values(array_unique($workspace_widget_ids));
-        if (!empty($active_widget_instance_ids)) {
-            self::prune_workspace_widget_ui_state_for_user($user_id, $workspace_id, $active_widget_instance_ids);
+            if (!empty($active_widget_instance_ids)) {
+                self::prune_workspace_widget_ui_state_for_user($user_id, $workspace_id, $active_widget_instance_ids);
+            }
         }
 
-        $workspaces = get_user_meta($user_id, 'sd_workspaces', true);
+        $workspaces = self::get_user_workspaces($user_id);
         if (is_array($workspaces) && isset($workspaces[$workspace_id]) && is_array($workspaces[$workspace_id])) {
             $workspaces[$workspace_id]['widgets'] = $workspace_widget_ids;
             $workspaces[$workspace_id]['available'] = $workspace_widget_ids;
-            update_user_meta($user_id, 'sd_workspaces', $workspaces);
+            self::save_user_workspaces($user_id, $workspaces);
         }
 
         wp_send_json_success([
@@ -1947,6 +1991,395 @@ class AjaxHandler
             'widget_id' => $widget_id,
             'workspace_widgets' => $workspace_widget_ids,
             'layout_items' => $layout_items,
+        ]);
+    }
+
+    /**
+     * Batch-sync the workspace widget list from the Widget Picker modal close.
+     *
+     * Accepts the full desired widget_ids array, reconciles it against the
+     * current post_content in a single pass, and writes once. This replaces
+     * the per-click toggle pattern with one write per modal session.
+     */
+    public static function handle_sync_workspace_widget_list(): void
+    {
+        self::verify_request();
+
+        $workspace_id = self::normalize_workspace_id($_POST['workspace_id'] ?? 'default');
+
+        $raw_ids = $_POST['widget_ids'] ?? '';
+        if (is_string($raw_ids)) {
+            $raw_ids = json_decode(stripslashes($raw_ids), true) ?: [];
+        }
+        if (!is_array($raw_ids)) {
+            $raw_ids = [];
+        }
+
+        $desired_ids = [];
+        foreach ($raw_ids as $raw_id) {
+            $sid = \SystemDeck\Core\Services\WidgetRuntimeBridge::sanitize_widget_id((string) $raw_id);
+            if ($sid !== '') {
+                $desired_ids[] = $sid;
+            }
+        }
+        $desired_ids = array_values(array_unique($desired_ids));
+
+        $user_id         = (int) get_current_user_id();
+        $workspace_record = self::get_workspace_record_for_user($user_id, $workspace_id);
+        $owner_id        = self::get_workspace_owner_id($workspace_id, $user_id);
+        $is_shared_non_owner = ($owner_id > 0 && $owner_id !== $user_id);
+        $is_collaborative = self::is_collaborative_workspace($workspace_id, $owner_id > 0 ? $owner_id : $user_id);
+
+        if ($is_shared_non_owner && !$is_collaborative) {
+            $snapshot = class_exists('\\SystemDeck\\Core\\Registry')
+                ? \SystemDeck\Core\Registry::get_snapshot()
+                : ['widgets' => []];
+            $definitions = is_array($snapshot['widgets'] ?? null) ? $snapshot['widgets'] : [];
+
+            $context = new Context($user_id, $workspace_id);
+            $overlay = self::get_shared_workspace_overlay($user_id, $workspace_id);
+            $hidden_base_widgets = array_values((array) ($overlay['hidden_base_widgets'] ?? []));
+            $hidden_lookup = array_fill_keys($hidden_base_widgets, true);
+
+            $local_items_raw = StorageEngine::get('layout', $context);
+            $local_items = self::index_layout_items(is_array($local_items_raw) ? $local_items_raw : []);
+            $base_runtime_items = self::get_base_runtime_items_for_workspace($workspace_id, $owner_id);
+            $base_widget_ids = [];
+            foreach ($base_runtime_items as $base_item_id => $base_item) {
+                $base_widget_id = \SystemDeck\Core\Services\WidgetRuntimeBridge::sanitize_widget_id((string) (($base_item['settings']['widgetId'] ?? '')));
+                if ($base_widget_id !== '') {
+                    $base_widget_ids[$base_widget_id] = $base_item_id;
+                }
+            }
+
+            $current_view = self::build_shared_workspace_overlay_view($workspace_id, $user_id, $owner_id);
+            $current_ids = array_values((array) ($current_view['workspace_widgets'] ?? []));
+            $current_set = array_fill_keys($current_ids, true);
+            $desired_set = array_fill_keys($desired_ids, true);
+            $to_add = array_diff_key($desired_set, $current_set);
+            $to_remove = array_diff_key($current_set, $desired_set);
+
+            foreach (array_keys($to_add) as $widget_id) {
+                $widget_def = is_array($definitions[$widget_id] ?? null) ? $definitions[$widget_id] : [];
+                if (!empty($widget_def)) {
+                    $policy_check = self::evaluate_widget_toggle_policy($widget_def, $workspace_record, $widget_id);
+                    if (empty($policy_check['allowed'])) {
+                        unset($to_add[$widget_id]);
+                    }
+                }
+            }
+
+            foreach (array_keys($to_remove) as $widget_id) {
+                if (isset($base_widget_ids[$widget_id]) && !isset($hidden_lookup[$widget_id])) {
+                    $hidden_base_widgets[] = $widget_id;
+                    $hidden_base_widgets = array_values(array_unique($hidden_base_widgets));
+                    unset($local_items[$base_widget_ids[$widget_id]]);
+                } else {
+                    foreach ($local_items as $item_id => $item) {
+                        $candidate = \SystemDeck\Core\Services\WidgetRuntimeBridge::sanitize_widget_id((string) (($item['settings']['widgetId'] ?? '')));
+                        $source = (string) (($item['settings']['source'] ?? '') ?: '');
+                        if ($candidate === $widget_id && $source === 'overlay') {
+                            unset($local_items[$item_id]);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            foreach (array_keys($to_add) as $widget_id) {
+                if (isset($hidden_lookup[$widget_id])) {
+                    $hidden_base_widgets = array_values(array_filter($hidden_base_widgets, static function ($candidate) use ($widget_id) {
+                        return $candidate !== $widget_id;
+                    }));
+                    unset($hidden_lookup[$widget_id]);
+                    continue;
+                }
+                if (isset($base_widget_ids[$widget_id])) {
+                    continue;
+                }
+
+                $resolved = \SystemDeck\Core\Services\WidgetRuntimeBridge::resolve($widget_id);
+                $widget_title = sanitize_text_field((string) ($resolved['title'] ?? ''));
+                if ($widget_title === '') {
+                    $widget_title = sanitize_text_field(ucwords(str_replace(['.', '_', '-'], ' ', $widget_id)));
+                }
+                $position = self::next_overlay_widget_position($local_items);
+                $overlay_id = 'sd_local_' . sanitize_key(str_replace(['.', '-'], '_', $widget_id));
+                $local_items[$overlay_id] = [
+                    'i' => $overlay_id,
+                    'id' => $overlay_id,
+                    'type' => 'block_widget_placeholder',
+                    'title' => $widget_title,
+                    'x' => $position['x'],
+                    'y' => $position['y'],
+                    'w' => $position['w'],
+                    'h' => $position['h'],
+                    'settings' => [
+                        'source' => 'overlay',
+                        'blockName' => 'systemdeck/widgets',
+                        'widgetId' => $widget_id,
+                        'label' => $widget_title,
+                    ],
+                ];
+            }
+
+            $overlay['hidden_base_widgets'] = $hidden_base_widgets;
+            self::save_shared_workspace_overlay($user_id, $workspace_id, $overlay);
+            StorageEngine::save('layout', array_values($local_items), $context);
+
+            $view = self::build_shared_workspace_overlay_view($workspace_id, $user_id, $owner_id);
+            $workspace_widget_ids = $view['workspace_widgets'];
+            $layout_items = $view['layout_items'];
+            if (!empty($to_remove)) {
+                $active_widget_instance_ids = [];
+                foreach ((array) $layout_items as $layout_item) {
+                    if (!is_array($layout_item)) {
+                        continue;
+                    }
+                    if ((string) ($layout_item['type'] ?? '') !== 'block_widget_placeholder') {
+                        continue;
+                    }
+                    $instance_id = trim((string) ($layout_item['i'] ?? $layout_item['id'] ?? ''));
+                    if ($instance_id !== '') {
+                        $active_widget_instance_ids[] = $instance_id;
+                    }
+                }
+                if (!empty($active_widget_instance_ids)) {
+                    self::prune_workspace_widget_ui_state_for_user($user_id, $workspace_id, $active_widget_instance_ids);
+                }
+            }
+
+            $workspaces = self::get_user_workspaces($user_id);
+            if (is_array($workspaces) && isset($workspaces[$workspace_id]) && is_array($workspaces[$workspace_id])) {
+                $workspaces[$workspace_id]['widgets'] = $workspace_widget_ids;
+                $workspaces[$workspace_id]['available'] = $workspace_widget_ids;
+                self::save_user_workspaces($user_id, $workspaces);
+            }
+
+            wp_send_json_success([
+                'message' => 'Widget list synced.',
+                'operation' => 'sync',
+                'canvas_id' => 0,
+                'widget_ids_added' => array_keys($to_add),
+                'widget_ids_removed' => array_keys($to_remove),
+                'workspace_widgets' => $workspace_widget_ids,
+                'layout_items' => $layout_items,
+            ]);
+        }
+
+        $canvas_id       = (int) ($workspace_record['canvas_id'] ?? 0);
+        if ($canvas_id <= 0) {
+            $canvas_id = \SystemDeck\Core\Services\CanvasRepository::ensure_canvas_for_workspace($workspace_id, $user_id);
+        }
+        if ($canvas_id <= 0) {
+            wp_send_json_error(['message' => 'Unable to resolve workspace canvas'], 500);
+        }
+
+        $post = get_post($canvas_id);
+        if (!$post || $post->post_type !== \SystemDeck\Core\Services\CanvasRepository::CPT) {
+            wp_send_json_error(['message' => 'Canvas not found'], 404);
+        }
+
+        $context     = new Context($user_id, $workspace_id);
+        $content     = (string) $post->post_content;
+        $layout_items = self::index_layout_items(
+            (array) StorageEngine::get('layout', $context)
+        );
+        if (empty($layout_items)) {
+            $layout_items = self::index_layout_items(array_values(
+                \SystemDeck\Core\Services\CanvasRepository::extract_runtime_blocks_from_content($content)
+            ));
+        }
+
+        // Determine current widget IDs from layout.
+        $current_ids = [];
+        foreach ($layout_items as $item) {
+            $wid = \SystemDeck\Core\Services\WidgetRuntimeBridge::sanitize_widget_id(
+                (string) ($item['settings']['widgetId'] ?? '')
+            );
+            if ($wid !== '') {
+                $current_ids[] = $wid;
+            }
+        }
+
+        $current_set = array_flip(array_unique($current_ids));
+        $desired_set = array_flip($desired_ids);
+        $to_add      = array_diff_key($desired_set, $current_set);
+        $to_remove   = array_diff_key($current_set, $desired_set);
+
+        $snapshot = class_exists('\\SystemDeck\\Core\\Registry')
+            ? \SystemDeck\Core\Registry::get_snapshot()
+            : ['widgets' => []];
+        $definitions = is_array($snapshot['widgets'] ?? null) ? $snapshot['widgets'] : [];
+        foreach (array_keys($to_add) as $widget_id) {
+            $widget_def = is_array($definitions[$widget_id] ?? null) ? $definitions[$widget_id] : [];
+            if (!empty($widget_def)) {
+                $policy_check = self::evaluate_widget_toggle_policy($widget_def, $workspace_record, $widget_id);
+                if (empty($policy_check['allowed'])) {
+                    unset($to_add[$widget_id]);
+                }
+            }
+        }
+
+        // Early return — nothing changed.
+        if (empty($to_add) && empty($to_remove)) {
+            $workspace_widget_ids = self::collect_workspace_widget_ids($layout_items);
+            wp_send_json_success([
+                'message'           => 'No changes.',
+                'operation'         => 'noop',
+                'canvas_id'         => $canvas_id,
+                'workspace_widgets' => $workspace_widget_ids,
+                'layout_items'      => $layout_items,
+            ]);
+        }
+
+        // Apply removes.
+        foreach (array_keys($to_remove) as $widget_id) {
+            $target_alt = str_replace('.', '_', $widget_id);
+            $pattern    = '/<!--\s+wp:systemdeck\/widgets\s+\{[^}]*"widgetId":"(?:'
+                . preg_quote($widget_id, '/')
+                . '|'
+                . preg_quote($target_alt, '/')
+                . ')"[^}]*\}\s+\/-->\s*/';
+            $updated = preg_replace($pattern, '', $content, 1, $count);
+            if (is_string($updated) && $count > 0) {
+                $content = $updated;
+                foreach ($layout_items as $item_id => $item) {
+                    $candidate = \SystemDeck\Core\Services\WidgetRuntimeBridge::sanitize_widget_id(
+                        (string) ($item['settings']['widgetId'] ?? '')
+                    );
+                    if ($candidate === $widget_id) {
+                        unset($layout_items[$item_id]);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Apply adds.
+        foreach (array_keys($to_add) as $widget_id) {
+            $resolved     = \SystemDeck\Core\Services\WidgetRuntimeBridge::resolve($widget_id);
+            $widget_title = sanitize_text_field((string) ($resolved['title'] ?? ''));
+            if ($widget_title === '') {
+                $widget_title = sanitize_text_field(ucwords(str_replace(['.', '_', '-'], ' ', $widget_id)));
+            }
+            $instance_seed = sanitize_key('w_' . wp_generate_uuid4());
+            if ($instance_seed === '') {
+                $instance_seed = 'w_' . substr(md5($widget_id . microtime(true)), 0, 12);
+            }
+            $position = self::next_overlay_widget_position($layout_items);
+            $snippet  = sprintf(
+                '<!-- wp:systemdeck/widgets {"widgetId":"%1$s","title":"%2$s","sdItemId":"%3$s","columnSpan":%4$d,"rowSpan":%5$d,"gridX":%6$d,"gridY":%7$d} /-->',
+                $widget_id,
+                $widget_title,
+                $instance_seed,
+                (int) ($position['w'] ?? 2),
+                (int) ($position['h'] ?? 1),
+                (int) ($position['x'] ?? 0),
+                (int) ($position['y'] ?? 0)
+            );
+            if (strpos($content, '<!-- /wp:systemdeck/canvas-grid -->') !== false) {
+                $content = str_replace(
+                    '<!-- /wp:systemdeck/canvas-grid -->',
+                    $snippet . "\n<!-- /wp:systemdeck/canvas-grid -->",
+                    $content
+                );
+            } else {
+                $content = rtrim($content) . "\n" . $snippet . "\n";
+            }
+            $runtime_id            = 'sd_canvas_' . $instance_seed;
+            $layout_items[$runtime_id] = [
+                'i'        => $runtime_id,
+                'id'       => $runtime_id,
+                'type'     => 'block_widget_placeholder',
+                'title'    => $widget_title,
+                'x'        => (int) ($position['x'] ?? 0),
+                'y'        => (int) ($position['y'] ?? 0),
+                'w'        => self::normalize_widget_width((int) ($position['w'] ?? 2)),
+                'h'        => max(1, (int) ($position['h'] ?? 1)),
+                'settings' => [
+                    'source'    => 'canvas',
+                    'blockName' => 'systemdeck/widgets',
+                    'sdItemId'  => $instance_seed,
+                    'widgetId'  => $widget_id,
+                    'label'     => $widget_title,
+                ],
+            ];
+        }
+
+        // Normalize any legacy grid wrappers.
+        if (strpos($content, '<!-- wp:grid ') !== false) {
+            $content = str_replace(
+                ['<!-- wp:grid ', '<!-- /wp:grid -->', 'wp-block-grid'],
+                ['<!-- wp:systemdeck/canvas-grid ', '<!-- /wp:systemdeck/canvas-grid -->', 'wp-block-systemdeck-canvas-grid'],
+                $content
+            );
+            $content = str_replace('sd-canvas-shell__grid', 'sd-canvas-grid-host', $content);
+        }
+        if (strpos($content, '<!-- wp:systemdeck/canvas-grid') === false) {
+            $content = preg_replace(
+                '/(<!-- wp:group [^>]*sd-canvas-shell[^>]*-->\s*<div[^>]*sd-canvas-shell[^>]*>)/',
+                "$1\n<!-- wp:systemdeck/canvas-grid {\"lock\":{\"move\":true,\"remove\":true}} -->\n<div class=\"wp-block-systemdeck-canvas-grid sd-canvas-grid-host\" data-sd-grid-host=\"1\"></div>\n<!-- /wp:systemdeck/canvas-grid -->",
+                $content,
+                1
+            ) ?: $content;
+        }
+
+        // Single direct DB write — bypasses wp_update_post machinery.
+        global $wpdb;
+        $now     = current_time('mysql');
+        $now_gmt = current_time('mysql', 1);
+        $rows_affected = $wpdb->update(
+            $wpdb->posts,
+            [
+                'post_content'      => $content,
+                'post_modified'     => $now,
+                'post_modified_gmt' => $now_gmt,
+            ],
+            ['ID' => $canvas_id],
+            ['%s', '%s', '%s'],
+            ['%d']
+        );
+
+        if ($rows_affected === false) {
+            wp_send_json_error(['message' => 'Could not update canvas content'], 500);
+        }
+        clean_post_cache($canvas_id);
+
+        StorageEngine::save('layout', array_values($layout_items), $context);
+        $workspace_widget_ids = self::collect_workspace_widget_ids($layout_items);
+
+        // Prune stale UI state only when widgets were removed.
+        if (!empty($to_remove)) {
+            $active_instance_ids = [];
+            foreach ($layout_items as $item) {
+                if (($item['type'] ?? '') === 'block_widget_placeholder') {
+                    $iid = trim((string) ($item['i'] ?? $item['id'] ?? ''));
+                    if ($iid !== '') {
+                        $active_instance_ids[] = $iid;
+                    }
+                }
+            }
+            if (!empty($active_instance_ids)) {
+                self::prune_workspace_widget_ui_state_for_user($user_id, $workspace_id, $active_instance_ids);
+            }
+        }
+
+        $workspaces = self::get_user_workspaces($user_id);
+        if (is_array($workspaces) && isset($workspaces[$workspace_id]) && is_array($workspaces[$workspace_id])) {
+            $workspaces[$workspace_id]['widgets']    = $workspace_widget_ids;
+            $workspaces[$workspace_id]['available']  = $workspace_widget_ids;
+            self::save_user_workspaces($user_id, $workspaces);
+        }
+
+        wp_send_json_success([
+            'message'            => 'Widget list synced.',
+            'operation'          => 'sync',
+            'canvas_id'          => $canvas_id,
+            'widget_ids_added'   => array_keys($to_add),
+            'widget_ids_removed' => array_keys($to_remove),
+            'workspace_widgets'  => $workspace_widget_ids,
+            'layout_items'       => $layout_items,
         ]);
     }
 
@@ -4059,11 +4492,7 @@ class AjaxHandler
                 $scanner_cache_count = (int) \SystemDeck\Core\Services\RegistryService::refresh_discovered_widget_cache();
             }
 
-            $live_dashboard_count = 0;
-            if (method_exists('\\SystemDeck\\Core\\Services\\RegistryService', 'discover_dashboard_widgets_for_scanner')) {
-                $live_dashboard = \SystemDeck\Core\Services\RegistryService::discover_dashboard_widgets_for_scanner();
-                $live_dashboard_count = is_array($live_dashboard) ? count($live_dashboard) : 0;
-            }
+            $live_dashboard_count = $scanner_cache_count;
 
             $requested_missing = [];
             $requested_widget_ids = $_POST['requested_widget_ids'] ?? [];

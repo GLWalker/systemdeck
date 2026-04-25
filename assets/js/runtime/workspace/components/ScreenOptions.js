@@ -1,8 +1,131 @@
-import { useEffect, useState } from "@wordpress/element"
+import { useEffect, useMemo, useRef, useState } from "@wordpress/element"
 import { useSelect, useDispatch } from "@wordpress/data"
-import { Modal } from "@wordpress/components"
+import { Modal, Spinner } from "@wordpress/components"
 import { __ } from "@wordpress/i18n"
 import { STORE_NAME } from "../state/store"
+import "./WidgetPicker.css"
+
+const GROUP_DEFS = [
+	{ id: "all", label: "All Widgets" },
+	{ id: "core", label: "Core" },
+	{ id: "dashboard", label: "Dashboard" },
+	{ id: "apps", label: "Apps" },
+	{ id: "third-party", label: "Third-Party" },
+]
+
+const CORE_DASHBOARD_WIDGET_IDS = new Set([
+	"dashboard_activity",
+	"dashboard_right_now",
+	"dashboard_quick_press",
+	"dashboard_primary",
+	"dashboard_site_health",
+	"dashboard_browser_nag",
+])
+
+const ORIGIN_LABELS = {
+	core: "Core",
+	dashboard: "Dashboard",
+	discovered: "Third-Party",
+	addon: "Third-Party",
+	auto_scan: "Third-Party",
+	deep_scan: "Third-Party",
+}
+
+const isCoreDashboardWidget = (widget) => {
+	if (widget.origin !== "dashboard") return false
+	const sourceId = String(widget.source_id || "").trim()
+	if (sourceId && CORE_DASHBOARD_WIDGET_IDS.has(sourceId)) return true
+	const widgetId = String(widget.id || "").trim().replace(/^dashboard\./, "")
+	return CORE_DASHBOARD_WIDGET_IDS.has(widgetId)
+}
+
+const iconForWidget = (widget) => {
+	if (widget.app_id) return "dashicons-admin-plugins"
+	if (isCoreDashboardWidget(widget)) {
+		return "dashicons-dashboard"
+	}
+	switch (String(widget.origin || "")) {
+		case "dashboard":
+			return "dashicons-admin-plugins"
+		case "core":
+			return "dashicons-screenoptions"
+		default:
+			return "dashicons-admin-plugins"
+	}
+}
+
+const inferGroupId = (widget) => {
+	if (widget.origin === "core") return "core"
+	if (widget.app_id || widget.is_app_scoped || widget.is_app_root) return "apps"
+	if (isCoreDashboardWidget(widget)) return "dashboard"
+	return "third-party"
+}
+
+const inferGroupLabel = (widget) => {
+	const groupId = inferGroupId(widget)
+	if (groupId === "dashboard") return "Dashboard Widget"
+	if (groupId === "core") return "Core Widget"
+	if (groupId === "apps") return "App Widget"
+	return "Third-Party Widget"
+}
+
+const inferProvider = (widget) => {
+	if (widget.app_id) {
+		return `App: ${String(widget.app_id).replace(/[-_]+/g, " ")}`
+	}
+
+	if (isCoreDashboardWidget(widget)) {
+		return "WordPress Dashboard"
+	}
+
+	if (widget.provider_name) {
+		return widget.provider_name
+	}
+
+	if (widget.origin === "core") {
+		return "SystemDeck Core"
+	}
+
+	if (widget.source_id) {
+		return String(widget.source_id).replace(/[-_]+/g, " ")
+	}
+
+	return ORIGIN_LABELS[String(widget.origin || "")] || "Third-Party"
+}
+
+const cloneLayoutItems = (items) =>
+	JSON.parse(JSON.stringify(items && typeof items === "object" ? items : {}))
+
+const nextPreviewWidgetPosition = (layoutItems) => {
+	let maxY = 0
+	Object.values(layoutItems || {}).forEach((item) => {
+		maxY = Math.max(maxY, Number(item?.y || 0) + Number(item?.h || 1))
+	})
+	return { x: 0, y: maxY, w: 2, h: 1 }
+}
+
+const createPreviewWidgetItem = (widget, layoutItems) => {
+	const widgetId = String(widget?.id || "").trim()
+	const widgetTitle = String(widget?.title || widgetId).trim()
+	const instanceId = `sd_preview_${widgetId.replace(/[^a-z0-9_-]/gi, "_")}`
+	const position = nextPreviewWidgetPosition(layoutItems)
+	return {
+		i: instanceId,
+		id: instanceId,
+		type: "block_widget_placeholder",
+		title: widgetTitle,
+		x: position.x,
+		y: position.y,
+		w: position.w,
+		h: position.h,
+		settings: {
+			source: "canvas",
+			blockName: "systemdeck/widgets",
+			widgetId,
+			label: widgetTitle,
+		},
+	}
+}
 
 export default function ScreenOptions() {
 	const { isOpen, registry, availableIds, activeId, activeWorkspace, enablement, layoutObj } = useSelect(
@@ -31,27 +154,19 @@ export default function ScreenOptions() {
 		},
 		[],
 	)
+	const [activeGroup, setActiveGroup] = useState("all")
+	const [searchTerm, setSearchTerm] = useState("")
 	const [blockStatus, setBlockStatus] = useState(null)
-	const [isOpeningEditor, setIsOpeningEditor] = useState(false)
-	const [diagRows, setDiagRows] = useState([])
-	const [diagLoading, setDiagLoading] = useState(false)
-	const [widgetSyncLoading, setWidgetSyncLoading] = useState(false)
-	const [layoutSyncLoading, setLayoutSyncLoading] = useState(false)
-	const [syncedWidgetIds, setSyncedWidgetIds] = useState(null)
-	const [diagnosticsEnabled, setDiagnosticsEnabled] = useState(
-		!!window.SYSTEMDECK_BOOTSTRAP?.config?.hydration_diagnostics_enabled,
-	)
-	const currentUserId = Number(
-		window.SYSTEMDECK_BOOTSTRAP?.config?.user?.id ||
-		window.sd_vars?.user?.id ||
-		0,
-	)
-	const canManageOptions = !!window.SYSTEMDECK_BOOTSTRAP?.config?.user?.can_manage_options
-	const canManageWorkspaces = !!window.SYSTEMDECK_BOOTSTRAP?.config?.user?.can_manage_workspaces
-	const activeWorkspaceOwnerId = Number(activeWorkspace?.cpt_author_id || 0)
+	const [isSyncing, setIsSyncing] = useState(false)
+	const [pendingWidgetIds, setPendingWidgetIds] = useState(null)
+	const initialWidgetIdsRef = useRef(null)
+	const initialLayoutItemsRef = useRef(null)
+	const previewLayoutItemsRef = useRef(null)
 
 	const { toggleMetaDrawer: toggleDrawer, setLayoutItems } =
 		useDispatch(STORE_NAME)
+	const isLockedSharedWorkspace =
+		!!activeWorkspace?.shared_incoming && !!activeWorkspace?.is_locked
 
 	const isPickerVisibleForWorkspace = (widget) => {
 		const widgetId = String(widget?.id || "")
@@ -77,35 +192,26 @@ export default function ScreenOptions() {
 		isPickerVisibleForWorkspace(widget),
 	)
 
-	const canEditActiveWorkspace = (() => {
-		if (!activeWorkspace || !activeId) return false
-		const ownerId = Number(activeWorkspace?.cpt_author_id || 0)
-		const isOwner = ownerId > 0 && ownerId === currentUserId
-		const isSharedIncoming = !!activeWorkspace?.shared_incoming
-		const isLocked = !!activeWorkspace?.is_locked
-
-		if (canManageOptions) return true
-		if (isSharedIncoming && isLocked) return false
-		if (isOwner && canManageWorkspaces) return true
-		if (isSharedIncoming && !isLocked) return true
-		return false
-	})()
-	const isSharedIncomingWorkspace =
-		!!activeWorkspace?.shared_incoming ||
-		(activeWorkspaceOwnerId > 0 && activeWorkspaceOwnerId !== currentUserId)
-
 	useEffect(() => {
-		const handlePrefChange = (event) => {
-			setDiagnosticsEnabled(!!event?.detail?.enabled)
+		if (isOpen) {
+			const fromLayout = Object.values(layoutObj || {})
+				.filter((item) => item?.type === "block_widget_placeholder")
+				.map((item) => String(item?.settings?.widgetId || ""))
+				.filter(Boolean)
+			const combined = [...new Set([...availableIds, ...fromLayout])]
+			initialWidgetIdsRef.current = combined
+			initialLayoutItemsRef.current = cloneLayoutItems(layoutObj)
+			previewLayoutItemsRef.current = cloneLayoutItems(layoutObj)
+			setPendingWidgetIds(combined)
+		} else {
+			initialWidgetIdsRef.current = null
+			initialLayoutItemsRef.current = null
+			previewLayoutItemsRef.current = null
+			setPendingWidgetIds(null)
+			setBlockStatus(null)
+			setIsSyncing(false)
 		}
-		window.addEventListener("sd_hydration_diag_toggle", handlePrefChange)
-		return () => window.removeEventListener("sd_hydration_diag_toggle", handlePrefChange)
-	}, [])
-
-	useEffect(() => {
-		setSyncedWidgetIds(null)
-		setBlockStatus(null)
-	}, [activeId])
+	}, [isOpen, activeId])
 
 	const getNonce = () =>
 		window.SystemDeckSecurity?.nonce ||
@@ -121,179 +227,167 @@ export default function ScreenOptions() {
 		window.SYSTEMDECK_STATE?.config?.ajaxurl ||
 		"/wp-admin/admin-ajax.php"
 
-	const openWorkspaceEditor = async () => {
-		if (!activeId) return
-		setIsOpeningEditor(true)
-		try {
-			const res = await jQuery.post(getAjaxUrl(), {
-				action: "sd_get_workspace_editor_url",
-				nonce: getNonce(),
-				workspace_id: activeId,
+	const isWidgetChecked = (widgetId) => {
+		if (Array.isArray(pendingWidgetIds)) {
+			return pendingWidgetIds.includes(widgetId)
+		}
+		return availableIds.includes(widgetId)
+	}
+
+	const pickerWidgets = useMemo(() => {
+		return visibleRegistryWidgets
+			.filter((widget) => enablement.includes(widget.id))
+			.map((widget) => {
+				const title = String(widget.title || widget.id || "").trim()
+				const provider = inferProvider(widget)
+				return {
+					...widget,
+					title,
+					group: inferGroupId(widget),
+					provider,
+					icon: iconForWidget(widget),
+					meta: __(inferGroupLabel(widget), "systemdeck"),
+					searchIndex: [title, provider, widget.id, widget.origin, widget.app_id]
+						.filter(Boolean)
+						.join(" ")
+						.toLowerCase(),
+				}
 			})
-			if (!res?.success || !res?.data?.edit_url) {
-				setBlockStatus({
-					type: "error",
-					message: res?.data?.message || __("Could not open workspace editor.", "systemdeck"),
-				})
-				return
+			.sort((a, b) => a.title.localeCompare(b.title))
+	}, [visibleRegistryWidgets, enablement])
+
+	const filteredWidgets = useMemo(() => {
+		const term = searchTerm.trim().toLowerCase()
+		return pickerWidgets.filter((widget) => {
+			if (activeGroup !== "all" && widget.group !== activeGroup) return false
+			if (!term) return true
+			return widget.searchIndex.includes(term)
+		})
+	}, [pickerWidgets, activeGroup, searchTerm])
+
+	const groupCounts = useMemo(() => {
+		const counts = { all: pickerWidgets.length, core: 0, dashboard: 0, apps: 0, "third-party": 0 }
+		pickerWidgets.forEach((widget) => {
+			if (counts[widget.group] !== undefined) {
+				counts[widget.group] += 1
 			}
-			window.location.href = res.data.edit_url
-		} catch (e) {
-			setBlockStatus({
-				type: "error",
-				message: __("Editor request failed.", "systemdeck"),
+		})
+		return counts
+	}, [pickerWidgets])
+
+	const activeGroupDef = GROUP_DEFS.find((group) => group.id === activeGroup) || GROUP_DEFS[0]
+	const pendingWidgetIdSet = useMemo(
+		() => new Set(Array.isArray(pendingWidgetIds) ? pendingWidgetIds : availableIds),
+		[pendingWidgetIds, availableIds],
+	)
+	const hasPendingChanges = useMemo(() => {
+		const pending = Array.isArray(pendingWidgetIds) ? pendingWidgetIds : []
+		const initial = Array.isArray(initialWidgetIdsRef.current)
+			? initialWidgetIdsRef.current
+			: []
+		if (pending.length !== initial.length) return true
+		return pending.some((id) => !initial.includes(id))
+	}, [pendingWidgetIds])
+
+	const handleToggleWidget = (widgetId) => {
+		if (!activeId || isSyncing || isLockedSharedWorkspace) return
+		const currentlyChecked = pendingWidgetIdSet.has(widgetId)
+		const widget = pickerWidgets.find((entry) => entry.id === widgetId)
+		if (!widget) return
+		setBlockStatus({
+			type: "success",
+			message: currentlyChecked
+				? __("Widget removed.", "systemdeck")
+				: __("Widget added.", "systemdeck"),
+		})
+		setPendingWidgetIds((prev) => {
+			const current = Array.isArray(prev) ? prev : [...availableIds]
+			return current.includes(widgetId)
+				? current.filter((id) => id !== widgetId)
+				: [...current, widgetId]
+		})
+		if (!setLayoutItems || !activeId) return
+		const nextLayout = cloneLayoutItems(previewLayoutItemsRef.current || layoutObj)
+		if (currentlyChecked) {
+			const targetId = Object.keys(nextLayout).find((itemId) => {
+				const item = nextLayout[itemId]
+				return (
+					String(item?.type || "") === "block_widget_placeholder" &&
+					String(item?.settings?.widgetId || "") === widgetId
+				)
 			})
-		} finally {
-			setIsOpeningEditor(false)
+			if (targetId) {
+				delete nextLayout[targetId]
+			}
+		} else {
+			const nextItem = createPreviewWidgetItem(widget, nextLayout)
+			nextLayout[nextItem.id] = nextItem
+		}
+		previewLayoutItemsRef.current = nextLayout
+		setLayoutItems(activeId, nextLayout)
+	}
+
+	const restorePreviewSnapshot = () => {
+		if (setLayoutItems && activeId && initialLayoutItemsRef.current) {
+			const restoredLayout = cloneLayoutItems(initialLayoutItemsRef.current)
+			previewLayoutItemsRef.current = restoredLayout
+			setLayoutItems(activeId, restoredLayout)
 		}
 	}
 
-	const runHydrationDiagnostics = async () => {
-		const slotItems = Object.values(layoutObj || {}).filter(
-			(item) => item?.type === "block_widget_placeholder" && item?.settings?.widgetId,
-		)
-		if (!slotItems.length) {
-			setDiagRows([])
-			setBlockStatus({
-				type: "error",
-				message: __("No widget blocks found in current workspace layout.", "systemdeck"),
-			})
+	const handleRequestClose = () => {
+		if (!isSyncing) {
+			restorePreviewSnapshot()
+		}
+		toggleDrawer(false)
+	}
+
+	const handleSaveWidgets = async () => {
+		const pending = pendingWidgetIds
+		const initial = initialWidgetIdsRef.current
+		const nonce = getNonce()
+		const ajaxUrl = getAjaxUrl()
+		const hasChanges =
+			Array.isArray(pending) &&
+			Array.isArray(initial) &&
+			(pending.length !== initial.length ||
+				pending.some((id) => !initial.includes(id)))
+
+		if (!activeId || isLockedSharedWorkspace || isSyncing) return
+		if (!hasChanges) {
+			toggleDrawer(false)
 			return
 		}
 
-		setDiagLoading(true)
+		setIsSyncing(true)
 		try {
-			const rows = await Promise.all(
-				slotItems.map(async (item) => {
-					const res = await jQuery.post(getAjaxUrl(), {
-						action: "sd_resolve_widget",
-						nonce: getNonce(),
-						widget_id: item.settings.widgetId,
-					})
-					if (!res?.success) {
-						return {
-							itemId: item.i || item.id,
-							requested: item.settings.widgetId,
-							resolved: "",
-							source: "",
-							status: "error",
-						}
-					}
-					return {
-						itemId: item.i || item.id,
-						requested: res.data.requested_id || item.settings.widgetId,
-						resolved: res.data.resolved_id || "",
-						source: res.data.source_id || "",
-						status: res.data.found ? "ok" : "missing",
-					}
-				}),
-			)
-			setDiagRows(rows)
-			setBlockStatus({
-				type: "success",
-				message: __("Hydration diagnostics updated.", "systemdeck"),
-			})
-		} catch (e) {
-			setBlockStatus({
-				type: "error",
-				message: __("Diagnostics request failed.", "systemdeck"),
-			})
-		} finally {
-			setDiagLoading(false)
-		}
-	}
-
-	const syncLayoutToEditor = async () => {
-		if (!activeId) return
-		setLayoutSyncLoading(true)
-		try {
-			const items = Object.values(layoutObj || {})
-				.map((item) => ({
-					...item,
-					id: item?.id || item?.i,
-					i: item?.i || item?.id,
-					x: Number.isFinite(item?.x) ? item.x : 0,
-					y: Number.isFinite(item?.y) ? item.y : 0,
-					w: Number.isFinite(item?.w) ? item.w : 2,
-					h: Number.isFinite(item?.h) ? item.h : 1,
-				}))
-				.filter((item) => !!item.id)
-				.sort((a, b) => (a.y === b.y ? a.x - b.x : a.y - b.y))
-				.map((item, index) => ({ ...item, y: index * 2 }))
-			const res = await jQuery.post(getAjaxUrl(), {
-				action: "sd_sync_layout_to_editor",
-				nonce: getNonce(),
+			const res = await jQuery.post(ajaxUrl, {
+				action: "sd_sync_workspace_widget_list",
+				nonce,
 				workspace_id: activeId,
-				layout: JSON.stringify(items),
-			})
-			if (!res?.success) {
-				setBlockStatus({
-					type: "error",
-					message: res?.data?.message || __("Could not sync layout to editor.", "systemdeck"),
-				})
-				return
-			}
-			setBlockStatus({
-				type: "success",
-				message: __("Workspace state saved to editor layout.", "systemdeck"),
-			})
-		} catch (e) {
-			setBlockStatus({
-				type: "error",
-				message: __("Layout sync request failed.", "systemdeck"),
-			})
-		} finally {
-			setLayoutSyncLoading(false)
-		}
-	}
-
-	const isWidgetChecked = (widgetId) => {
-		if (Array.isArray(syncedWidgetIds)) {
-			return syncedWidgetIds.includes(widgetId)
-		}
-		if (availableIds.includes(widgetId)) return true
-		return Object.values(layoutObj || {}).some(
-			(item) =>
-				item?.type === "block_widget_placeholder" &&
-				(item?.settings?.widgetId || "") === widgetId,
-		)
-	}
-
-	const toggleWorkspaceWidgetBlock = async (widgetId) => {
-		if (!activeId) return
-		setWidgetSyncLoading(true)
-		try {
-			const res = await jQuery.post(getAjaxUrl(), {
-				action: "sd_toggle_workspace_widget_block",
-				nonce: getNonce(),
-				workspace_id: activeId,
-				widget_id: widgetId,
+				widget_ids: JSON.stringify(pending),
 			})
 			if (!res?.success) {
 				setBlockStatus({
 					type: "error",
 					message: res?.data?.message || __("Widget sync failed.", "systemdeck"),
 				})
+				setIsSyncing(false)
 				return
 			}
-			setBlockStatus({
-				type: "success",
-				message:
-					res?.data?.operation === "added"
-						? __("Widget block added.", "systemdeck")
-						: __("Widget block removed.", "systemdeck"),
-			})
-			setSyncedWidgetIds(Array.isArray(res?.data?.workspace_widgets) ? res.data.workspace_widgets : [])
 			if (setLayoutItems && res?.data?.layout_items && activeId) {
 				setLayoutItems(activeId, Object.values(res.data.layout_items))
 			}
+			initialWidgetIdsRef.current = Array.isArray(pending) ? [...pending] : []
+			initialLayoutItemsRef.current = cloneLayoutItems(res?.data?.layout_items || layoutObj)
+			previewLayoutItemsRef.current = cloneLayoutItems(res?.data?.layout_items || layoutObj)
+			toggleDrawer(false)
 		} catch (e) {
 			setBlockStatus({
 				type: "error",
 				message: __("Widget sync request failed.", "systemdeck"),
 			})
-		} finally {
-			setWidgetSyncLoading(false)
+			setIsSyncing(false)
 		}
 	}
 
@@ -301,109 +395,124 @@ export default function ScreenOptions() {
 
 	return (
 		<Modal
-			title={__("Workspace Options", "systemdeck")}
-			className='sd-workspace-options-modal'
-			onRequestClose={() => toggleDrawer(false)}>
-			<div id='workspace-options-wrap'>
-					<fieldset className='metabox-prefs'>
-						<legend>{__("Widgets", "systemdeck")}</legend>
-						{visibleRegistryWidgets
-							.filter((w) => enablement.includes(w.id))
-							.map((widget) => (
-								<label key={widget.id}>
-									<input
-										type='checkbox'
-										checked={isWidgetChecked(widget.id)}
-										disabled={widgetSyncLoading}
-										onChange={() => toggleWorkspaceWidgetBlock(widget.id)}
-									/>
-									{widget.title || widget.id}
-								</label>
+			title={__("Widget Picker", "systemdeck")}
+			className='sd-widget-picker-modal'
+			onRequestClose={handleRequestClose}>
+			<div className='sd-widget-picker__surface'>
+				<div className='sd-widget-picker'>
+					{isSyncing && (
+						<div
+							className='sd-widget-picker__loading'
+							aria-live='polite'
+							aria-busy='true'>
+							<div className='sd-widget-picker__loading-card'>
+								<Spinner />
+								<span>{__("Saving widgets...", "systemdeck")}</span>
+							</div>
+						</div>
+					)}
+					<div className='sd-widget-picker__toolbar'>
+						<div className='sd-widget-picker__toolbar-field'>
+							<select
+								className='sd-widget-picker__source-select'
+								value={activeGroup}
+								onChange={(event) => setActiveGroup(event.target.value)}>
+								{GROUP_DEFS.map((group) => (
+									<option key={group.id} value={group.id}>
+										{group.label}
+									</option>
+								))}
+							</select>
+						</div>
+						<div className='sd-widget-picker__toolbar-field'>
+							<input
+								type='search'
+								className='sd-widget-picker__search'
+								value={searchTerm}
+								onChange={(event) => setSearchTerm(event.target.value)}
+								placeholder={__("Search widgets...", "systemdeck")}
+							/>
+						</div>
+						<div className='sd-widget-picker__toolbar-actions'>
+							<button
+								type='button'
+								className='button button-primary sd-widget-picker__save-btn'
+								disabled={!hasPendingChanges || isSyncing || isLockedSharedWorkspace}
+								onClick={handleSaveWidgets}>
+								{__("Save Widgets", "systemdeck")}
+							</button>
+						</div>
+					</div>
+					<div className='sd-widget-picker__layout'>
+						<aside className='sd-widget-picker__rail'>
+							{GROUP_DEFS.map((group) => (
+								<button
+									key={group.id}
+									type='button'
+									className={`sd-widget-picker__rail-item ${activeGroup === group.id ? "is-active" : ""}`}
+									onClick={() => setActiveGroup(group.id)}>
+									<span className='sd-widget-picker__rail-label'>{group.label}</span>
+									<span className='sd-widget-picker__rail-count'>{groupCounts[group.id] || 0}</span>
+								</button>
 							))}
-						{visibleRegistryWidgets.length === 0 && (
-							<p className='sd-meta-empty-note'>
-								{__(
-									"No widgets discovered yet. Run the scanner in Discovery mode.",
-									"systemdeck",
-								)}
-							</p>
-						)}
-					</fieldset>
-					<fieldset className='metabox-prefs sd-meta-blocks'>
-						<legend>{__("Workspace", "systemdeck")}</legend>
-							<p className='description'>
-								{__(
-									"Open the workspace editor to add and manage blocks.",
-									"systemdeck",
-								)}
-							</p>
-							<div className='sd-meta-block-actions'>
-								{!isSharedIncomingWorkspace ? (
-									<>
-										<button
-											type='button'
-											className='button button-primary'
-											disabled={isOpeningEditor}
-											onClick={openWorkspaceEditor}>
-											{__("Open Workspace Editor", "systemdeck")}
-										</button>
-										<button
-											type='button'
-											className='button button-secondary'
-											disabled={layoutSyncLoading}
-											onClick={syncLayoutToEditor}>
-											{layoutSyncLoading
-												? __("Saving State...", "systemdeck")
-												: __("Save State to Editor", "systemdeck")}
-										</button>
-									</>
-								) : null}
-								{diagnosticsEnabled ? (
-									<button
-										type='button'
-										className='button button-secondary'
-										disabled={diagLoading}
-										onClick={runHydrationDiagnostics}>
-										{diagLoading
-											? __("Running Diagnostics...", "systemdeck")
-											: __("Run Hydration Diagnostics", "systemdeck")}
-									</button>
-								) : null}
+						</aside>
+						<section className='sd-widget-picker__panel'>
+							<div className='sd-widget-picker__panel-header'>
+								<div className='sd-widget-picker__panel-title'>
+									{activeGroupDef.label} ({filteredWidgets.length})
+								</div>
 							</div>
-						{blockStatus ? (
-							<p
-								className={`sd-meta-block-status ${blockStatus.type === "success" ? "is-success" : "is-error"}`}>
-								{blockStatus.message}
-							</p>
-						) : null}
-						{diagnosticsEnabled && diagRows.length ? (
-							<div className='sd-meta-block-status sd-meta-diag-wrap'>
-								<table className='widefat striped sd-meta-diag-table'>
-									<thead>
-										<tr>
-											<th>{__("Slot", "systemdeck")}</th>
-											<th>{__("requested_id", "systemdeck")}</th>
-											<th>{__("resolved_id", "systemdeck")}</th>
-											<th>{__("source_id", "systemdeck")}</th>
-											<th>{__("status", "systemdeck")}</th>
-										</tr>
-									</thead>
-									<tbody>
-										{diagRows.map((row) => (
-											<tr key={row.itemId}>
-												<td><code>{row.itemId}</code></td>
-												<td><code>{row.requested}</code></td>
-												<td><code>{row.resolved}</code></td>
-												<td><code>{row.source}</code></td>
-												<td>{row.status}</td>
-											</tr>
-										))}
-									</tbody>
-								</table>
+							{blockStatus ? (
+								<div className={`sd-widget-picker__status ${blockStatus.type === "success" ? "is-success" : "is-error"}`}>
+									{blockStatus.message}
+								</div>
+							) : null}
+							<div className='sd-widget-picker__list'>
+								{filteredWidgets.length ? (
+									filteredWidgets.map((widget) => {
+										const isActive = isWidgetChecked(widget.id)
+										return (
+											<div key={widget.id} className='sd-widget-picker__row'>
+												<div className='sd-widget-picker__row-icon'>
+													<span className={`dashicons ${widget.icon}`} aria-hidden='true' />
+												</div>
+												<div className='sd-widget-picker__row-copy'>
+													<div className='sd-widget-picker__row-title'>{widget.title}</div>
+													<div className='sd-widget-picker__row-description'>
+														{widget.id}
+													</div>
+													<div className='sd-widget-picker__row-provider'>
+														{widget.provider}
+													</div>
+												</div>
+												<div className='sd-widget-picker__row-meta'>{widget.meta}</div>
+												<div className='sd-widget-picker__row-action'>
+													<button
+														type='button'
+														className={`button ${isActive ? "button-secondary" : "button-primary"} sd-widget-picker__action-btn`}
+														disabled={isSyncing || isLockedSharedWorkspace}
+														onClick={() => handleToggleWidget(widget.id)}>
+														{isActive
+															? __("Remove Widget", "systemdeck")
+															: __("Add Widget", "systemdeck")}
+													</button>
+												</div>
+											</div>
+										)
+									})
+								) : (
+									<div className='sd-widget-picker__empty'>
+										{__(
+											"No widgets match this selection yet.",
+											"systemdeck",
+										)}
+									</div>
+								)}
 							</div>
-						) : null}
-					</fieldset>
+						</section>
+					</div>
 				</div>
+			</div>
 		</Modal>
 	)
 }

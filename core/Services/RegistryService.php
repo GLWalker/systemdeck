@@ -22,11 +22,13 @@ if (!defined('ABSPATH')) {
 final class RegistryService
 {
     private const OPTION_KEY = 'sd_registry_snapshot';
-    private const CONTRACT_VERSION = 1;
+    private const CONTRACT_VERSION = 2;
     // Empty by default: include all registered dashboard widgets (core + third-party).
     // Integrators may still constrain this via `systemdeck_dashboard_widget_allowlist`.
     private const DASHBOARD_WIDGET_ALLOWLIST_DEFAULT = [];
     private const ALLOWED_VISIBILITY_POLICIES = ['global', 'app_scoped', 'app_root_only', 'hidden'];
+    /** @var array<string,string>|null */
+    private static ?array $dashboard_plugin_widget_provider_cache = null;
 
     /**
      * ============================
@@ -112,6 +114,8 @@ final class RegistryService
                     'title' => self::extract_widget_title($class, $folder_name),
                     'icon' => ($is_base_widget && defined("$class::ICON")) ? constant("$class::ICON") : 'dashicons-admin-generic',
                     'origin' => 'core',
+                    'provider_type' => 'core',
+                    'provider_name' => 'SystemDeck',
                     'file' => $widget_file,
                     'class' => $class,
                     'assets' => ($is_base_widget && method_exists($class, 'assets')) ? $class::assets() : self::detect_assets($folder),
@@ -134,6 +138,7 @@ final class RegistryService
          */
         if (class_exists(StorageEngine::class)) {
             $discovered = StorageEngine::get_discovered_widgets();
+            $plugin_providers = self::discover_dashboard_widget_plugin_providers();
 
             foreach ($discovered as $dw) {
                 // Canonicalize scanner-sourced dashboard widgets to dashboard.*
@@ -141,11 +146,14 @@ final class RegistryService
                 // discovered.* and dashboard.* namespaces across runs.
                 $source_id = (string) ($dw['id'] ?? '');
                 $widget_id = 'dashboard.' . sanitize_key($source_id);
+                $provider_name = $plugin_providers[sanitize_key($source_id)] ?? '';
 
                 $snapshot['widgets'][$widget_id] = [
                     'id' => $widget_id,
                     'title' => $dw['title'] ?: $source_id,
                     'origin' => 'dashboard',
+                    'provider_type' => $provider_name !== '' ? 'plugin' : 'core',
+                    'provider_name' => $provider_name,
                     'is_legacy' => true,
                     'source_id' => $source_id,
                     'render_callback' => ['SystemDeck\Core\Registry', 'render_discovered_widget_callback'],
@@ -161,12 +169,16 @@ final class RegistryService
          * DASHBOARD WIDGET DISCOVERY (BUILD STEP)
          * --------------------------------
          */
+        $plugin_providers = self::discover_dashboard_widget_plugin_providers();
         foreach (self::discover_dashboard_widgets() as $dw) {
             $widget_id = 'dashboard.' . sanitize_key($dw['id']);
+            $provider_name = $plugin_providers[sanitize_key((string) $dw['id'])] ?? '';
             $snapshot['widgets'][$widget_id] = [
                 'id' => $widget_id,
                 'title' => $dw['title'],
                 'origin' => 'dashboard',
+                'provider_type' => $provider_name !== '' ? 'plugin' : 'core',
+                'provider_name' => $provider_name,
                 'is_legacy' => true,
                 'source_id' => $dw['id'],
                 'tunnel_assets' => $dw['assets'] ?? ['scripts' => [], 'styles' => []],
@@ -254,6 +266,10 @@ final class RegistryService
     private static function needs_refresh($snapshot): bool
     {
         if (!is_array($snapshot) || empty($snapshot['version'])) {
+            return true;
+        }
+
+        if ((int) ($snapshot['contract_version'] ?? 0) < self::CONTRACT_VERSION) {
             return true;
         }
 
@@ -810,8 +826,36 @@ final class RegistryService
      */
     public static function discover_dashboard_widget_candidates_from_active_plugins(): array
     {
+        $rows = [];
+        foreach (array_keys(self::discover_dashboard_widget_plugin_providers()) as $id) {
+            if ($id === '' || str_starts_with($id, 'sd_')) {
+                continue;
+            }
+            $rows[] = [
+                'id' => $id,
+                'title' => ucwords(str_replace(['-', '_'], ' ', $id)),
+                'provider_name' => '',
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return array<string,string>
+     */
+    private static function discover_dashboard_widget_plugin_providers(): array
+    {
+        if (is_array(self::$dashboard_plugin_widget_provider_cache)) {
+            return self::$dashboard_plugin_widget_provider_cache;
+        }
+
         if (!function_exists('get_option')) {
-            return [];
+            return self::$dashboard_plugin_widget_provider_cache = [];
+        }
+
+        if (!function_exists('get_plugin_data')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
         }
 
         $active = (array) get_option('active_plugins', []);
@@ -824,29 +868,34 @@ final class RegistryService
             }
         }
 
-        $plugin_roots = [];
+        $providers = [];
+        $pattern = '/wp_add_dashboard_widget\s*\(\s*[\'"]([^\'"]+)[\'"]/i';
+
         foreach ($active as $plugin_file) {
             $plugin_file = (string) $plugin_file;
             if ($plugin_file === '') {
                 continue;
             }
-            $base = dirname($plugin_file);
-            if ($base === '.' || $base === '') {
+
+            $plugin_path = WP_PLUGIN_DIR . '/' . $plugin_file;
+            if (!file_exists($plugin_path)) {
                 continue;
             }
-            $root = WP_PLUGIN_DIR . '/' . $base;
-            if (is_dir($root)) {
-                $plugin_roots[$root] = true;
+
+            $plugin_data = get_plugin_data($plugin_path, false, false);
+            $plugin_name = sanitize_text_field((string) ($plugin_data['Name'] ?? ''));
+            if ($plugin_name === '') {
+                $plugin_name = sanitize_text_field((string) basename(dirname($plugin_file)));
             }
-        }
 
-        $ids = [];
-        $pattern = '/wp_add_dashboard_widget\s*\(\s*[\'"]([^\'"]+)[\'"]/i';
+            $plugin_root = dirname($plugin_path);
+            if (!is_dir($plugin_root)) {
+                continue;
+            }
 
-        foreach (array_keys($plugin_roots) as $root) {
             try {
                 $iterator = new \RecursiveIteratorIterator(
-                    new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS)
+                    new \RecursiveDirectoryIterator($plugin_root, \FilesystemIterator::SKIP_DOTS)
                 );
             } catch (\Throwable $e) {
                 continue;
@@ -873,26 +922,16 @@ final class RegistryService
                 if (preg_match_all($pattern, $contents, $matches)) {
                     foreach ((array) ($matches[1] ?? []) as $rawId) {
                         $id = sanitize_key((string) $rawId);
-                        if ($id !== '') {
-                            $ids[$id] = true;
+                        if ($id !== '' && !isset($providers[$id])) {
+                            $providers[$id] = $plugin_name;
                         }
                     }
                 }
             }
         }
 
-        $rows = [];
-        foreach (array_keys($ids) as $id) {
-            if ($id === '' || str_starts_with($id, 'sd_')) {
-                continue;
-            }
-            $rows[] = [
-                'id' => $id,
-                'title' => ucwords(str_replace(['-', '_'], ' ', $id)),
-            ];
-        }
-
-        return $rows;
+        self::$dashboard_plugin_widget_provider_cache = $providers;
+        return self::$dashboard_plugin_widget_provider_cache;
     }
 
     /**
@@ -1035,6 +1074,8 @@ final class RegistryService
             'id' => $id,
             'title' => $title,
             'origin' => $origin,
+            'provider_type' => sanitize_key((string) ($def['provider_type'] ?? '')),
+            'provider_name' => sanitize_text_field((string) ($def['provider_name'] ?? '')),
             'suite' => $suite,
             'render_mode' => $render_mode,
             'source_id' => sanitize_text_field((string) ($def['source_id'] ?? '')),
