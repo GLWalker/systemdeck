@@ -1,7 +1,15 @@
 /**
- * SystemDeck Shared Audio Engine
- * High-fidelity synthesis and arrangement engine.
+ * SystemDeck - sd-audio-engine.js
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/assets/js/sd-audio-engine.js
+ * @license GPL-2.0-or-later
+ *
+ * Unified Audio Engine Interface
  */
+
 window.SystemDeckAudio = (() => {
 	"use strict"
 
@@ -16,20 +24,40 @@ window.SystemDeckAudio = (() => {
 	}
 
 	const midiToHz = (midi) => 440 * Math.pow(2, (midi - 69) / 12)
+	const MIDI_NOTE_NAMES = [
+		"C",
+		"C#",
+		"D",
+		"D#",
+		"E",
+		"F",
+		"F#",
+		"G",
+		"G#",
+		"A",
+		"A#",
+		"B",
+	]
 	const SCRIPT_PROMISES = {}
 	const getAudioAssetConfig = () =>
-		typeof window !== "undefined" ? window.SYSTEMDECK_AUDIO_ASSETS || {} : {}
+		typeof window !== "undefined"
+			? window.SYSTEMDECK_AUDIO_ASSETS || {}
+			: {}
 	const buildAssetUrl = (url, version) => {
 		if (!url) return ""
 		if (!version) return String(url)
 		const separator = String(url).includes("?") ? "&" : "?"
 		return `${url}${separator}ver=${encodeURIComponent(version)}`
 	}
+
 	const loadScriptOnce = (key, url) => {
-		if (!url) return Promise.reject(new Error(`Missing script URL for ${key}.`))
+		if (!url)
+			return Promise.reject(new Error(`Missing script URL for ${key}.`))
 		if (SCRIPT_PROMISES[key]) return SCRIPT_PROMISES[key]
 		SCRIPT_PROMISES[key] = new Promise((resolve, reject) => {
-			const existing = document.querySelector(`script[data-systemdeck-script="${key}"]`)
+			const existing = document.querySelector(
+				`script[data-systemdeck-script="${key}"]`,
+			)
 			if (existing?.dataset?.loaded === "true") {
 				resolve()
 				return
@@ -1275,2083 +1303,34 @@ window.SystemDeckAudio = (() => {
 			},
 		},
 	}
-	/*
+
 	class SystemDeckAudio {
 		static getInstance() {
 			return new SystemDeckAudio()
 		}
 
-		constructor() {
-			if (SystemDeckAudio._instance) return SystemDeckAudio._instance
-
-			this.audioContext = null
-			this.master = null
-			this.fxGain = null
-			this.musicGain = null
-			this.fileGain = null
-			this.bassGain = null
-			this.synthGain = null
-			this.drumGain = null
-			this.bassBoostFilter = null
-			this.bassBoostEnabled = false
-			this.musicTimer = null
-			this.musicIndex = 0
-			this.currentTrack = "metal"
-			this.muted = false
-			this.fxVolume = 0.7
-			this.musicVolume = 0.45
-			this.mixLevels = { bass: 1, synth: 1, drums: 1 }
-			this.shaper = null
-			this.lastBassFreq = null
-			this.noiseBuffer = null
-			this.songs = {}
-			this.handleGlobalAudioSettingsChange = () => {
-				this.refreshOutputVolumes()
-			}
-			if (typeof window !== "undefined" && window.addEventListener) {
-				window.addEventListener(
-					"systemdeck:audio-settings-changed",
-					this.handleGlobalAudioSettingsChange,
-				)
-			}
-			const defaultMixByTrack = {
-				metal: { bass: 1.2, synth: 0.95, drums: 1.1 },
-				oldies: { bass: 0.9, synth: 1.05, drums: 0.85 },
-				country: { bass: 1.0, synth: 0.95, drums: 0.9 },
-				hiphop: { bass: 1.35, synth: 1.0, drums: 1.15 },
-				spicy: { bass: 1.25, synth: 1.1, drums: 1.0 },
-			}
-			const titleByTrack = {
-				metal: "Heavy Metal",
-				oldies: "Oldies",
-				country: "Country / Western",
-				hiphop: "Hip Hop",
-				spicy: "Spicy",
-			}
-			Object.entries(SONG_DATA).forEach(([id, data]) => {
-				this.registerSong(
-					id,
-					titleByTrack[id] || id,
-					data,
-					defaultMixByTrack[id] || { bass: 1, synth: 1, drums: 1 },
-				)
-			})
-		}
-
-		registerSong(
-			id,
-			title,
-			data,
-			defaultMix = { bass: 1, synth: 1, drums: 1 },
-		) {
-			if (!id || !data || !data.arrangement || !data.patterns) return
-			this.songs[id] = {
-				title: String(title || id),
-				data,
-				defaultMix: {
-					bass: Number(defaultMix.bass ?? 1),
-					synth: Number(defaultMix.synth ?? 1),
-					drums: Number(defaultMix.drums ?? 1),
-				},
-			}
-		}
-
-		getRegisteredSongs() {
-			return Object.entries(this.songs).map(([id, song]) => ({
-				id,
-				title: song.title,
-			}))
-		}
-
-		subscribe(listener) {
-			if (typeof listener !== "function") return () => {}
-			this.subscribers.add(listener)
-			try {
-				listener(this.getState())
-			} catch (_err) {}
-			return () => {
-				this.subscribers.delete(listener)
-			}
-		}
-
-		on(event, callback) {
-			if (!this.eventListeners.has(event) || typeof callback !== "function") {
-				return () => {}
-			}
-			this.eventListeners.get(event).add(callback)
-			return () => this.off(event, callback)
-		}
-
-		off(event, callback) {
-			if (!this.eventListeners.has(event) || typeof callback !== "function") {
-				return
-			}
-			this.eventListeners.get(event).delete(callback)
-		}
-
-		emitEvent(event, payload) {
-			if (!this.eventListeners.has(event)) return
-			this.eventListeners.get(event).forEach((callback) => {
-				try {
-					callback(payload)
-				} catch (_err) {}
-			})
-		}
-
-		normalizeStatus(status) {
-			const allowed = new Set([
-				"idle",
-				"loading",
-				"playing",
-				"paused",
-				"stopped",
-				"error",
-			])
-			return allowed.has(status) ? status : "idle"
-		}
-
-		normalizeMode(mode) {
-			return mode === "file" ? "file" : "track"
-		}
-
-		getState() {
-			const nowPlaying = this.playbackState.nowPlaying || {}
-			const mix = {
-				bass: Number(this.mixLevels?.bass ?? 1),
-				synth: Number(this.mixLevels?.synth ?? 1),
-				drums: Number(this.mixLevels?.drums ?? 1),
-			}
-			return {
-				status: this.normalizeStatus(this.playbackState.status),
-				nowPlaying: {
-					type: this.normalizeMode(
-						nowPlaying.type || this.playbackState.mode || "track",
-					),
-					id: nowPlaying.id ?? null,
-					title: String(nowPlaying.title || ""),
-					duration: Number(nowPlaying.duration || 0),
-					currentTime: Number(nowPlaying.currentTime || 0),
-					source: String(nowPlaying.source || ""),
-					metadata: { ...(nowPlaying.metadata || {}) },
-				},
-				volume: this.clamp(this.musicVolume, 0, 1),
-				bassBoost: !!this.bassBoostEnabled,
-				mix,
-				mixLevels: { ...mix },
-				mode: this.normalizeMode(this.playbackState.mode),
-				error: this.playbackState.error
-					? { message: String(this.playbackState.error.message || "") }
-					: null,
-			}
-		}
-
-		getPlaybackState() {
-			const state = this.getState()
-			const nowPlaying = state.nowPlaying || {}
-			return {
-				...state,
-				currentTime: Number(nowPlaying.currentTime || 0),
-				duration: Number(nowPlaying.duration || 0),
-				musicVolume: state.volume,
-				bassBoostEnabled: state.bassBoost,
-				error: state.error?.message || "",
-				reason: String(this.playbackState.reason || ""),
-				queue: this.queue.map((item) => ({
-					title: item?.meta?.title || item?.meta?.name || "Untitled",
-					source: String(item?.source || ""),
-					meta: { ...(item?.meta || {}) },
-				})),
-				queueIndex: this.queueIndex,
-				fxVolume: this.fxVolume,
-				mixLevels: { ...this.mixLevels },
-				currentTrack: this.currentTrack,
-			}
-		}
-
-		getNowPlaying() {
-			return { ...this.getState().nowPlaying }
-		}
-
-		getMode() {
-			return this.normalizeMode(this.playbackState.mode)
-		}
-
-		emitPlaybackState(reason = "update", patch = {}) {
-			const nextStatus = this.normalizeStatus(
-				String(patch.status || this.playbackState.status || "idle"),
-			)
-			const nextMode = this.normalizeMode(
-				String(patch.mode || this.playbackState.mode || "track"),
-			)
-			const previousNowPlaying = this.playbackState.nowPlaying || {}
-			const patchNowPlaying =
-				patch.nowPlaying && typeof patch.nowPlaying === "object"
-					? patch.nowPlaying
-					: {}
-			const nextNowPlaying = {
-				...previousNowPlaying,
-				...patchNowPlaying,
-				id:
-					patch.id ??
-					patchNowPlaying.id ??
-					previousNowPlaying.id ??
-					null,
-				title: String(
-					patch.title ??
-						patchNowPlaying.title ??
-						previousNowPlaying.title ??
-						"",
-				),
-				duration: Number(
-					patch.duration ??
-						patchNowPlaying.duration ??
-						previousNowPlaying.duration ??
-						0,
-				),
-				currentTime: Number(
-					patch.currentTime ??
-						patchNowPlaying.currentTime ??
-						previousNowPlaying.currentTime ??
-						0,
-				),
-				source: String(
-					patch.source ??
-						patchNowPlaying.source ??
-						previousNowPlaying.source ??
-						"",
-				),
-				metadata: {
-					...(previousNowPlaying.metadata || {}),
-					...(patchNowPlaying.metadata || {}),
-				},
-			}
-			const nowPlayingType =
-				nextNowPlaying.type || (nextMode === "file" ? "file" : "track")
-			this.playbackState = {
-				...this.playbackState,
-				...patch,
-				status: nextStatus,
-				mode: nextMode,
-				nowPlaying: {
-					type: this.normalizeMode(String(nowPlayingType)),
-					id: nextNowPlaying.id ?? null,
-					title: String(nextNowPlaying.title || ""),
-					duration: Number(nextNowPlaying.duration || 0),
-					currentTime: Number(nextNowPlaying.currentTime || 0),
-					source: String(nextNowPlaying.source || ""),
-					metadata: { ...(nextNowPlaying.metadata || {}) },
-				},
-				reason,
-				volume: this.clamp(this.musicVolume, 0, 1),
-				bassBoost: !!this.bassBoostEnabled,
-				error: patch.error
-					? { message: String(patch.error.message || patch.error) }
-					: patch.status === "error"
-						? this.playbackState.error || { message: "Playback error" }
-						: null,
-				queue: this.queue,
-				queueIndex: this.queueIndex,
-			}
-			const snapshot = this.getState()
-			this.subscribers.forEach((listener) => {
-				try {
-					listener(snapshot)
-				} catch (_err) {}
-			})
-			this.emitEvent("statechange", snapshot)
-			if (reason === "file:progress" || reason === "midi:progress")
-				this.emitEvent("timeupdate", snapshot)
-			if (reason === "file:ready" || reason === "loaded")
-				this.emitEvent("loaded", snapshot)
-			if (reason === "file:ended") this.emitEvent("ended", snapshot)
-			if (snapshot.status === "playing") this.emitEvent("play", snapshot)
-			if (snapshot.status === "paused") this.emitEvent("pause", snapshot)
-			const isStopReason =
-				typeof reason === "string" && reason.toLowerCase().includes("stop")
-			if (isStopReason || (snapshot.status === "stopped" && reason !== "loaded"))
-				this.emitEvent("stop", snapshot)
-			if (snapshot.status === "error")
-				this.emitEvent("error", snapshot.error || { message: "Playback error" })
-			if (typeof window !== "undefined" && window.dispatchEvent) {
-				window.dispatchEvent(
-					new CustomEvent("systemdeck:audio-player-state", {
-						detail: this.getPlaybackState(),
-					}),
-				)
-			}
-		}
-
-		clearFileProgressTimer() {
-			if (this.fileProgressTimer) {
-				clearInterval(this.fileProgressTimer)
-				this.fileProgressTimer = null
-			}
-		}
-
-		startFileProgressTimer() {
-			this.clearFileProgressTimer()
-			this.fileProgressTimer = window.setInterval(() => {
-				if (!this.fileIsPlaying) return
-				this.emitPlaybackState("file:progress")
-			}, 250)
-		}
-
-		getFileCurrentTime() {
-			if (!this.Tone || !this.fileIsPlaying) return this.filePausedAt || 0
-			const now = this.Tone.now()
-			const elapsed = Math.max(0, now - this.fileStartedAt)
-			return this.fileDuration > 0
-				? Math.min(this.fileDuration, elapsed)
-				: elapsed
-		}
-
-		clearMidiProgressTimer() {
-			if (this.midiProgressTimer) {
-				clearInterval(this.midiProgressTimer)
-				this.midiProgressTimer = null
-			}
-		}
-
-		startMidiProgressTimer() {
-			this.clearMidiProgressTimer()
-			this.midiProgressTimer = window.setInterval(() => {
-				if (!this.midiActive) return
-				this.emitPlaybackState("midi:progress")
-			}, 250)
-		}
-
-		clearMidiEndTimeout() {
-			if (this.midiEndTimeout) {
-				clearTimeout(this.midiEndTimeout)
-				this.midiEndTimeout = null
-			}
-		}
-
-		getMidiCurrentTime() {
-			if (!this.Tone || !this.midiActive) return this.midiPausedAt || 0
-			const elapsed = Math.max(0, this.Tone.now() - this.midiStartedAt)
-			if (this.midiDuration > 0) return Math.min(this.midiDuration, elapsed)
-			return elapsed
-		}
-
-		async sha256HexFromBuffer(arrayBuffer) {
-			if (!arrayBuffer) return ""
-			try {
-				if (
-					typeof crypto !== "undefined" &&
-					crypto?.subtle &&
-					typeof crypto.subtle.digest === "function"
-				) {
-					const digest = await crypto.subtle.digest("SHA-256", arrayBuffer)
-					return Array.from(new Uint8Array(digest))
-						.map((byte) => byte.toString(16).padStart(2, "0"))
-						.join("")
-				}
-			} catch (_err) {}
-			const bytes = new Uint8Array(arrayBuffer)
-			let hash = 2166136261
-			for (let i = 0; i < bytes.length; i++) {
-				hash ^= bytes[i]
-				hash +=
-					(hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24)
-			}
-			return `fnv1a-${(hash >>> 0).toString(16)}`
-		}
-
-		getMidiParser() {
-			if (window.TonejsMidi && typeof window.TonejsMidi.Midi === "function")
-				return window.TonejsMidi.Midi
-			if (typeof window.Midi === "function") return window.Midi
-			if (window.Midi && typeof window.Midi.Midi === "function")
-				return window.Midi.Midi
-			if (window.exports && typeof window.exports.Midi === "function")
-				return window.exports.Midi
-			if (
-				window.exports &&
-				window.exports.Midi &&
-				typeof window.exports.Midi.Midi === "function"
-			)
-				return window.exports.Midi.Midi
-			if (
-				window.module &&
-				window.module.exports &&
-				typeof window.module.exports.Midi === "function"
-			)
-				return window.module.exports.Midi
-			return null
-		}
-
-		async buildMidiDerivativeFromArrayBuffer(arrayBuffer, options = {}) {
-			await this.ensureAudioLibraries({ midi: true })
-			const MidiCtor = this.getMidiParser()
-			if (!MidiCtor) throw new Error("@tonejs/midi parser is unavailable.")
-			if (!arrayBuffer) throw new Error("MIDI source buffer is missing.")
-
-			const midi = new MidiCtor(arrayBuffer)
-			const sourceHash = await this.sha256HexFromBuffer(arrayBuffer)
-			const tempos = Array.isArray(midi?.header?.tempos) ? midi.header.tempos : []
-			const timeSignatures = Array.isArray(midi?.header?.timeSignatures)
-				? midi.header.timeSignatures
-				: []
-			const tracks = Array.isArray(midi?.tracks) ? midi.tracks : []
-
-			let noteCount = 0
-			const derivativeTracks = tracks.map((track, index) => {
-				const percussion =
-					!!track?.instrument?.percussion || Number(track?.channel) === 9
-				const family = String(track?.instrument?.family || "")
-				const lane = percussion
-					? "drums"
-					: family.includes("bass")
-						? "bass"
-						: "synth"
-				const notes = (Array.isArray(track?.notes) ? track.notes : []).map((note) => ({
-					midi: Number(note?.midi || 0),
-					time: Number(note?.time || 0),
-					duration: Number(note?.duration || 0),
-					velocity: Number(note?.velocity ?? 0.8),
-					noteOffVelocity: Number(note?.noteOffVelocity ?? 0.8),
-					ticks: Number(note?.ticks || 0),
-					durationTicks: Number(note?.durationTicks || 0),
-				}))
-				noteCount += notes.length
+		/**
+		 * Returns normalized built-in tracks for the playlist
+		 */
+		getBuiltinTracks() {
+			return Object.keys(SONG_DATA).map((key) => {
+				const title = key.charAt(0).toUpperCase() + key.slice(1)
 				return {
-					index,
-					name: String(track?.name || track?.instrument?.name || `Track ${index + 1}`),
-					channel: Number(track?.channel ?? -1),
-					instrument: {
-						number: Number(track?.instrument?.number ?? 0),
-						name: String(track?.instrument?.name || ""),
-						family: family,
-						percussion,
+					id: `builtin-${key}`,
+					title: title,
+					type: "builtin",
+					source: null, // Critical: must not be an object
+					engine: "tone",
+					origin: "builtin",
+					data: { type: "track", id: key }, // Actual config
+					metadata: {
+						title: title,
+						origin: "builtin",
+						mediaType: "track",
+						builtinId: key,
 					},
-					lane,
-					notes,
 				}
 			})
-
-			return {
-				schema: "systemdeck-midi-derivative",
-				version: this.midiSchemaVersion,
-				parser: {
-					name: "@tonejs/midi",
-					version: this.midiParserVersion,
-				},
-				source: {
-					hash: sourceHash,
-					sourceType: String(options?.sourceType || "player"),
-					id: options?.id != null ? String(options.id) : null,
-					title: String(options?.title || midi?.name || "MIDI Track"),
-					mime: String(options?.mime || "audio/midi"),
-					filename: String(options?.filename || ""),
-					url: String(options?.url || ""),
-				},
-				timing: {
-					ppq: Number(midi?.header?.ppq || 480),
-					tempoMap: tempos.map((tempo) => ({
-						bpm: Number(tempo?.bpm || 120),
-						time: Number(tempo?.time || 0),
-						ticks: Number(tempo?.ticks || 0),
-					})),
-					timeSignatures: timeSignatures.map((signature) => ({
-						time: Number(signature?.time || 0),
-						ticks: Number(signature?.ticks || 0),
-						signature: Array.isArray(signature?.timeSignature)
-							? signature.timeSignature.slice(0, 2).map((value) => Number(value || 0))
-							: [4, 4],
-					})),
-				},
-				tracks: derivativeTracks,
-				playback: {
-					duration: Number(midi?.duration || 0),
-					durationTicks: Number(midi?.durationTicks || 0),
-				},
-				summary: {
-					title: String(options?.title || midi?.name || "MIDI Track"),
-					trackCount: derivativeTracks.length,
-					noteCount,
-					tempo: Number(tempos?.[0]?.bpm || 120),
-					duration: Number(midi?.duration || 0),
-				},
-			}
-		}
-
-		normalizeMidiDerivative(derivative = {}) {
-			if (!derivative || typeof derivative !== "object") return null
-			if (String(derivative.schema || "") !== "systemdeck-midi-derivative")
-				return null
-			const tracks = Array.isArray(derivative.tracks) ? derivative.tracks : []
-			const normalizedTracks = tracks.map((track, index) => ({
-				index: Number(track?.index ?? index),
-				name: String(track?.name || `Track ${index + 1}`),
-				channel: Number(track?.channel ?? -1),
-				lane: String(track?.lane || "synth"),
-				instrument: {
-					number: Number(track?.instrument?.number ?? 0),
-					name: String(track?.instrument?.name || ""),
-					family: String(track?.instrument?.family || ""),
-					percussion: !!track?.instrument?.percussion,
-				},
-				notes: (Array.isArray(track?.notes) ? track.notes : [])
-					.map((note) => ({
-						midi: Number(note?.midi || 0),
-						time: Math.max(0, Number(note?.time || 0)),
-						duration: Math.max(0.01, Number(note?.duration || 0.05)),
-						velocity: this.clamp(note?.velocity ?? 0.8, 0, 1),
-						noteOffVelocity: this.clamp(note?.noteOffVelocity ?? 0.8, 0, 1),
-						ticks: Number(note?.ticks || 0),
-						durationTicks: Number(note?.durationTicks || 0),
-					}))
-					.filter((note) => note.midi > 0),
-			}))
-			return {
-				...derivative,
-				tracks: normalizedTracks,
-				playback: {
-					...(derivative.playback || {}),
-					duration: Number(derivative?.playback?.duration || 0),
-					durationTicks: Number(derivative?.playback?.durationTicks || 0),
-				},
-			}
-		}
-
-		getMidiCacheKey(payload = {}) {
-			const sourceHash = String(payload?.source?.hash || "")
-			const parserVersion = String(payload?.parser?.version || "")
-			const schemaVersion = String(payload?.version || "")
-			return `${sourceHash}:${parserVersion}:${schemaVersion}`
-		}
-
-		setPlaybackError(message) {
-			this.emitPlaybackState("error", {
-				error: { message: String(message || "Unknown playback error") },
-				status: "error",
-			})
-		}
-
-		buildNowPlaying(meta = {}, source = "") {
-			const modeType = this.normalizeMode(String(meta.type || this.playbackState.mode || "track"))
-			const title = String(meta.title || meta.name || meta.filename || "Untitled")
-			const currentTime = this.fileIsPlaying ? this.getFileCurrentTime() : this.filePausedAt || 0
-			return {
-				type: modeType,
-				id: meta.id ?? null,
-				title,
-				duration: Number(meta.duration || this.fileDuration || 0),
-				currentTime: Number(currentTime || 0),
-				source: String(source || meta.source || ""),
-				metadata: { ...meta },
-			}
-		}
-
-		ensureContext() {
-			if (this.audioContext) return
-			const AudioCtx = window.AudioContext || window.webkitAudioContext
-			if (!AudioCtx) return
-
-			this.audioContext = new AudioCtx()
-			this.master = this.audioContext.createGain()
-			this.fxGain = this.audioContext.createGain()
-			this.musicGain = this.audioContext.createGain()
-			this.bassGain = this.audioContext.createGain()
-			this.synthGain = this.audioContext.createGain()
-			this.drumGain = this.audioContext.createGain()
-			this.bassBoostFilter = this.audioContext.createBiquadFilter()
-
-			this.fxGain.gain.value = this.fxVolume
-			this.musicGain.gain.value = this.musicVolume
-			this.bassGain.gain.value = this.mixLevels.bass
-			this.synthGain.gain.value = this.mixLevels.synth
-			this.drumGain.gain.value = this.mixLevels.drums
-			this.master.gain.value = 1.0
-			this.bassBoostFilter.type = "lowshelf"
-			this.bassBoostFilter.frequency.setValueAtTime(
-				80,
-				this.audioContext.currentTime,
-			)
-			this.bassBoostFilter.gain.setValueAtTime(
-				0,
-				this.audioContext.currentTime,
-			)
-
-			this.compressor = this.audioContext.createDynamicsCompressor()
-			this.compressor.threshold.setValueAtTime(
-				-24,
-				this.audioContext.currentTime,
-			)
-			this.compressor.ratio.setValueAtTime(
-				12,
-				this.audioContext.currentTime,
-			)
-
-			this.shaper = this.audioContext.createWaveShaper()
-			this.shaper.curve = this.makeDistortionCurve(400)
-			this.shaper.oversample = "4x"
-
-			// Phase 1: Strict Routing Matrix
-			this.bassGain.connect(this.musicGain)
-			this.synthGain.connect(this.musicGain)
-			this.drumGain.connect(this.musicGain)
-			this.musicGain.connect(this.bassBoostFilter)
-			this.bassBoostFilter.connect(this.master)
-			this.fxGain.connect(this.master)
-			this.master.connect(this.compressor)
-			this.compressor.connect(this.audioContext.destination)
-
-			this.createNoiseBuffer()
-			this.refreshOutputVolumes()
-		}
-
-		createNoiseBuffer() {
-			const size = 2 * this.audioContext.sampleRate
-			this.noiseBuffer = this.audioContext.createBuffer(
-				1,
-				size,
-				this.audioContext.sampleRate,
-			)
-			const output = this.noiseBuffer.getChannelData(0)
-			for (let i = 0; i < size; i++) {
-				output[i] = Math.random() * 2 - 1
-			}
-		}
-
-		makeDistortionCurve(amount) {
-			const k = typeof amount === "number" ? amount : 50
-			const n_samples = 44100
-			const curve = new Float32Array(n_samples)
-			const deg = Math.PI / 180
-			for (let i = 0; i < n_samples; ++i) {
-				const x = (i * 2) / n_samples - 1
-				curve[i] =
-					((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x))
-			}
-			return curve
-		}
-
-		resume() {
-			this.ensureContext()
-			if (this.audioContext?.state === "suspended")
-				this.audioContext.resume().catch(() => {})
-		}
-
-		getGlobalVolumeMultiplier() {
-			const audioConfig = window.SYSTEMDECK_ENV?.audio || null
-			if (!audioConfig) return 1
-			const parsed = Number(audioConfig.masterVolume ?? 1)
-			if (!Number.isFinite(parsed)) return 1
-			return Math.max(0, Math.min(1, parsed))
-		}
-
-		refreshOutputVolumes() {
-			const globalVolume = this.getGlobalVolumeMultiplier()
-			if (this.fxGain)
-				this.fxGain.gain.value = this.fxVolume * globalVolume
-			if (this.musicGain)
-				this.musicGain.gain.value = this.musicVolume * globalVolume
-		}
-
-		setMuted(muted) {
-			this.muted = !!muted
-			if (this.master) this.master.gain.value = this.muted ? 0 : 1
-		}
-
-		setTrack(track) {
-			if (this.songs[track]) {
-				this.stopMidiPlayback(false)
-				this.midiDerivative = null
-				this.midiSourceHash = ""
-				this.currentTrack = track
-				this.musicIndex = 0
-				this.lastBassFreq = null
-				this.applyTrackDefaultMix(track)
-				this.emitPlaybackState("track:set", {
-					mode: "music",
-					nowPlaying: {
-						title: this.songs[track]?.title || track,
-						source: track,
-						mime: "application/x-systemdeck-track",
-						origin: "systemdeck-track",
-					},
-					error: "",
-				})
-			}
-		}
-
-		setFxVolume(v) {
-			const next = Number(v)
-			this.fxVolume = Number.isFinite(next)
-				? Math.max(0, Math.min(1, next))
-				: this.fxVolume
-			this.refreshOutputVolumes()
-			this.emitPlaybackState("fx:volume")
-		}
-
-		setMusicVolume(v) {
-			const next = Number(v)
-			this.musicVolume = Number.isFinite(next)
-				? Math.max(0, Math.min(1, next))
-				: this.musicVolume
-			this.refreshOutputVolumes()
-			this.emitPlaybackState("music:volume")
-		}
-
-		setMixLevels(partial = {}) {
-			this.mixLevels = {
-				bass: Number(partial.bass ?? this.mixLevels.bass ?? 1),
-				synth: Number(partial.synth ?? this.mixLevels.synth ?? 1),
-				drums: Number(partial.drums ?? this.mixLevels.drums ?? 1),
-			}
-			if (this.bassGain) this.bassGain.gain.value = this.mixLevels.bass
-			if (this.synthGain) this.synthGain.gain.value = this.mixLevels.synth
-			if (this.drumGain) this.drumGain.gain.value = this.mixLevels.drums
-		}
-
-		setBassBoostEnabled(enabled) {
-			this.bassBoostEnabled = !!enabled
-			if (this.bassBoostFilter && this.audioContext) {
-				this.bassBoostFilter.gain.setValueAtTime(
-					this.bassBoostEnabled ? 9 : 0,
-					this.audioContext.currentTime,
-				)
-			}
-		}
-
-		applyTrackDefaultMix(trackId) {
-			const track = this.songs[trackId]
-			if (!track) return
-			this.setMixLevels(
-				track.defaultMix || { bass: 1, synth: 1, drums: 1 },
-			)
-		}
-
-		playTwang(midi, time, dur) {
-			const osc1 = this.audioContext.createOscillator()
-			const osc2 = this.audioContext.createOscillator()
-			const gain = this.audioContext.createGain()
-			const filter = this.audioContext.createBiquadFilter()
-
-			osc1.type = "square"
-			osc2.type = "sawtooth"
-			const freq = midiToHz(midi)
-			osc1.frequency.setValueAtTime(freq, time)
-			osc2.frequency.setValueAtTime(freq, time)
-
-			filter.type = "highpass"
-			filter.frequency.setValueAtTime(400, time)
-			filter.frequency.exponentialRampToValueAtTime(800, time + 0.05)
-
-			gain.gain.setValueAtTime(0.0001, time)
-			gain.gain.linearRampToValueAtTime(0.06, time + 0.005)
-			gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1)
-			gain.gain.exponentialRampToValueAtTime(0.0001, time + dur * 1.5)
-
-			osc1.connect(filter)
-			osc2.connect(filter)
-			filter.connect(gain)
-			gain.connect(this.synthGain || this.musicGain)
-
-			osc1.start(time)
-			osc1.stop(time + dur * 2)
-			osc2.start(time)
-			osc2.stop(time + dur * 2)
-		}
-
-		playSurf(midi, time, dur) {
-			const osc1 = this.audioContext.createOscillator()
-			const osc2 = this.audioContext.createOscillator()
-			const gain = this.audioContext.createGain()
-			const filter = this.audioContext.createBiquadFilter()
-
-			osc1.type = "sawtooth"
-			osc2.type = "sine"
-			const freq = midiToHz(midi)
-			osc1.frequency.setValueAtTime(freq, time)
-			osc2.frequency.setValueAtTime(freq, time)
-
-			filter.type = "bandpass"
-			filter.frequency.setValueAtTime(2000, time)
-			filter.Q.setValueAtTime(1, time)
-
-			gain.gain.setValueAtTime(0.0001, time)
-			gain.gain.linearRampToValueAtTime(0.07, time + 0.005)
-			gain.gain.exponentialRampToValueAtTime(0.01, time + 0.15)
-			gain.gain.exponentialRampToValueAtTime(0.0001, time + dur * 2)
-
-			osc1.connect(filter)
-			osc2.connect(filter)
-			filter.connect(gain)
-			gain.connect(this.synthGain || this.musicGain)
-
-			osc1.start(time)
-			osc1.stop(time + dur * 3)
-			osc2.start(time)
-			osc2.stop(time + dur * 3)
-		}
-
-		playPiano(midi, time, dur) {
-			const osc1 = this.audioContext.createOscillator()
-			const osc2 = this.audioContext.createOscillator()
-			const gain = this.audioContext.createGain()
-			const filter = this.audioContext.createBiquadFilter()
-
-			osc1.type = "triangle"
-			osc2.type = "sine"
-			const freq = midiToHz(midi)
-			osc1.frequency.setValueAtTime(freq + 1, time)
-			osc2.frequency.setValueAtTime(freq - 1, time)
-
-			filter.type = "lowpass"
-			filter.frequency.setValueAtTime(1500, time)
-
-			gain.gain.setValueAtTime(0.0001, time)
-			gain.gain.linearRampToValueAtTime(0.05, time + 0.01)
-			gain.gain.exponentialRampToValueAtTime(0.02, time + 0.2)
-			gain.gain.exponentialRampToValueAtTime(0.0001, time + dur * 3)
-
-			osc1.connect(filter)
-			osc2.connect(filter)
-			filter.connect(gain)
-			gain.connect(this.synthGain || this.musicGain)
-
-			osc1.start(time)
-			osc1.stop(time + dur * 4)
-			osc2.start(time)
-			osc2.stop(time + dur * 4)
-		}
-
-		playFx(type) {
-			this.resume()
-			if (!this.audioContext || !this.fxGain) return
-
-			const ctx = this.audioContext
-			const now = ctx.currentTime
-			const out = this.fxGain
-			const rand = (min, max) => min + Math.random() * (max - min)
-
-			const noiseBuffer = (() => {
-				if (this._fxNoiseBuffer) return this._fxNoiseBuffer
-				const length = Math.max(1, Math.floor(ctx.sampleRate * 0.35))
-				const buffer = ctx.createBuffer(1, length, ctx.sampleRate)
-				const data = buffer.getChannelData(0)
-				for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1
-				this._fxNoiseBuffer = buffer
-				return buffer
-			})()
-
-			const env = (gainNode, peak, attack, release, when = now) => {
-				gainNode.gain.cancelScheduledValues(when)
-				gainNode.gain.setValueAtTime(0.0001, when)
-				gainNode.gain.linearRampToValueAtTime(peak, when + attack)
-				gainNode.gain.exponentialRampToValueAtTime(
-					0.0001,
-					when + attack + release,
-				)
-			}
-
-			const tone = ({
-				type = "sine",
-				freq = 440,
-				freqEnd = null,
-				peak = 0.08,
-				attack = 0.003,
-				release = 0.12,
-				when = now,
-				detune = 0,
-				filterType = null,
-				filterFreq = 1200,
-				filterQ = 0.7,
-				target = out,
-			}) => {
-				const osc = ctx.createOscillator()
-				const gain = ctx.createGain()
-				let tail = gain
-
-				osc.type = type
-				osc.frequency.setValueAtTime(Math.max(20, freq), when)
-				osc.detune.setValueAtTime(detune, when)
-
-				if (freqEnd && freqEnd > 0) {
-					osc.frequency.exponentialRampToValueAtTime(
-						Math.max(20, freqEnd),
-						when + attack + release,
-					)
-				}
-
-				if (filterType) {
-					const filter = ctx.createBiquadFilter()
-					filter.type = filterType
-					filter.frequency.setValueAtTime(filterFreq, when)
-					filter.Q.setValueAtTime(filterQ, when)
-					osc.connect(filter)
-					filter.connect(gain)
-				} else {
-					osc.connect(gain)
-				}
-
-				gain.connect(target)
-				env(gain, peak, attack, release, when)
-				osc.start(when)
-				osc.stop(when + attack + release + 0.03)
-				return { osc, gain, tail }
-			}
-
-			const noise = ({
-				peak = 0.05,
-				attack = 0.002,
-				release = 0.12,
-				when = now,
-				filterType = "highpass",
-				filterFreq = 1200,
-				filterQ = 0.8,
-				target = out,
-			}) => {
-				const src = ctx.createBufferSource()
-				const filter = ctx.createBiquadFilter()
-				const gain = ctx.createGain()
-
-				src.buffer = noiseBuffer
-				filter.type = filterType
-				filter.frequency.setValueAtTime(filterFreq, when)
-				filter.Q.setValueAtTime(filterQ, when)
-
-				src.connect(filter)
-				filter.connect(gain)
-				gain.connect(target)
-				env(gain, peak, attack, release, when)
-
-				src.start(when)
-				src.stop(when + attack + release + 0.03)
-				return { src, gain, filter }
-			}
-
-			const echoBus = ({
-				delayTime = 0.12,
-				feedbackAmount = 0.22,
-				wetAmount = 0.28,
-				lowpass = 1800,
-			}) => {
-				const input = ctx.createGain()
-				const dry = ctx.createGain()
-				const wet = ctx.createGain()
-				const delay = ctx.createDelay(0.5)
-				const feedback = ctx.createGain()
-				const tone = ctx.createBiquadFilter()
-
-				delay.delayTime.setValueAtTime(delayTime, now)
-				feedback.gain.setValueAtTime(feedbackAmount, now)
-				wet.gain.setValueAtTime(wetAmount, now)
-				dry.gain.setValueAtTime(1, now)
-				tone.type = "lowpass"
-				tone.frequency.setValueAtTime(lowpass, now)
-
-				input.connect(dry)
-				dry.connect(out)
-
-				input.connect(delay)
-				delay.connect(tone)
-				tone.connect(wet)
-				wet.connect(out)
-
-				delay.connect(feedback)
-				feedback.connect(delay)
-
-				return input
-			}
-
-			if (type === "systemdeck_boot") {
-				tone({
-					type: "triangle",
-					freq: 220,
-					freqEnd: 440,
-					peak: 0.08,
-					attack: 0.006,
-					release: 0.18,
-					filterType: "lowpass",
-					filterFreq: 1800,
-					filterQ: 0.7,
-				})
-
-				tone({
-					type: "sine",
-					freq: 440,
-					freqEnd: 660,
-					peak: 0.05,
-					attack: 0.012,
-					release: 0.22,
-					when: now + 0.045,
-					filterType: "bandpass",
-					filterFreq: 2200,
-					filterQ: 1.1,
-				})
-
-				tone({
-					type: "triangle",
-					freq: 880,
-					freqEnd: 990,
-					peak: 0.03,
-					attack: 0.003,
-					release: 0.12,
-					when: now + 0.09,
-					filterType: "highpass",
-					filterFreq: 1400,
-					filterQ: 0.8,
-				})
-
-				const shimmer = ctx.createBufferSource()
-				const shimmerGain = ctx.createGain()
-				const shimmerFilter = ctx.createBiquadFilter()
-
-				shimmer.buffer = noiseBuffer
-				shimmerFilter.type = "bandpass"
-				shimmerFilter.frequency.setValueAtTime(3200, now)
-				shimmerFilter.Q.setValueAtTime(1.6, now)
-
-				shimmerGain.gain.setValueAtTime(0.0001, now)
-				shimmerGain.gain.linearRampToValueAtTime(0.018, now + 0.01)
-				shimmerGain.gain.exponentialRampToValueAtTime(
-					0.0001,
-					now + 0.12,
-				)
-
-				shimmer.connect(shimmerFilter)
-				shimmerFilter.connect(shimmerGain)
-				shimmerGain.connect(out)
-
-				shimmer.start(now)
-				shimmer.stop(now + 0.13)
-
-				return
-			}
-
-			const effects = {
-				systemdeck_boot: () => {
-					const bus = echoBus({
-						delayTime: 0.09,
-						feedbackAmount: 0.18,
-						wetAmount: 0.16,
-						lowpass: 2200,
-					})
-
-					tone({
-						type: "triangle",
-						freq: 220,
-						freqEnd: 440,
-						peak: 0.08,
-						attack: 0.006,
-						release: 0.18,
-						filterType: "lowpass",
-						filterFreq: 1800,
-						filterQ: 0.7,
-						target: bus,
-					})
-
-					tone({
-						type: "sine",
-						freq: 440,
-						freqEnd: 660,
-						peak: 0.05,
-						attack: 0.012,
-						release: 0.22,
-						when: now + 0.045,
-						filterType: "bandpass",
-						filterFreq: 2200,
-						filterQ: 1.1,
-						target: bus,
-					})
-
-					tone({
-						type: "triangle",
-						freq: 880,
-						freqEnd: 990,
-						peak: 0.03,
-						attack: 0.003,
-						release: 0.12,
-						when: now + 0.09,
-						filterType: "highpass",
-						filterFreq: 1400,
-						filterQ: 0.8,
-						target: bus,
-					})
-
-					noise({
-						peak: 0.012,
-						attack: 0.001,
-						release: 0.06,
-						when: now + 0.01,
-						filterType: "bandpass",
-						filterFreq: 3200,
-						filterQ: 1.6,
-						target: bus,
-					})
-				},
-
-				piece_rotate: () => {
-					tone({
-						type: "triangle",
-						freq: rand(560, 620),
-						freqEnd: rand(820, 900),
-						peak: 0.05,
-						attack: 0.002,
-						release: 0.06,
-						filterType: "highpass",
-						filterFreq: 700,
-						filterQ: 0.8,
-					})
-				},
-
-				piece_move: () => {
-					tone({
-						type: "square",
-						freq: rand(240, 280),
-						freqEnd: rand(190, 220),
-						peak: 0.028,
-						attack: 0.001,
-						release: 0.035,
-						filterType: "bandpass",
-						filterFreq: 900,
-						filterQ: 1.2,
-					})
-				},
-
-				piece_land: () => {
-					tone({
-						type: "square",
-						freq: rand(170, 210),
-						freqEnd: rand(68, 92),
-						peak: 0.06,
-						attack: 0.002,
-						release: 0.09,
-						filterType: "lowpass",
-						filterFreq: 650,
-						filterQ: 0.7,
-					})
-					noise({
-						peak: 0.018,
-						attack: 0.001,
-						release: 0.05,
-						filterType: "bandpass",
-						filterFreq: 480,
-						filterQ: 0.9,
-					})
-				},
-
-				piece_land_heavy: () => {
-					const bus = echoBus({
-						delayTime: 0.14,
-						feedbackAmount: 0.24,
-						wetAmount: 0.22,
-						lowpass: 1400,
-					})
-
-					tone({
-						type: "sine",
-						freq: rand(95, 120),
-						freqEnd: rand(38, 52),
-						peak: 0.16,
-						attack: 0.002,
-						release: 0.22,
-						target: bus,
-					})
-
-					tone({
-						type: "triangle",
-						freq: rand(180, 220),
-						freqEnd: rand(70, 88),
-						peak: 0.06,
-						attack: 0.001,
-						release: 0.11,
-						target: bus,
-					})
-
-					noise({
-						peak: 0.025,
-						attack: 0.001,
-						release: 0.08,
-						filterType: "bandpass",
-						filterFreq: 320,
-						filterQ: 0.8,
-						target: bus,
-					})
-				},
-
-				line_clear: () => {
-					noise({
-						peak: 0.04,
-						attack: 0.002,
-						release: 0.14,
-						filterType: "highpass",
-						filterFreq: 2200,
-						filterQ: 0.7,
-					})
-					tone({
-						type: "sawtooth",
-						freq: rand(480, 560),
-						freqEnd: rand(1250, 1450),
-						peak: 0.06,
-						attack: 0.002,
-						release: 0.14,
-						filterType: "highpass",
-						filterFreq: 900,
-						filterQ: 0.8,
-					})
-					tone({
-						type: "triangle",
-						freq: rand(760, 860),
-						freqEnd: rand(1600, 1850),
-						peak: 0.03,
-						attack: 0.004,
-						release: 0.12,
-						filterType: "highpass",
-						filterFreq: 1200,
-						filterQ: 0.8,
-						when: now + 0.012,
-					})
-				},
-
-				column_clear: () => {
-					noise({
-						peak: 0.03,
-						attack: 0.002,
-						release: 0.15,
-						filterType: "bandpass",
-						filterFreq: 2600,
-						filterQ: 1.4,
-					})
-					tone({
-						type: "triangle",
-						freq: rand(620, 720),
-						freqEnd: rand(1250, 1420),
-						peak: 0.04,
-						attack: 0.003,
-						release: 0.16,
-						filterType: "highpass",
-						filterFreq: 1400,
-						filterQ: 1.1,
-					})
-					tone({
-						type: "sine",
-						freq: rand(980, 1120),
-						freqEnd: rand(1800, 2100),
-						peak: 0.025,
-						attack: 0.002,
-						release: 0.11,
-						when: now + 0.015,
-						filterType: "highpass",
-						filterFreq: 1500,
-						filterQ: 1.2,
-					})
-				},
-
-				cascade: () => {
-					tone({
-						type: "triangle",
-						freq: rand(500, 580),
-						freqEnd: rand(1050, 1180),
-						peak: 0.045,
-						attack: 0.002,
-						release: 0.08,
-					})
-					tone({
-						type: "triangle",
-						freq: rand(760, 840),
-						freqEnd: rand(1500, 1700),
-						peak: 0.03,
-						attack: 0.002,
-						release: 0.08,
-						when: now + 0.03,
-					})
-				},
-
-				danger: () => {
-					tone({
-						type: "sawtooth",
-						freq: 180,
-						freqEnd: 140,
-						peak: 0.06,
-						attack: 0.002,
-						release: 0.12,
-						filterType: "bandpass",
-						filterFreq: 700,
-						filterQ: 1,
-					})
-					tone({
-						type: "square",
-						freq: 1200,
-						freqEnd: 900,
-						peak: 0.02,
-						attack: 0.001,
-						release: 0.06,
-						when: now + 0.01,
-						filterType: "highpass",
-						filterFreq: 1300,
-						filterQ: 0.8,
-					})
-				},
-
-				player_shot: () => {
-					tone({
-						type: "square",
-						freq: rand(780, 920),
-						freqEnd: rand(240, 320),
-						peak: 0.045,
-						attack: 0.001,
-						release: 0.06,
-						filterType: "highpass",
-						filterFreq: 1100,
-						filterQ: 0.9,
-					})
-					tone({
-						type: "sawtooth",
-						freq: rand(1180, 1320),
-						freqEnd: rand(340, 420),
-						peak: 0.025,
-						attack: 0.001,
-						release: 0.045,
-						when: now + 0.003,
-						filterType: "highpass",
-						filterFreq: 1600,
-						filterQ: 1,
-					})
-				},
-
-				enemy_shot: () => {
-					tone({
-						type: "sawtooth",
-						freq: rand(540, 660),
-						freqEnd: rand(120, 170),
-						peak: 0.05,
-						attack: 0.001,
-						release: 0.1,
-						filterType: "bandpass",
-						filterFreq: 900,
-						filterQ: 1.1,
-					})
-				},
-
-				enemy_hit: () => {
-					noise({
-						peak: 0.03,
-						attack: 0.001,
-						release: 0.06,
-						filterType: "bandpass",
-						filterFreq: 1700,
-						filterQ: 1.3,
-					})
-					tone({
-						type: "square",
-						freq: rand(260, 320),
-						freqEnd: rand(120, 150),
-						peak: 0.03,
-						attack: 0.001,
-						release: 0.07,
-					})
-				},
-
-				enemy_explode: () => {
-					const bus = echoBus({
-						delayTime: 0.1,
-						feedbackAmount: 0.18,
-						wetAmount: 0.18,
-						lowpass: 2200,
-					})
-					noise({
-						peak: 0.07,
-						attack: 0.001,
-						release: 0.18,
-						filterType: "bandpass",
-						filterFreq: 900,
-						filterQ: 0.8,
-						target: bus,
-					})
-					tone({
-						type: "sawtooth",
-						freq: rand(240, 300),
-						freqEnd: rand(50, 70),
-						peak: 0.07,
-						attack: 0.001,
-						release: 0.16,
-						target: bus,
-					})
-				},
-
-				player_hit: () => {
-					noise({
-						peak: 0.045,
-						attack: 0.001,
-						release: 0.12,
-						filterType: "bandpass",
-						filterFreq: 700,
-						filterQ: 1.1,
-					})
-					tone({
-						type: "square",
-						freq: rand(180, 220),
-						freqEnd: rand(65, 85),
-						peak: 0.08,
-						attack: 0.001,
-						release: 0.18,
-					})
-					tone({
-						type: "triangle",
-						freq: rand(900, 1100),
-						freqEnd: rand(500, 620),
-						peak: 0.02,
-						attack: 0.001,
-						release: 0.09,
-						when: now + 0.01,
-					})
-				},
-
-				boss_appear: () => {
-					const bus = echoBus({
-						delayTime: 0.16,
-						feedbackAmount: 0.28,
-						wetAmount: 0.24,
-						lowpass: 2400,
-					})
-					tone({
-						type: "sawtooth",
-						freq: 90,
-						freqEnd: 420,
-						peak: 0.12,
-						attack: 0.01,
-						release: 0.45,
-						target: bus,
-					})
-					tone({
-						type: "triangle",
-						freq: 240,
-						freqEnd: 880,
-						peak: 0.05,
-						attack: 0.02,
-						release: 0.35,
-						when: now + 0.03,
-						target: bus,
-					})
-				},
-
-				boss_hit: () => {
-					noise({
-						peak: 0.04,
-						attack: 0.001,
-						release: 0.08,
-						filterType: "bandpass",
-						filterFreq: 1200,
-						filterQ: 1.2,
-					})
-					tone({
-						type: "square",
-						freq: rand(160, 210),
-						freqEnd: rand(85, 110),
-						peak: 0.05,
-						attack: 0.001,
-						release: 0.09,
-					})
-				},
-
-				boss_fire: () => {
-					tone({
-						type: "sawtooth",
-						freq: rand(320, 420),
-						freqEnd: rand(80, 120),
-						peak: 0.08,
-						attack: 0.001,
-						release: 0.16,
-						filterType: "bandpass",
-						filterFreq: 760,
-						filterQ: 1.2,
-					})
-					noise({
-						peak: 0.025,
-						attack: 0.001,
-						release: 0.08,
-						filterType: "highpass",
-						filterFreq: 2000,
-						filterQ: 0.8,
-					})
-				},
-
-				boss_explode: () => {
-					const bus = echoBus({
-						delayTime: 0.18,
-						feedbackAmount: 0.3,
-						wetAmount: 0.26,
-						lowpass: 1800,
-					})
-					noise({
-						peak: 0.09,
-						attack: 0.001,
-						release: 0.32,
-						filterType: "bandpass",
-						filterFreq: 700,
-						filterQ: 0.7,
-						target: bus,
-					})
-					tone({
-						type: "sine",
-						freq: rand(130, 155),
-						freqEnd: rand(36, 48),
-						peak: 0.18,
-						attack: 0.001,
-						release: 0.34,
-						target: bus,
-					})
-					tone({
-						type: "sawtooth",
-						freq: rand(260, 320),
-						freqEnd: rand(65, 90),
-						peak: 0.06,
-						attack: 0.002,
-						release: 0.22,
-						when: now + 0.015,
-						target: bus,
-					})
-				},
-
-				wave_start: () => {
-					tone({
-						type: "triangle",
-						freq: 420,
-						freqEnd: 900,
-						peak: 0.04,
-						attack: 0.002,
-						release: 0.09,
-					})
-					tone({
-						type: "triangle",
-						freq: 640,
-						freqEnd: 1320,
-						peak: 0.03,
-						attack: 0.002,
-						release: 0.1,
-						when: now + 0.04,
-					})
-				},
-
-				extra_life: () => {
-					tone({
-						type: "triangle",
-						freq: 520,
-						freqEnd: 760,
-						peak: 0.04,
-						attack: 0.002,
-						release: 0.08,
-					})
-					tone({
-						type: "triangle",
-						freq: 760,
-						freqEnd: 1140,
-						peak: 0.035,
-						attack: 0.002,
-						release: 0.09,
-						when: now + 0.04,
-					})
-					tone({
-						type: "triangle",
-						freq: 1020,
-						freqEnd: 1520,
-						peak: 0.03,
-						attack: 0.002,
-						release: 0.1,
-						when: now + 0.08,
-					})
-				},
-
-				card_flip: () => {
-					noise({
-						peak: 0.02,
-						attack: 0.001,
-						release: 0.03,
-						filterType: "highpass",
-						filterFreq: 2200,
-						filterQ: 1.4,
-					})
-					tone({
-						type: "triangle",
-						freq: 820,
-						freqEnd: 520,
-						peak: 0.02,
-						attack: 0.001,
-						release: 0.035,
-					})
-				},
-
-				card_slide: () => {
-					noise({
-						peak: 0.022,
-						attack: 0.001,
-						release: 0.07,
-						filterType: "bandpass",
-						filterFreq: 1400,
-						filterQ: 0.9,
-					})
-				},
-
-				chip_click: () => {
-					tone({
-						type: "square",
-						freq: 1400,
-						freqEnd: 900,
-						peak: 0.018,
-						attack: 0.001,
-						release: 0.025,
-						filterType: "highpass",
-						filterFreq: 1200,
-						filterQ: 1.2,
-					})
-				},
-
-				chip_stack: () => {
-					effects.chip_click()
-					tone({
-						type: "square",
-						freq: 1200,
-						freqEnd: 760,
-						peak: 0.014,
-						attack: 0.001,
-						release: 0.025,
-						when: now + 0.02,
-						filterType: "highpass",
-						filterFreq: 1100,
-						filterQ: 1.1,
-					})
-				},
-
-				shuffle: () => {
-					noise({
-						peak: 0.03,
-						attack: 0.001,
-						release: 0.11,
-						filterType: "bandpass",
-						filterFreq: 1800,
-						filterQ: 0.8,
-					})
-				},
-
-				deal: () => {
-					effects.card_slide()
-					tone({
-						type: "triangle",
-						freq: 560,
-						freqEnd: 420,
-						peak: 0.015,
-						attack: 0.001,
-						release: 0.04,
-						when: now + 0.006,
-					})
-				},
-
-				blackjack: () => {
-					tone({
-						type: "triangle",
-						freq: 520,
-						freqEnd: 780,
-						peak: 0.03,
-						attack: 0.002,
-						release: 0.09,
-					})
-					tone({
-						type: "triangle",
-						freq: 780,
-						freqEnd: 1180,
-						peak: 0.03,
-						attack: 0.002,
-						release: 0.11,
-						when: now + 0.06,
-					})
-					tone({
-						type: "triangle",
-						freq: 1180,
-						freqEnd: 1680,
-						peak: 0.025,
-						attack: 0.002,
-						release: 0.12,
-						when: now + 0.12,
-					})
-				},
-
-				bust: () => {
-					tone({
-						type: "sawtooth",
-						freq: 420,
-						freqEnd: 140,
-						peak: 0.05,
-						attack: 0.002,
-						release: 0.18,
-					})
-				},
-
-				win_sting: () => effects.blackjack(),
-
-				lose_sting: () => {
-					tone({
-						type: "triangle",
-						freq: 340,
-						freqEnd: 120,
-						peak: 0.05,
-						attack: 0.002,
-						release: 0.16,
-					})
-				},
-
-				push_sting: () => {
-					tone({
-						type: "triangle",
-						freq: 460,
-						freqEnd: 460,
-						peak: 0.025,
-						attack: 0.002,
-						release: 0.08,
-					})
-				},
-
-				gameover: () => {
-					const bus = echoBus({
-						delayTime: 0.16,
-						feedbackAmount: 0.22,
-						wetAmount: 0.18,
-						lowpass: 1600,
-					})
-					tone({
-						type: "sawtooth",
-						freq: 280,
-						freqEnd: 60,
-						peak: 0.11,
-						attack: 0.002,
-						release: 0.36,
-						target: bus,
-					})
-					tone({
-						type: "triangle",
-						freq: 140,
-						freqEnd: 42,
-						peak: 0.06,
-						attack: 0.002,
-						release: 0.42,
-						target: bus,
-					})
-				},
-			}
-
-			const effect = effects[type]
-			if (effect) effect()
-		}
-
-		startMusic() {
-			this.resume()
-			this.stopMusic()
-			this.applyTrackDefaultMix(this.currentTrack)
-			this.queueNextNote()
-		}
-
-		stopMusic() {
-			if (this.musicTimer) {
-				clearTimeout(this.musicTimer)
-				this.musicTimer = null
-			}
-		}
-
-		playLaneStep(lane, note, now, noteDur, patternName = "") {
-			if (!(note > 0)) return
-
-			switch (lane) {
-				case "bass": {
-					const targetFreq = midiToHz(note)
-					this.triggerVoice(
-						"triangle",
-						note,
-						now,
-						noteDur * 1.1,
-						0.1,
-						360,
-						false,
-						this.lastBassFreq,
-						false,
-						this.bassGain,
-					)
-					this.triggerVoice(
-						"sine",
-						note,
-						now,
-						noteDur * 1.1,
-						0.06,
-						120,
-						false,
-						null,
-						false,
-						this.bassGain,
-					)
-					this.lastBassFreq = targetFreq
-					break
-				}
-				case "bell": {
-					this.triggerVoice(
-						"sine",
-						note,
-						now,
-						noteDur * 6,
-						0.035,
-						4200,
-						false,
-						null,
-						true,
-						this.synthGain,
-					)
-					break
-				}
-				case "twang":
-					this.playTwang(note, now, noteDur)
-					break
-				case "piano":
-					this.playPiano(note, now, noteDur)
-					break
-				case "surf":
-					this.playSurf(note, now, noteDur)
-					this.playPickAttack(now)
-					break
-				case "horn":
-					this.triggerVoice(
-						"sawtooth",
-						note,
-						now,
-						noteDur * 0.65,
-						0.065,
-						2600,
-						false,
-						null,
-						false,
-						this.synthGain,
-					)
-					this.triggerVoice(
-						"square",
-						note,
-						now,
-						noteDur * 0.65,
-						0.04,
-						1800,
-						false,
-						null,
-						false,
-						this.synthGain,
-					)
-					break
-				case "synth":
-				default: {
-					const isSwell = ["intro", "bridge", "outro"].includes(
-						patternName,
-					)
-					this.triggerVoice(
-						"triangle",
-						note,
-						now,
-						noteDur * 2.5,
-						0.05,
-						1800,
-						false,
-						null,
-						isSwell,
-						this.synthGain,
-					)
-					this.triggerVoice(
-						"sine",
-						note,
-						now,
-						noteDur * 2.5,
-						0.025,
-						1100,
-						false,
-						null,
-						isSwell,
-						this.synthGain,
-					)
-					break
-				}
-			}
-		}
-
-		queueNextNote() {
-			const trackRef =
-				this.songs[this.currentTrack] ||
-				this.songs.metal ||
-				Object.values(this.songs)[0]
-			if (!trackRef) return
-			const track = trackRef.data
-			const tempo = track.tempo || 120
-			const barDur = 60 / tempo
-			const noteDur = barDur / 4
-
-			if (!this.audioContext || !this.musicGain || this.muted) {
-				this.musicTimer = window.setTimeout(
-					() => this.queueNextNote(),
-					noteDur * 1000,
-				)
-				return
-			}
-
-			const now = this.audioContext.currentTime
-			const totalSteps = track.arrangement.length * 16
-			const currentStep = this.musicIndex % totalSteps
-			const patternIdx = Math.floor(currentStep / 16)
-			const patternName = track.arrangement[patternIdx]
-			const pattern = track.patterns[patternName]
-			const stepInPattern = currentStep % 16
-
-			if (!pattern || typeof pattern !== "object") {
-				this.musicIndex++
-				this.musicTimer = window.setTimeout(
-					() => this.queueNextNote(),
-					noteDur * 1000,
-				)
-				return
-			}
-
-			const bassStep = Number(pattern?.bass?.[stepInPattern] || 0)
-			if (bassStep <= 0) this.lastBassFreq = null
-
-			Object.entries(pattern).forEach(([lane, laneSteps]) => {
-				if (lane === "drums" || !Array.isArray(laneSteps)) return
-				const note = Number(laneSteps[stepInPattern] || 0)
-				if (note > 0) {
-					this.playLaneStep(lane, note, now, noteDur, patternName)
-				}
-			})
-
-			const drum = pattern?.drums?.[stepInPattern]
-			if (drum === "k") this.playPercussion("kick", now)
-			if (drum === "s") this.playPercussion("snare", now)
-			if (drum === "h") this.playPercussion("hihat", now)
-
-			this.musicIndex++
-			this.musicTimer = window.setTimeout(
-				() => this.queueNextNote(),
-				noteDur * 1000,
-			)
-		}
-
-		triggerVoice(
-			wave,
-			midi,
-			time,
-			dur,
-			vol,
-			freq,
-			distort,
-			slideFrom = null,
-			swell = false,
-			outputGain = null,
-		) {
-			const osc = this.audioContext.createOscillator()
-			const gain = this.audioContext.createGain()
-			const filter = this.audioContext.createBiquadFilter()
-
-			osc.type = wave
-			const targetFreq = midiToHz(midi)
-
-			if (slideFrom) {
-				osc.frequency.setValueAtTime(slideFrom, time)
-				osc.frequency.exponentialRampToValueAtTime(
-					targetFreq,
-					time + 0.05,
-				)
-			} else {
-				osc.frequency.setValueAtTime(targetFreq, time)
-			}
-
-			filter.type = "lowpass"
-			filter.frequency.setValueAtTime(freq || 2000, time)
-
-			gain.gain.setValueAtTime(0.0001, time)
-			if (swell) {
-				gain.gain.linearRampToValueAtTime(vol, time + dur * 0.5)
-			} else {
-				gain.gain.exponentialRampToValueAtTime(vol, time + 0.01)
-			}
-			gain.gain.exponentialRampToValueAtTime(0.0001, time + dur)
-
-			osc.connect(filter)
-			if (distort && this.shaper) {
-				filter.connect(this.shaper)
-				this.shaper.connect(gain)
-			} else {
-				filter.connect(gain)
-			}
-			gain.connect(outputGain || this.synthGain || this.musicGain)
-			osc.start(time)
-			osc.stop(time + dur)
-		}
-
-		playPickAttack(time) {
-			if (!this.noiseBuffer) return
-			const source = this.audioContext.createBufferSource()
-			const gain = this.audioContext.createGain()
-			const filter = this.audioContext.createBiquadFilter()
-
-			source.buffer = this.noiseBuffer
-			filter.type = "bandpass"
-			filter.frequency.setValueAtTime(3000, time)
-
-			gain.gain.setValueAtTime(0.04, time)
-			gain.gain.exponentialRampToValueAtTime(0.001, time + 0.02)
-
-			source.connect(filter)
-			filter.connect(gain)
-			gain.connect(this.bassGain || this.musicGain)
-			source.start(time)
-			source.stop(time + 0.03)
-		}
-
-		playPercussion(type, time) {
-			const osc = this.audioContext.createOscillator()
-			const gain = this.audioContext.createGain()
-			const filter = this.audioContext.createBiquadFilter()
-
-			if (type === "kick") {
-				osc.type = "sine"
-				osc.frequency.setValueAtTime(150, time)
-				osc.frequency.exponentialRampToValueAtTime(40, time + 0.1)
-				gain.gain.setValueAtTime(0.4, time)
-				gain.gain.exponentialRampToValueAtTime(0.001, time + 0.2)
-				osc.connect(gain)
-			} else if (type === "snare") {
-				osc.type = "square"
-				osc.frequency.setValueAtTime(240, time)
-				filter.type = "highpass"
-				filter.frequency.setValueAtTime(1000, time)
-				gain.gain.setValueAtTime(0.1, time)
-				gain.gain.exponentialRampToValueAtTime(0.001, time + 0.1)
-				osc.connect(filter)
-				filter.connect(gain)
-			} else if (type === "hihat") {
-				osc.type = "square"
-				osc.frequency.setValueAtTime(8000, time)
-				gain.gain.setValueAtTime(0.02, time)
-				gain.gain.exponentialRampToValueAtTime(0.001, time + 0.02)
-				osc.connect(gain)
-			}
-
-			gain.connect(this.drumGain || this.musicGain)
-			osc.start(time)
-			osc.stop(time + 0.2)
-		}
-
-		destroy() {
-			this.stopMusic()
-			if (typeof window !== "undefined" && window.removeEventListener) {
-				window.removeEventListener(
-					"systemdeck:audio-settings-changed",
-					this.handleGlobalAudioSettingsChange,
-				)
-			}
-			if (this.audioContext?.state !== "closed")
-				this.audioContext?.close().catch(() => {})
-			this.audioContext = null
-		}
-	}
-	*/
-
-	class SystemDeckAudio {
-		static getInstance() {
-			return new SystemDeckAudio()
 		}
 
 		constructor() {
@@ -3359,6 +1338,10 @@ window.SystemDeckAudio = (() => {
 
 			this.audioContext = null
 			this.master = null
+			this.masterBus = null
+			this.musicBus = null
+			this.midiBus = null
+			this.fxBus = null
 			this.fxGain = null
 			this.musicGain = null
 			this.fileGain = null
@@ -3366,7 +1349,9 @@ window.SystemDeckAudio = (() => {
 			this.synthGain = null
 			this.drumGain = null
 			this.bassBoostFilter = null
+			this.eqNodes = null
 			this.bassBoostEnabled = false
+			this.eqPreset = "Flat"
 			this.musicTimer = null
 			this.musicIndex = 0
 			this.currentTrack = "metal"
@@ -3408,6 +1393,11 @@ window.SystemDeckAudio = (() => {
 			this.fileStopReason = "idle"
 			this.fileVolume = 1
 			this.fileProgressTimer = null
+			this.nativeMediaSources = new WeakMap()
+			this.nativeBridgeWarned = false
+			this.nativeBridgeDiagLogged = false
+			this._nativeBridgeRetryActive = false
+			this._nativeBridgeRetryTimer = null
 			this.musicRunning = false
 			this.midiActive = false
 			this.midiDerivative = null
@@ -3427,6 +1417,9 @@ window.SystemDeckAudio = (() => {
 				snare: -Infinity,
 				hihat: -Infinity,
 			}
+			this.lastScheduledTime = -Infinity
+			this.schedulerId = 0
+			this.schedulerSuspended = false
 			this.libraryLoadPromise = null
 			this.audioWorkletWarningShown = false
 			this.playbackState = {
@@ -3457,6 +1450,24 @@ window.SystemDeckAudio = (() => {
 					"systemdeck:audio-settings-changed",
 					this.handleGlobalAudioSettingsChange,
 				)
+			}
+
+			if (typeof document !== "undefined" && document.addEventListener) {
+				document.addEventListener("visibilitychange", () => {
+					if (document.hidden) {
+						if (this.musicRunning && !this.fileIsPlaying) {
+							this.schedulerSuspended = true
+						}
+					} else {
+						if (this.schedulerSuspended) {
+							if (this.Tone) {
+								this.nextStepTime = this.Tone.now() + 0.03
+							}
+							this.schedulerSuspended = false
+							this.queueNextNote()
+						}
+					}
+				})
 			}
 
 			const defaultMixByTrack = {
@@ -3524,7 +1535,10 @@ window.SystemDeckAudio = (() => {
 		}
 
 		on(event, callback) {
-			if (!this.eventListeners.has(event) || typeof callback !== "function") {
+			if (
+				!this.eventListeners.has(event) ||
+				typeof callback !== "function"
+			) {
 				return () => {}
 			}
 			this.eventListeners.get(event).add(callback)
@@ -3532,7 +1546,10 @@ window.SystemDeckAudio = (() => {
 		}
 
 		off(event, callback) {
-			if (!this.eventListeners.has(event) || typeof callback !== "function") {
+			if (
+				!this.eventListeners.has(event) ||
+				typeof callback !== "function"
+			) {
 				return
 			}
 			this.eventListeners.get(event).delete(callback)
@@ -3589,7 +1606,11 @@ window.SystemDeckAudio = (() => {
 				mixLevels: { ...mix },
 				mode: this.normalizeMode(this.playbackState.mode),
 				error: this.playbackState.error
-					? { message: String(this.playbackState.error.message || "") }
+					? {
+							message: String(
+								this.playbackState.error.message || "",
+							),
+					  }
 					: null,
 			}
 		}
@@ -3626,7 +1647,8 @@ window.SystemDeckAudio = (() => {
 			const nextMode = this.normalizeMode(
 				String(patch.mode || this.playbackState.mode || "track"),
 			)
-			const nextNowPlaying = patch.nowPlaying || this.playbackState.nowPlaying || {}
+			const nextNowPlaying =
+				patch.nowPlaying || this.playbackState.nowPlaying || {}
 			const nowPlayingType =
 				nextNowPlaying.type || (nextMode === "file" ? "file" : "track")
 			this.playbackState = {
@@ -3649,8 +1671,8 @@ window.SystemDeckAudio = (() => {
 				error: patch.error
 					? { message: String(patch.error.message || patch.error) }
 					: patch.status === "error"
-						? this.playbackState.error || { message: "Playback error" }
-						: null,
+					? this.playbackState.error || { message: "Playback error" }
+					: null,
 				queue: this.queue,
 				queueIndex: this.queueIndex,
 			}
@@ -3661,7 +1683,8 @@ window.SystemDeckAudio = (() => {
 				} catch (_err) {}
 			})
 			this.emitEvent("statechange", snapshot)
-			if (reason === "file:progress") this.emitEvent("timeupdate", snapshot)
+			if (reason === "file:progress")
+				this.emitEvent("timeupdate", snapshot)
 			if (reason === "file:ready" || reason === "loaded")
 				this.emitEvent("loaded", snapshot)
 			if (reason === "file:ended") this.emitEvent("ended", snapshot)
@@ -3670,7 +1693,10 @@ window.SystemDeckAudio = (() => {
 			if (snapshot.status === "stopped" || reason.includes("stop"))
 				this.emitEvent("stop", snapshot)
 			if (snapshot.status === "error")
-				this.emitEvent("error", snapshot.error || { message: "Playback error" })
+				this.emitEvent(
+					"error",
+					snapshot.error || { message: "Playback error" },
+				)
 			if (typeof window !== "undefined" && window.dispatchEvent) {
 				window.dispatchEvent(
 					new CustomEvent("systemdeck:audio-player-state", {
@@ -3690,9 +1716,8 @@ window.SystemDeckAudio = (() => {
 		startFileProgressTimer() {
 			this.clearFileProgressTimer()
 			this.fileProgressTimer = window.setInterval(() => {
-				if (!this.fileIsPlaying) return
 				this.emitPlaybackState("file:progress")
-			}, 250)
+			}, 500)
 		}
 
 		getFileCurrentTime() {
@@ -3714,9 +1739,8 @@ window.SystemDeckAudio = (() => {
 		startMidiProgressTimer() {
 			this.clearMidiProgressTimer()
 			this.midiProgressTimer = window.setInterval(() => {
-				if (!this.midiActive) return
 				this.emitPlaybackState("midi:progress")
-			}, 250)
+			}, 500)
 		}
 
 		clearMidiEndTimeout() {
@@ -3729,7 +1753,8 @@ window.SystemDeckAudio = (() => {
 		getMidiCurrentTime() {
 			if (!this.Tone || !this.midiActive) return this.midiPausedAt || 0
 			const elapsed = Math.max(0, this.Tone.now() - this.midiStartedAt)
-			if (this.midiDuration > 0) return Math.min(this.midiDuration, elapsed)
+			if (this.midiDuration > 0)
+				return Math.min(this.midiDuration, elapsed)
 			return elapsed
 		}
 
@@ -3741,7 +1766,10 @@ window.SystemDeckAudio = (() => {
 					crypto?.subtle &&
 					typeof crypto.subtle.digest === "function"
 				) {
-					const digest = await crypto.subtle.digest("SHA-256", arrayBuffer)
+					const digest = await crypto.subtle.digest(
+						"SHA-256",
+						arrayBuffer,
+					)
 					return Array.from(new Uint8Array(digest))
 						.map((byte) => byte.toString(16).padStart(2, "0"))
 						.join("")
@@ -3752,13 +1780,20 @@ window.SystemDeckAudio = (() => {
 			for (let i = 0; i < bytes.length; i++) {
 				hash ^= bytes[i]
 				hash +=
-					(hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24)
+					(hash << 1) +
+					(hash << 4) +
+					(hash << 7) +
+					(hash << 8) +
+					(hash << 24)
 			}
 			return `fnv1a-${(hash >>> 0).toString(16)}`
 		}
 
 		getMidiParser() {
-			if (window.TonejsMidi && typeof window.TonejsMidi.Midi === "function")
+			if (
+				window.TonejsMidi &&
+				typeof window.TonejsMidi.Midi === "function"
+			)
 				return window.TonejsMidi.Midi
 			if (typeof window.Midi === "function") return window.Midi
 			if (window.Midi && typeof window.Midi.Midi === "function")
@@ -3783,12 +1818,15 @@ window.SystemDeckAudio = (() => {
 		async buildMidiDerivativeFromArrayBuffer(arrayBuffer, options = {}) {
 			await this.ensureAudioLibraries({ midi: true })
 			const MidiCtor = this.getMidiParser()
-			if (!MidiCtor) throw new Error("@tonejs/midi parser is unavailable.")
+			if (!MidiCtor)
+				throw new Error("@tonejs/midi parser is unavailable.")
 			if (!arrayBuffer) throw new Error("MIDI source buffer is missing.")
 
 			const midi = new MidiCtor(arrayBuffer)
 			const sourceHash = await this.sha256HexFromBuffer(arrayBuffer)
-			const tempos = Array.isArray(midi?.header?.tempos) ? midi.header.tempos : []
+			const tempos = Array.isArray(midi?.header?.tempos)
+				? midi.header.tempos
+				: []
 			const timeSignatures = Array.isArray(midi?.header?.timeSignatures)
 				? midi.header.timeSignatures
 				: []
@@ -3797,14 +1835,17 @@ window.SystemDeckAudio = (() => {
 			let noteCount = 0
 			const derivativeTracks = tracks.map((track, index) => {
 				const percussion =
-					!!track?.instrument?.percussion || Number(track?.channel) === 9
+					!!track?.instrument?.percussion ||
+					Number(track?.channel) === 9
 				const family = String(track?.instrument?.family || "")
 				const lane = percussion
 					? "drums"
 					: family.includes("bass")
-						? "bass"
-						: "synth"
-				const notes = (Array.isArray(track?.notes) ? track.notes : []).map((note) => ({
+					? "bass"
+					: "synth"
+				const notes = (
+					Array.isArray(track?.notes) ? track.notes : []
+				).map((note) => ({
 					midi: Number(note?.midi || 0),
 					time: Number(note?.time || 0),
 					duration: Number(note?.duration || 0),
@@ -3816,7 +1857,11 @@ window.SystemDeckAudio = (() => {
 				noteCount += notes.length
 				return {
 					index,
-					name: String(track?.name || track?.instrument?.name || `Track ${index + 1}`),
+					name: String(
+						track?.name ||
+							track?.instrument?.name ||
+							`Track ${index + 1}`,
+					),
 					channel: Number(track?.channel ?? -1),
 					instrument: {
 						number: Number(track?.instrument?.number ?? 0),
@@ -3856,7 +1901,9 @@ window.SystemDeckAudio = (() => {
 						time: Number(signature?.time || 0),
 						ticks: Number(signature?.ticks || 0),
 						signature: Array.isArray(signature?.timeSignature)
-							? signature.timeSignature.slice(0, 2).map((value) => Number(value || 0))
+							? signature.timeSignature
+									.slice(0, 2)
+									.map((value) => Number(value || 0))
 							: [4, 4],
 					})),
 				},
@@ -3877,39 +1924,70 @@ window.SystemDeckAudio = (() => {
 
 		normalizeMidiDerivative(derivative = {}) {
 			if (!derivative || typeof derivative !== "object") return null
-			if (String(derivative.schema || "") !== "systemdeck-midi-derivative")
+			if (
+				String(derivative.schema || "") !== "systemdeck-midi-derivative"
+			)
 				return null
-			const tracks = Array.isArray(derivative.tracks) ? derivative.tracks : []
-			const normalizedTracks = tracks.map((track, index) => ({
-				index: Number(track?.index ?? index),
-				name: String(track?.name || `Track ${index + 1}`),
-				channel: Number(track?.channel ?? -1),
-				lane: String(track?.lane || "synth"),
-				instrument: {
-					number: Number(track?.instrument?.number ?? 0),
-					name: String(track?.instrument?.name || ""),
-					family: String(track?.instrument?.family || ""),
-					percussion: !!track?.instrument?.percussion,
-				},
-				notes: (Array.isArray(track?.notes) ? track.notes : [])
-					.map((note) => ({
-						midi: Number(note?.midi || 0),
-						time: Math.max(0, Number(note?.time || 0)),
-						duration: Math.max(0.01, Number(note?.duration || 0.05)),
-						velocity: this.clamp(note?.velocity ?? 0.8, 0, 1),
-						noteOffVelocity: this.clamp(note?.noteOffVelocity ?? 0.8, 0, 1),
-						ticks: Number(note?.ticks || 0),
-						durationTicks: Number(note?.durationTicks || 0),
-					}))
-					.filter((note) => note.midi > 0),
-			}))
+			const tracks = Array.isArray(derivative.tracks)
+				? derivative.tracks
+				: []
+			const normalizedTracks = tracks.map((track, index) => {
+				const trackNotes = (Array.isArray(track?.notes) ? track.notes : [])
+					.map((note) => {
+						const t = Number(note?.time)
+						const d = Number(note?.duration)
+						const m = Number(note?.midi)
+						
+						// VALIDATION: Catch NaN or invalid temporal data
+						if (!Number.isFinite(t) || !Number.isFinite(d) || !Number.isFinite(m)) {
+							if (window.SYSTEMDECK_DEBUG_AUDIO) {
+								console.warn(`[MIDI VALIDATION] Invalid note found in Track ${index}`, note)
+							}
+							return null
+						}
+
+						return {
+							midi: m,
+							time: Math.max(0, t),
+							duration: Math.max(0.01, d),
+							velocity: this.clamp(note?.velocity ?? 0.8, 0, 1),
+							noteOffVelocity: this.clamp(
+								note?.noteOffVelocity ?? 0.8,
+								0,
+								1,
+							),
+							ticks: Number(note?.ticks || 0),
+							durationTicks: Number(note?.durationTicks || 0),
+						}
+					})
+					.filter((note) => note !== null && note.midi > 0)
+				
+				// SORTING: Ensure note events are strictly ordered by time
+				trackNotes.sort((a, b) => a.time - b.time)
+
+				return {
+					index: Number(track?.index ?? index),
+					name: String(track?.name || `Track ${index + 1}`),
+					channel: Number(track?.channel ?? -1),
+					lane: String(track?.lane || "synth"),
+					instrument: {
+						number: Number(track?.instrument?.number ?? 0),
+						name: String(track?.instrument?.name || ""),
+						family: String(track?.instrument?.family || ""),
+						percussion: !!track?.instrument?.percussion,
+					},
+					notes: trackNotes,
+				}
+			})
 			return {
 				...derivative,
 				tracks: normalizedTracks,
 				playback: {
 					...(derivative.playback || {}),
 					duration: Number(derivative?.playback?.duration || 0),
-					durationTicks: Number(derivative?.playback?.durationTicks || 0),
+					durationTicks: Number(
+						derivative?.playback?.durationTicks || 0,
+					),
 				},
 			}
 		}
@@ -3932,7 +2010,9 @@ window.SystemDeckAudio = (() => {
 			const modeType = this.normalizeMode(
 				String(meta.type || this.playbackState.mode || "track"),
 			)
-			const title = String(meta.title || meta.name || meta.filename || "Untitled")
+			const title = String(
+				meta.title || meta.name || meta.filename || "Untitled",
+			)
 			const isMidiMeta = String(meta.mediaType || meta.mime || "")
 				.toLowerCase()
 				.includes("midi")
@@ -3941,14 +2021,16 @@ window.SystemDeckAudio = (() => {
 					? this.getMidiCurrentTime()
 					: this.midiPausedAt || 0
 				: this.fileIsPlaying
-					? this.getFileCurrentTime()
-					: this.filePausedAt || 0
+				? this.getFileCurrentTime()
+				: this.filePausedAt || 0
 			return {
 				type: modeType,
 				id: meta.id ?? null,
 				title,
 				duration: Number(
-					meta.duration || (isMidiMeta ? this.midiDuration : this.fileDuration) || 0,
+					meta.duration ||
+						(isMidiMeta ? this.midiDuration : this.fileDuration) ||
+						0,
 				),
 				currentTime: Number(currentTime || 0),
 				source: String(source || meta.source || ""),
@@ -3957,23 +2039,9 @@ window.SystemDeckAudio = (() => {
 		}
 
 		midiToNote(midi) {
-			if (!(Number(midi) > 0)) return null
-			const names = [
-				"C",
-				"C#",
-				"D",
-				"D#",
-				"E",
-				"F",
-				"F#",
-				"G",
-				"G#",
-				"A",
-				"A#",
-				"B",
-			]
 			const note = Number(midi)
-			const name = names[((note % 12) + 12) % 12]
+			if (!(note > 0)) return null
+			const name = MIDI_NOTE_NAMES[((note % 12) + 12) % 12]
 			const octave = Math.floor(note / 12) - 1
 			return `${name}${octave}`
 		}
@@ -3992,7 +2060,9 @@ window.SystemDeckAudio = (() => {
 		canUseAudioWorklets() {
 			const context =
 				this.audioContext ||
-				(this.Tone?.getContext ? this.Tone.getContext().rawContext : null)
+				(this.Tone?.getContext
+					? this.Tone.getContext().rawContext
+					: null)
 			return !!(
 				typeof window !== "undefined" &&
 				window.isSecureContext &&
@@ -4007,10 +2077,8 @@ window.SystemDeckAudio = (() => {
 		}
 
 		createToneNode(factory, options = {}) {
-			const {
-				feature = "Tone node",
-				requiresAudioWorklet = false,
-			} = options
+			const { feature = "Tone node", requiresAudioWorklet = false } =
+				options
 			if (requiresAudioWorklet && !this.canUseAudioWorklets()) {
 				this.warnAudioWorkletUnavailable(feature)
 				return null
@@ -4020,7 +2088,9 @@ window.SystemDeckAudio = (() => {
 			} catch (error) {
 				if (
 					requiresAudioWorklet &&
-					/AudioWorkletNode|secure context/i.test(String(error?.message || error))
+					/AudioWorkletNode|secure context/i.test(
+						String(error?.message || error),
+					)
 				) {
 					this.warnAudioWorkletUnavailable(feature)
 					return null
@@ -4036,7 +2106,10 @@ window.SystemDeckAudio = (() => {
 			}
 			if (!this.libraryLoadPromise) {
 				const assets = getAudioAssetConfig()
-				const toneUrl = buildAssetUrl(assets.toneUrl, assets.toneVersion)
+				const toneUrl = buildAssetUrl(
+					assets.toneUrl,
+					assets.toneVersion,
+				)
 				this.libraryLoadPromise = (async () => {
 					await loadScriptOnce("tone", toneUrl)
 					this.Tone = window.Tone || null
@@ -4052,9 +2125,16 @@ window.SystemDeckAudio = (() => {
 			}
 			if (midi && !this.getMidiParser()) {
 				const assets = getAudioAssetConfig()
-				const midiUrl = buildAssetUrl(assets.midiUrl, assets.midiVersion)
+				const midiUrl = buildAssetUrl(
+					assets.midiUrl,
+					assets.midiVersion,
+				)
 				await loadScriptOnce("sd-tonejs-midi", midiUrl)
-				if (!window.Midi && window.exports && typeof window.exports.Midi === "function") {
+				if (
+					!window.Midi &&
+					window.exports &&
+					typeof window.exports.Midi === "function"
+				) {
 					window.Midi = window.exports.Midi
 				}
 				if (
@@ -4127,6 +2207,10 @@ window.SystemDeckAudio = (() => {
 			this.audioContext = Tone.getContext().rawContext
 
 			this.master = this.trackDisposable(new Tone.Gain(1))
+			this.masterBus = this.trackDisposable(new Tone.Gain(1))
+			this.musicBus = this.trackDisposable(new Tone.Gain(1))
+			this.midiBus = this.trackDisposable(new Tone.Gain(1))
+			this.fxBus = this.trackDisposable(new Tone.Gain(1))
 			this.fxGain = this.trackDisposable(new Tone.Gain(this.fxVolume))
 			this.musicGain = this.trackDisposable(
 				new Tone.Gain(this.musicVolume),
@@ -4149,6 +2233,41 @@ window.SystemDeckAudio = (() => {
 					Q: 0.7,
 				}),
 			)
+			const eqHighpass = this.trackDisposable(
+				new Tone.Filter({ type: "highpass", frequency: 30, Q: 0.7 }),
+			)
+			const eqLowMid = this.trackDisposable(
+				new Tone.Filter({
+					type: "peaking",
+					frequency: 250,
+					Q: 1,
+					gain: 0,
+				}),
+			)
+			const eqMid = this.trackDisposable(
+				new Tone.Filter({
+					type: "peaking",
+					frequency: 1000,
+					Q: 1,
+					gain: 0,
+				}),
+			)
+			const eqHighMid = this.trackDisposable(
+				new Tone.Filter({
+					type: "peaking",
+					frequency: 4000,
+					Q: 1,
+					gain: 0,
+				}),
+			)
+			const eqHighShelf = this.trackDisposable(
+				new Tone.Filter({
+					type: "highshelf",
+					frequency: 10000,
+					Q: 0.7,
+					gain: 0,
+				}),
+			)
 			this.compressor = this.trackDisposable(
 				new Tone.Compressor({
 					threshold: -18,
@@ -4163,12 +2282,28 @@ window.SystemDeckAudio = (() => {
 			this.synthGain.connect(this.musicGain)
 			this.drumGain.connect(this.musicGain)
 			this.fileGain.connect(this.musicGain)
-			this.musicGain.connect(this.bassBoostFilter)
-			this.bassBoostFilter.connect(this.master)
-			this.fxGain.connect(this.musicGain)
+			this.musicGain.connect(this.musicBus)
+			this.musicBus.connect(this.masterBus)
+			this.midiBus.connect(this.masterBus)
+			this.masterBus.connect(this.bassBoostFilter)
+			this.bassBoostFilter.connect(eqHighpass)
+			eqHighpass.connect(eqLowMid)
+			eqLowMid.connect(eqMid)
+			eqMid.connect(eqHighMid)
+			eqHighMid.connect(eqHighShelf)
+			eqHighShelf.connect(this.master)
+			this.fxGain.connect(this.fxBus)
+			this.fxBus.connect(this.limiter)
 			this.master.connect(this.compressor)
 			this.compressor.connect(this.limiter)
 			this.limiter.toDestination()
+			this.eqNodes = {
+				low: this.bassBoostFilter,
+				mid1: eqLowMid,
+				mid2: eqMid,
+				mid3: eqHighMid,
+				high: eqHighShelf,
+			}
 
 			this.initToneInstruments()
 			this.refreshOutputVolumes()
@@ -4469,7 +2604,9 @@ window.SystemDeckAudio = (() => {
 			try {
 				await this.ensureAudioLibraries()
 			} catch (error) {
-				this.setPlaybackError(error?.message || "Audio libraries failed to load.")
+				this.setPlaybackError(
+					error?.message || "Audio libraries failed to load.",
+				)
 				throw error
 			}
 			if (!this.Tone) return
@@ -4480,6 +2617,21 @@ window.SystemDeckAudio = (() => {
 				this.toneStarted = true
 			}
 			this.ensureContext()
+		}
+
+		async ensureAudioGraphReady() {
+			try {
+				await this.resume()
+			} catch (_error) {
+				return false
+			}
+			return !!(
+				this.Tone &&
+				this.audioContext &&
+				this.masterBus &&
+				this.musicBus &&
+				this.limiter
+			)
 		}
 
 		getGlobalVolumeMultiplier() {
@@ -4569,6 +2721,160 @@ window.SystemDeckAudio = (() => {
 				this.bassBoostFilter.gain.value = this.bassBoostEnabled ? 9 : 0
 			}
 			this.emitPlaybackState("mix:bass-boost")
+			this.emitEQState("bass-boost")
+		}
+
+		setEQ(config = {}) {
+			if (!this.eqNodes) return
+			const clamp = (v) => Math.max(-24, Math.min(12, Number(v) || 0))
+			if (config.low !== undefined && this.eqNodes.low?.gain) {
+				this.eqNodes.low.gain.value = clamp(config.low)
+			}
+			if (config.mid1 !== undefined && this.eqNodes.mid1?.gain) {
+				this.eqNodes.mid1.gain.value = clamp(config.mid1)
+			}
+			if (config.mid2 !== undefined && this.eqNodes.mid2?.gain) {
+				this.eqNodes.mid2.gain.value = clamp(config.mid2)
+			}
+			if (config.mid3 !== undefined && this.eqNodes.mid3?.gain) {
+				this.eqNodes.mid3.gain.value = clamp(config.mid3)
+			}
+			if (config.high !== undefined && this.eqNodes.high?.gain) {
+				this.eqNodes.high.gain.value = clamp(config.high)
+			}
+			this.eqPreset = String(config.preset || this.eqPreset || "Custom")
+			this.emitPlaybackState("mix:eq")
+			this.emitEQState("eq")
+		}
+
+		setBandGain(band, value) {
+			const key = String(band || "")
+			const map = {
+				bass: "low",
+				lowMid: "mid1",
+				mid: "mid2",
+				highMid: "mid3",
+				treble: "high",
+			}
+			const internal = map[key] || key
+			this.eqPreset = "Custom"
+			this.setEQ({ [internal]: value, preset: "Custom" })
+		}
+
+		setBandFrequency(band, freq) {
+			const key = String(band || "")
+			const map = {
+				bass: "low",
+				lowMid: "mid1",
+				mid: "mid2",
+				highMid: "mid3",
+				treble: "high",
+			}
+			const node = this.eqNodes?.[map[key] || key]
+			if (!node?.frequency) return
+			const next = Number(freq)
+			if (!Number.isFinite(next)) return
+			node.frequency.value = Math.max(20, Math.min(20000, next))
+		}
+
+		setBandQ(band, q) {
+			const key = String(band || "")
+			const map = {
+				bass: "low",
+				lowMid: "mid1",
+				mid: "mid2",
+				highMid: "mid3",
+				treble: "high",
+			}
+			const node = this.eqNodes?.[map[key] || key]
+			if (!node?.Q) return
+			const next = Number(q)
+			if (!Number.isFinite(next)) return
+			node.Q.value = Math.max(0.1, Math.min(24, next))
+		}
+
+		setMasterGain(value) {
+			const next = Number(value)
+			if (!this.masterBus?.gain || !Number.isFinite(next)) return
+			this.masterBus.gain.value = Math.max(0, Math.min(2, next))
+			this.emitPlaybackState("mix:master-gain")
+			this.emitEQState("master-gain")
+		}
+
+		getEQState() {
+			const bands = {
+				bass: Number(this.eqNodes?.low?.gain?.value || 0),
+				lowMid: Number(this.eqNodes?.mid1?.gain?.value || 0),
+				mid: Number(this.eqNodes?.mid2?.gain?.value || 0),
+				highMid: Number(this.eqNodes?.mid3?.gain?.value || 0),
+				treble: Number(this.eqNodes?.high?.gain?.value || 0),
+			}
+			return {
+				bands,
+				bassBoost: !!this.bassBoostEnabled,
+				masterGain: Number(this.masterBus?.gain?.value || 1),
+				preset: String(this.eqPreset || "Flat"),
+			}
+		}
+
+		applyEQ(preset = {}) {
+			const eqPreset = preset && typeof preset === "object" ? preset : {}
+			const bands = eqPreset.bands && typeof eqPreset.bands === "object" ? eqPreset.bands : {}
+			this.setEQ({
+				low: bands.bass,
+				mid1: bands.lowMid,
+				mid2: bands.mid,
+				mid3: bands.highMid,
+				high: bands.treble,
+				preset: eqPreset.name || eqPreset.preset || "Custom",
+			})
+			if (Object.prototype.hasOwnProperty.call(eqPreset, "bassBoost")) {
+				this.setBassBoostEnabled(!!eqPreset.bassBoost)
+			}
+			if (Object.prototype.hasOwnProperty.call(eqPreset, "masterGain")) {
+				this.setMasterGain(eqPreset.masterGain)
+			}
+			this.emitEQState("apply")
+			return this.getEQState()
+		}
+
+		toggleBassBoost(enabled) {
+			this.setBassBoostEnabled(enabled)
+			return this.bassBoostEnabled
+		}
+
+		emitEQState(reason = "update") {
+			if (typeof window !== "undefined" && window.dispatchEvent) {
+				window.dispatchEvent(
+					new CustomEvent("systemdeck:eq-state", {
+						detail: {
+							...this.getEQState(),
+							reason: String(reason || "update"),
+						},
+					}),
+				)
+			}
+		}
+
+		connectNativeElement(_audioEl) {
+			// HTMLAudioElement bridging is intentionally disabled.
+			// SystemDeck player file playback routes through Tone.Player.
+			return false
+		}
+
+		stopNativeBridgeRetryLoop() {
+			this._nativeBridgeRetryActive = false
+			if (this._nativeBridgeRetryTimer) {
+				clearInterval(this._nativeBridgeRetryTimer)
+				this._nativeBridgeRetryTimer = null
+			}
+		}
+
+		startNativeBridgeRetryLoop(audioEl) {
+			if (!audioEl || this._nativeBridgeRetryActive) return
+			// Retry loop kept for API compatibility; bridge path is disabled.
+			this.stopNativeBridgeRetryLoop()
+			return
 		}
 
 		setBassBoost(enabled) {
@@ -5638,7 +3944,9 @@ window.SystemDeckAudio = (() => {
 			try {
 				await this.ensureAudioLibraries()
 			} catch (error) {
-				this.setPlaybackError(error?.message || "Audio libraries failed to load.")
+				this.setPlaybackError(
+					error?.message || "Audio libraries failed to load.",
+				)
 				return null
 			}
 			this.ensureContext()
@@ -5654,10 +3962,10 @@ window.SystemDeckAudio = (() => {
 			const playerSource =
 				typeof source === "object" && source !== null
 					? source.buffer ||
-						source.url ||
-						source.src ||
-						(typeof AudioBuffer !== "undefined" &&
-						source instanceof AudioBuffer
+					  source.url ||
+					  source.src ||
+					  (typeof AudioBuffer !== "undefined" &&
+					  source instanceof AudioBuffer
 							? source
 							: null)
 					: source
@@ -5715,7 +4023,10 @@ window.SystemDeckAudio = (() => {
 							mode: "file",
 							status: "stopped",
 							nowPlaying: this.buildNowPlaying(
-								{ ...meta, currentTime: this.fileDuration || 0 },
+								{
+									...meta,
+									currentTime: this.fileDuration || 0,
+								},
 								src,
 							),
 						})
@@ -5735,7 +4046,11 @@ window.SystemDeckAudio = (() => {
 							mode: "file",
 							status: "stopped",
 							nowPlaying: this.buildNowPlaying(
-								{ ...meta, duration: this.fileDuration, currentTime: 0 },
+								{
+									...meta,
+									duration: this.fileDuration,
+									currentTime: 0,
+								},
 								src,
 							),
 							error: null,
@@ -5755,7 +4070,18 @@ window.SystemDeckAudio = (() => {
 			return loadedPlayer
 		}
 
-		async playFile() {
+		async playFile(source = null, meta = {}) {
+			if (source) {
+				const loaded = await this.loadFile(source, {
+					...(meta || {}),
+					type: "file",
+					source:
+						typeof source === "string"
+							? source
+							: String(meta?.source || ""),
+				})
+				if (!loaded) return false
+			}
 			await this.resume()
 			if (this.fileLoadPromise) {
 				await this.fileLoadPromise
@@ -5766,7 +4092,11 @@ window.SystemDeckAudio = (() => {
 					await this.loadFile(item.source, item.meta || {})
 				}
 			}
-			if (!this.filePlayer || !this.filePlayerLoaded || !(await this.waitForFilePlayerReady())) {
+			if (
+				!this.filePlayer ||
+				!this.filePlayerLoaded ||
+				!(await this.waitForFilePlayerReady())
+			) {
 				this.setPlaybackError("No file is loaded.")
 				return false
 			}
@@ -5793,10 +4123,17 @@ window.SystemDeckAudio = (() => {
 			this.emitPlaybackState("file:playing", {
 				mode: "file",
 				status: "playing",
-				nowPlaying: this.buildNowPlaying(this.fileMeta, this.fileSource),
+				nowPlaying: this.buildNowPlaying(
+					this.fileMeta,
+					this.fileSource,
+				),
 				error: null,
 			})
 			return true
+		}
+
+		resumeFile() {
+			return this.playFile()
 		}
 
 		pauseFile() {
@@ -5874,12 +4211,24 @@ window.SystemDeckAudio = (() => {
 			return true
 		}
 
+		getFileState() {
+			return {
+				loaded: !!this.filePlayerLoaded,
+				playing: !!this.fileIsPlaying,
+				source: this.fileSource || "",
+				duration: Number(this.fileDuration || 0),
+				currentTime: Number(this.getFileCurrentTime() || 0),
+				metadata: { ...(this.fileMeta || {}) },
+			}
+		}
+
 		setFileVolume(value) {
 			this.fileVolume = this.clamp(value, 0, 1)
 			if (this.filePlayer?.volume && this.Tone?.gainToDb) {
-				const db = this.fileVolume <= 0.0001
-					? -96
-					: this.Tone.gainToDb(this.fileVolume)
+				const db =
+					this.fileVolume <= 0.0001
+						? -96
+						: this.Tone.gainToDb(this.fileVolume)
 				this.filePlayer.volume.value = db
 			}
 			this.emitPlaybackState("file:volume")
@@ -5922,7 +4271,9 @@ window.SystemDeckAudio = (() => {
 			this.lastMidiTriggerTime = -Infinity
 			if (resetPosition) this.midiPausedAt = 0
 			this.midiStartedAt = 0
-			this.midiDuration = Number(this.midiDerivative?.playback?.duration || 0)
+			this.midiDuration = Number(
+				this.midiDerivative?.playback?.duration || 0,
+			)
 			if (this.Tone?.Transport) {
 				try {
 					this.Tone.Transport.stop()
@@ -5937,7 +4288,9 @@ window.SystemDeckAudio = (() => {
 						{
 							type: "track",
 							id: this.midiDerivative?.source?.id || null,
-							title: this.midiDerivative?.source?.title || "MIDI Track",
+							title:
+								this.midiDerivative?.source?.title ||
+								"MIDI Track",
 							duration: this.midiDuration || 0,
 							mediaType: "midi",
 							mime: "audio/midi",
@@ -5958,9 +4311,12 @@ window.SystemDeckAudio = (() => {
 			const epsilon = 0.0001
 			const toneNow = Number(this.Tone?.now ? this.Tone.now() : 0)
 			const requested = Number(time)
-			const baseTime = Number.isFinite(requested) ? Math.max(requested, toneNow) : toneNow
+			const baseTime = Number.isFinite(requested)
+				? Math.max(requested, toneNow)
+				: toneNow
 			const previous = Number(this.lastMidiTriggerTime ?? -Infinity)
-			const safeTime = baseTime <= previous ? previous + epsilon : baseTime
+			const safeTime =
+				baseTime <= previous ? previous + epsilon : baseTime
 			this.lastMidiTriggerTime = safeTime
 
 			const lane = String(track?.lane || "")
@@ -6006,12 +4362,39 @@ window.SystemDeckAudio = (() => {
 				return false
 			}
 
-			let derivative =
-				source?.data && typeof source.data === "object"
-					? source.data
-					: source?.derivative && typeof source.derivative === "object"
-						? source.derivative
-						: null
+			let derivative = null
+			const sourceData = source?.data || source?.derivative || null
+			const sourceUrl = typeof source?.url === "string" ? source.url : ""
+
+			if (sourceData && typeof sourceData === "object") {
+				derivative = sourceData
+			} else if (
+				typeof sourceUrl === "string" &&
+				(sourceUrl.trim().startsWith("{") ||
+					sourceUrl.trim().startsWith("["))
+			) {
+				try {
+					derivative = JSON.parse(sourceUrl)
+				} catch (e) {
+					console.error(
+						"[SystemDeckAudio] loadMidi: Failed to parse JSON sourceUrl",
+						e,
+					)
+				}
+			} else if (
+				typeof sourceData === "string" &&
+				(sourceData.trim().startsWith("{") ||
+					sourceData.trim().startsWith("["))
+			) {
+				try {
+					derivative = JSON.parse(sourceData)
+				} catch (e) {
+					console.error(
+						"[SystemDeckAudio] loadMidi: Failed to parse JSON sourceData",
+						e,
+					)
+				}
+			}
 
 			const metadata = {
 				...(options.metadata || {}),
@@ -6019,28 +4402,41 @@ window.SystemDeckAudio = (() => {
 			if (options.title) metadata.title = options.title
 
 			if (!derivative && source?.buffer) {
-				derivative = await this.buildMidiDerivativeFromArrayBuffer(source.buffer, {
-					sourceType: metadata.origin || "player",
-					id: source?.id ?? null,
-					title: options.title || metadata.title || "MIDI Track",
-					mime: metadata.mime || "audio/midi",
-					filename: metadata.filename || "",
-					url: typeof source?.url === "string" ? source.url : "",
-				})
+				derivative = await this.buildMidiDerivativeFromArrayBuffer(
+					source.buffer,
+					{
+						sourceType: metadata.origin || "player",
+						id: source?.id ?? null,
+						title: options.title || metadata.title || "MIDI Track",
+						mime: metadata.mime || "audio/midi",
+						filename: metadata.filename || "",
+						url: typeof source?.url === "string" ? source.url : "",
+					},
+				)
 			}
 
-			if (!derivative && typeof source?.url === "string" && source.url) {
-				const response = await fetch(source.url, { credentials: "same-origin" })
-				if (!response.ok) throw new Error(`Unable to fetch MIDI source: ${response.status}`)
-				const buffer = await response.arrayBuffer()
-				derivative = await this.buildMidiDerivativeFromArrayBuffer(buffer, {
-					sourceType: metadata.origin || "vault",
-					id: source?.id ?? null,
-					title: options.title || metadata.title || "MIDI Track",
-					mime: metadata.mime || "audio/midi",
-					filename: metadata.filename || "",
-					url: source.url,
+			if (!derivative && sourceUrl && !sourceUrl.trim().startsWith("{") && !sourceUrl.trim().startsWith("[")) {
+				const response = await fetch(source.url, {
+					credentials: "same-origin",
 				})
+				const contentType = response.headers.get("content-type")
+				if (contentType && contentType.includes("json")) {
+					derivative = await response.json()
+				} else {
+					const buffer = await response.arrayBuffer()
+					derivative = await this.buildMidiDerivativeFromArrayBuffer(
+						buffer,
+						{
+							sourceType: metadata.origin || "vault",
+							id: source?.id ?? null,
+							title:
+								options.title || metadata.title || "MIDI Track",
+							mime: metadata.mime || "audio/midi",
+							filename: metadata.filename || "",
+							url: source.url,
+						},
+					)
+				}
 			}
 
 			const normalized = this.normalizeMidiDerivative(derivative)
@@ -6059,11 +4455,29 @@ window.SystemDeckAudio = (() => {
 			this.stopMidiPlayback(false, false)
 
 			this.midiDerivative = normalized
+			this.midiSourceType = source?.data ? "inlineDerivative" : (source?.url?.includes(".json") ? "derivativeUrl" : "rawMidiUrl")
 			this.midiSourceHash = String(normalized?.source?.hash || "")
 			this.midiDuration = Number(normalized?.playback?.duration || 0)
 			this.midiPausedAt = 0
 			this.midiActive = false
-			this.currentTrack = String(source?.id || normalized?.source?.id || this.currentTrack)
+
+			if (window.SYSTEMDECK_DEBUG_AUDIO) {
+				const trackCount = normalized.tracks?.length || 0
+				const totalNotes = normalized.tracks?.reduce((acc, t) => acc + (t.notes?.length || 0), 0) || 0
+				const bpm = normalized.timing?.tempoMap?.[0]?.bpm || 120
+				console.log("[MIDI DIAGNOSTICS: LOAD]", {
+					sourceType: this.midiSourceType,
+					trackCount,
+					totalNotes,
+					bpm,
+					duration: this.midiDuration,
+					schema: normalized.schema,
+					version: normalized.version
+				})
+			}
+			this.currentTrack = String(
+				source?.id || normalized?.source?.id || this.currentTrack,
+			)
 
 			const nowPlaying = this.buildNowPlaying(
 				{
@@ -6120,15 +4534,27 @@ window.SystemDeckAudio = (() => {
 				? this.midiDerivative.tracks
 				: []
 
-			const firstTempo = Number(this.midiDerivative?.timing?.tempoMap?.[0]?.bpm || 120)
+			const firstTempo = Number(
+				this.midiDerivative?.timing?.tempoMap?.[0]?.bpm || 120,
+			)
 			Tone.Transport.bpm.value = firstTempo
 			Tone.Transport.loop = false
 
 			this.midiParts = tracks.map((track) => {
-				const events = (Array.isArray(track?.notes) ? track.notes : []).map((note) => [
-					Math.max(0, Number(note?.time || 0)),
-					note,
-				])
+				const rawNotes = Array.isArray(track?.notes) ? track.notes : []
+				
+				if (window.SYSTEMDECK_DEBUG_AUDIO && tracks.indexOf(track) === 0) {
+					console.log(`[MIDI DIAGNOSTICS: PLAY] First 10 notes of Track 0:`, 
+						rawNotes.slice(0, 10).map(n => ({
+							time: n.time,
+							midi: n.midi,
+							dur: n.duration,
+							vel: n.velocity
+						}))
+					)
+				}
+
+				const events = rawNotes.map((note) => [Math.max(0, Number(note?.time || 0)), note])
 				const part = this.trackDisposable(
 					new Tone.Part((time, note) => {
 						this.triggerMidiNote(track, note, time)
@@ -6143,7 +4569,7 @@ window.SystemDeckAudio = (() => {
 			this.startMidiProgressTimer()
 			Tone.Transport.start("+0.01", offset)
 
-			const timeRemaining =
+			const waitMs =
 				Math.max(0, (this.midiDuration || 0) - offset) * 1000 + 50
 			this.clearMidiEndTimeout()
 			this.midiEndTimeout = window.setTimeout(() => {
@@ -6156,7 +4582,9 @@ window.SystemDeckAudio = (() => {
 						{
 							type: "track",
 							id: this.midiDerivative?.source?.id || null,
-							title: this.midiDerivative?.source?.title || "MIDI Track",
+							title:
+								this.midiDerivative?.source?.title ||
+								"MIDI Track",
 							duration: this.midiDuration || 0,
 							currentTime: this.midiDuration || 0,
 							mediaType: "midi",
@@ -6167,7 +4595,7 @@ window.SystemDeckAudio = (() => {
 					),
 				})
 				this.next()
-			}, timeRemaining)
+			}, waitMs)
 
 			this.emitPlaybackState("midi:playing", {
 				mode: "track",
@@ -6176,7 +4604,8 @@ window.SystemDeckAudio = (() => {
 					{
 						type: "track",
 						id: this.midiDerivative?.source?.id || null,
-						title: this.midiDerivative?.source?.title || "MIDI Track",
+						title:
+							this.midiDerivative?.source?.title || "MIDI Track",
 						duration: this.midiDuration || 0,
 						mediaType: "midi",
 						mime: "audio/midi",
@@ -6206,7 +4635,8 @@ window.SystemDeckAudio = (() => {
 					{
 						type: "track",
 						id: this.midiDerivative?.source?.id || null,
-						title: this.midiDerivative?.source?.title || "MIDI Track",
+						title:
+							this.midiDerivative?.source?.title || "MIDI Track",
 						duration: this.midiDuration || 0,
 						currentTime: this.midiPausedAt || 0,
 						mediaType: "midi",
@@ -6237,7 +4667,9 @@ window.SystemDeckAudio = (() => {
 						{
 							type: "track",
 							id: this.midiDerivative?.source?.id || null,
-							title: this.midiDerivative?.source?.title || "MIDI Track",
+							title:
+								this.midiDerivative?.source?.title ||
+								"MIDI Track",
 							duration: this.midiDuration || 0,
 							currentTime: target,
 							mediaType: "midi",
@@ -6267,25 +4699,45 @@ window.SystemDeckAudio = (() => {
 			return !!loaded
 		}
 
+		async loadBuiltin(id, options = {}) {
+			const rawId = String(id || "").replace(/^builtin:/, "")
+			const song = this.songs[rawId]
+			if (!song) throw new Error("Unknown built-in track: " + rawId)
+
+			const loadOptions = {
+				...options,
+				metadata: {
+					...(options.metadata || {}),
+					songId: rawId,
+					origin: "builtin",
+				},
+			}
+
+			return this.load({ type: "track", id: rawId }, loadOptions)
+		}
+
 		async load(source, options = {}) {
 			const requestedType = String(source?.type || "")
 			const type =
 				requestedType === "midi"
 					? "midi"
 					: requestedType === "file"
-						? "file"
-						: "track"
+					? "file"
+					: "track"
 			const metadata = {
 				...(options.metadata || {}),
 			}
 			if (options.title) metadata.title = options.title
-			if (source?.id != null && metadata.id == null) metadata.id = source.id
+			if (source?.id != null && metadata.id == null)
+				metadata.id = source.id
 			const autoplay = options.autoplay === true
 
 			if (type === "track") {
 				const trackId = String(source?.id || "")
 				if (!trackId || !this.songs[trackId]) {
-					this.setPlaybackError(`Unknown track: ${trackId || "missing id"}`)
+					this.setPlaybackError(
+						`Unknown track: ${trackId || "missing id"}`,
+					)
 					return false
 				}
 				this.stopMidiPlayback(false)
@@ -6300,7 +4752,10 @@ window.SystemDeckAudio = (() => {
 					nowPlaying: {
 						type: "track",
 						id: trackId,
-						title: options.title || this.songs[trackId]?.title || trackId,
+						title:
+							options.title ||
+							this.songs[trackId]?.title ||
+							trackId,
 						duration: 0,
 						currentTime: 0,
 						source: trackId,
@@ -6336,7 +4791,8 @@ window.SystemDeckAudio = (() => {
 				typeof source?.url === "string" ? source.url.toLowerCase() : ""
 			if (
 				(typeof source?.url === "string" &&
-					(sourceUrl.endsWith(".mid") || sourceUrl.endsWith(".midi"))) ||
+					(sourceUrl.endsWith(".mid") ||
+						sourceUrl.endsWith(".midi"))) ||
 				mime.includes("midi")
 			) {
 				const loaded = await this.loadMidi(
@@ -6344,7 +4800,10 @@ window.SystemDeckAudio = (() => {
 						type: "midi",
 						url: String(source?.url || ""),
 						id: source?.id ?? null,
-						data: source?.derivative || metadata?.midiDerivative || null,
+						data:
+							source?.derivative ||
+							metadata?.midiDerivative ||
+							null,
 					},
 					{
 						title: options.title || metadata.title || "MIDI Track",
@@ -6363,7 +4822,11 @@ window.SystemDeckAudio = (() => {
 				...metadata,
 				type: "file",
 				id: source?.id ?? null,
-				title: options.title || metadata.title || metadata.name || "Untitled",
+				title:
+					options.title ||
+					metadata.title ||
+					metadata.name ||
+					"Untitled",
 				source: typeof source?.url === "string" ? source.url : "",
 			})
 			if (!loaded) return false
@@ -6375,9 +4838,16 @@ window.SystemDeckAudio = (() => {
 			if (this.midiDerivative) {
 				return await this.playMidi()
 			}
-			if (this.getMode() === "file" || this.filePlayer || this.fileSource) {
+			if (
+				this.getMode() === "file" ||
+				this.filePlayer ||
+				this.fileSource
+			) {
 				if (!this.filePlayer && this.fileSource) {
-					const loaded = await this.loadFile(this.fileSource, this.fileMeta || {})
+					const loaded = await this.loadFile(
+						this.fileSource,
+						this.fileMeta || {},
+					)
 					if (!loaded) return false
 				}
 				return await this.playFile()
@@ -6401,7 +4871,10 @@ window.SystemDeckAudio = (() => {
 				nowPlaying: {
 					type: "track",
 					id: this.currentTrack,
-					title: this.songs[this.currentTrack]?.title || this.currentTrack || "",
+					title:
+						this.songs[this.currentTrack]?.title ||
+						this.currentTrack ||
+						"",
 					duration: 0,
 					currentTime: 0,
 					source: this.currentTrack || "",
@@ -6421,31 +4894,53 @@ window.SystemDeckAudio = (() => {
 				nowPlaying: this.fileSource
 					? this.buildNowPlaying(this.fileMeta || {}, this.fileSource)
 					: this.midiDerivative
-						? this.buildNowPlaying(
-								{
-									type: "track",
-									id: this.midiDerivative?.source?.id || null,
-									title:
-										this.midiDerivative?.source?.title || "MIDI Track",
-									duration: this.midiDuration || 0,
-									mediaType: "midi",
-									mime: "audio/midi",
-									sourceHash: this.midiSourceHash || "",
-								},
-								this.midiDerivative?.source?.url || "",
-							)
+					? this.buildNowPlaying(
+							{
+								type: "track",
+								id: this.midiDerivative?.source?.id || null,
+								title:
+									this.midiDerivative?.source?.title ||
+									"MIDI Track",
+								duration: this.midiDuration || 0,
+								mediaType: "midi",
+								mime: "audio/midi",
+								sourceHash: this.midiSourceHash || "",
+							},
+							this.midiDerivative?.source?.url || "",
+					  )
 					: {
 							type: "track",
 							id: this.currentTrack || null,
 							title:
-								this.songs[this.currentTrack]?.title || this.currentTrack || "",
+								this.songs[this.currentTrack]?.title ||
+								this.currentTrack ||
+								"",
 							duration: 0,
 							currentTime: 0,
 							source: this.currentTrack || "",
 							metadata: { id: this.currentTrack || null },
-						},
+					  },
 			})
 			return true
+		}
+
+		stopFx() {
+			if (!this.Tone || !this.fxGain) return
+			const now = this.Tone.now()
+			this.fxGain.gain.cancelScheduledValues(now)
+			this.fxGain.gain.rampTo(0, 0.05, now)
+			
+			// Restore volume after a short silence to allow new FX to trigger
+			setTimeout(() => {
+				if (this.fxGain) {
+					this.fxGain.gain.rampTo(this.fxVolume, 0.1)
+				}
+			}, 150)
+		}
+
+		stopAll() {
+			this.stop()
+			this.stopFx()
 		}
 
 		seek(seconds) {
@@ -6491,7 +4986,8 @@ window.SystemDeckAudio = (() => {
 		}
 
 		async next() {
-			if (!Array.isArray(this.queue) || this.queue.length === 0) return false
+			if (!Array.isArray(this.queue) || this.queue.length === 0)
+				return false
 			const nextIndex = (this.queueIndex + 1) % this.queue.length
 			this.queueIndex = nextIndex
 			const item = this.queue[nextIndex]
@@ -6500,7 +4996,8 @@ window.SystemDeckAudio = (() => {
 		}
 
 		async previous() {
-			if (!Array.isArray(this.queue) || this.queue.length === 0) return false
+			if (!Array.isArray(this.queue) || this.queue.length === 0)
+				return false
 			const prevIndex =
 				(this.queueIndex - 1 + this.queue.length) % this.queue.length
 			this.queueIndex = prevIndex
@@ -6511,23 +5008,56 @@ window.SystemDeckAudio = (() => {
 
 		async playMidiTrack(url, title = "MIDI Track", options = {}) {
 			try {
-				const response = await fetch(url, { credentials: "same-origin" })
-				if (!response.ok) {
-					throw new Error(`Unable to fetch MIDI source: ${response.status}`)
+				let derivative = null
+				let actualUrl = url
+
+				if (typeof url === "object" && url !== null) {
+					derivative = url
+					actualUrl = url.url || ""
+				} else if (
+					typeof url === "string" &&
+					(url.trim().startsWith("{") || url.trim().startsWith("["))
+				) {
+					try {
+						derivative = JSON.parse(url)
+						actualUrl = derivative.url || url
+					} catch (e) {
+						console.error(
+							"[SystemDeckAudio] playMidiTrack: Failed to parse MIDI JSON",
+							e,
+						)
+					}
 				}
-				const buffer = await response.arrayBuffer()
-				const derivative = await this.buildMidiDerivativeFromArrayBuffer(buffer, {
-					sourceType: String(options?.sourceType || "legacy"),
-					id: options?.trackId ?? null,
-					title: title || "MIDI Track",
-					mime: "audio/midi",
-					filename: String(options?.filename || ""),
-					url,
-				})
+
+				if (!derivative) {
+					const response = await fetch(url, {
+						credentials: "same-origin",
+					})
+					const contentType = response.headers.get("content-type")
+					if (contentType && contentType.includes("json")) {
+						derivative = await response.json()
+					} else {
+						const buffer = await response.arrayBuffer()
+						derivative =
+							await this.buildMidiDerivativeFromArrayBuffer(
+								buffer,
+								{
+									sourceType: String(
+										options?.sourceType || "legacy",
+									),
+									id: options?.trackId ?? null,
+									title: title || "MIDI Track",
+									mime: "audio/midi",
+									filename: String(options?.filename || ""),
+									url,
+								},
+							)
+					}
+				}
 				const loaded = await this.loadMidi(
 					{
 						type: "midi",
-						url,
+						url: actualUrl,
 						id: options?.trackId ?? null,
 						data: derivative,
 					},
@@ -6539,7 +5069,8 @@ window.SystemDeckAudio = (() => {
 							mediaType: "midi",
 							sourceHash: derivative?.source?.hash || "",
 							parserVersion:
-								derivative?.parser?.version || this.midiParserVersion,
+								derivative?.parser?.version ||
+								this.midiParserVersion,
 							derivativeVersion:
 								derivative?.version || this.midiSchemaVersion,
 						},
@@ -6562,9 +5093,24 @@ window.SystemDeckAudio = (() => {
 			this.stopFile(false, false)
 			this.stopMusic(false)
 			this.applyTrackDefaultMix(this.currentTrack)
+
+			this.schedulerId++
+			this.schedulerSuspended = false
+
+			// Resolve Tone safely to avoid null transport crashes during rapid UI initialization
+			const T = this.Tone || window.Tone
+			const now = (T && typeof T.now === "function") ? T.now() : 0
+
+			// Hard track-switch reset: snap timeline forward to avoid Tone scheduling conflicts
+			const safety = 0.2 // 200ms cooldown for envelope stability
+			this.lastScheduledTime = now + safety
+			this.nextStepTime = now + safety
+
 			this.musicRunning = true
 			const trackTitle =
-				this.songs[this.currentTrack]?.title || this.currentTrack || "Track"
+				this.songs[this.currentTrack]?.title ||
+				this.currentTrack ||
+				"Track"
 			this.emitPlaybackState("music:start", {
 				mode: "track",
 				status: "playing",
@@ -6587,11 +5133,14 @@ window.SystemDeckAudio = (() => {
 		}
 
 		stopMusic(emitState = true) {
+			this.schedulerId++
+			this.schedulerSuspended = false
 			if (this.musicTimer) {
 				clearTimeout(this.musicTimer)
 				this.musicTimer = null
 			}
 			this.musicRunning = false
+			this.lastScheduledTime = -Infinity
 			if (emitState && !this.fileIsPlaying) {
 				this.emitPlaybackState("music:stop", {
 					mode: "track",
@@ -6600,7 +5149,9 @@ window.SystemDeckAudio = (() => {
 						type: "track",
 						id: this.currentTrack || null,
 						title:
-							this.songs[this.currentTrack]?.title || this.currentTrack || "",
+							this.songs[this.currentTrack]?.title ||
+							this.currentTrack ||
+							"",
 						duration: 0,
 						currentTime: 0,
 						source: this.currentTrack || "",
@@ -6619,10 +5170,11 @@ window.SystemDeckAudio = (() => {
 		playSurf(midi, time, dur) {
 			const note = this.midiToNote(midi)
 			if (!note || !this.toneInstruments.surf) return
+			const safeTime = this.getSafeTime(time)
 			this.toneInstruments.surf.triggerAttackRelease(
 				note,
 				dur * 1.8,
-				time,
+				safeTime,
 				0.65,
 			)
 		}
@@ -6630,10 +5182,11 @@ window.SystemDeckAudio = (() => {
 		playPiano(midi, time, dur) {
 			const note = this.midiToNote(midi)
 			if (!note || !this.toneInstruments.piano) return
+			const safeTime = this.getSafeTime(time)
 			this.toneInstruments.piano.triggerAttackRelease(
 				note,
 				dur * 2.6,
-				time,
+				safeTime,
 				0.65,
 			)
 		}
@@ -6645,11 +5198,12 @@ window.SystemDeckAudio = (() => {
 
 			switch (lane) {
 				case "bass": {
+					const safeTime = this.getSafeTime(now)
 					if (this.toneInstruments.bassMain) {
 						this.toneInstruments.bassMain.triggerAttackRelease(
 							noteName,
 							noteDur * 1.1,
-							now,
+							safeTime,
 							0.8,
 						)
 					}
@@ -6657,7 +5211,7 @@ window.SystemDeckAudio = (() => {
 						this.toneInstruments.bassSub.triggerAttackRelease(
 							noteName,
 							noteDur * 1.05,
-							now,
+							safeTime,
 							0.6,
 						)
 					}
@@ -6665,14 +5219,16 @@ window.SystemDeckAudio = (() => {
 					break
 				}
 
-				case "bell":
+				case "bell": {
+					const safeTime = this.getSafeTime(now)
 					this.toneInstruments.bell?.triggerAttackRelease(
 						noteName,
 						noteDur * 5.5,
-						now,
+						safeTime,
 						0.45,
 					)
 					break
+				}
 
 				case "twang":
 					this.playTwang(note, now, noteDur)
@@ -6686,32 +5242,35 @@ window.SystemDeckAudio = (() => {
 					this.playSurf(note, now, noteDur)
 					break
 
-				case "horn":
+				case "horn": {
+					const safeTime = this.getSafeTime(now)
 					this.toneInstruments.horn?.triggerAttackRelease(
 						noteName,
 						noteDur * 0.7,
-						now,
+						safeTime,
 						0.7,
 					)
 					break
+				}
 
 				case "synth":
 				default: {
 					const isSwell = ["intro", "bridge", "outro"].includes(
 						patternName,
 					)
+					const safeTime = this.getSafeTime(now)
 					if (isSwell) {
 						this.toneInstruments.pad?.triggerAttackRelease(
 							noteName,
 							noteDur * 2.4,
-							now,
+							safeTime,
 							0.52,
 						)
 					} else {
 						this.toneInstruments.lead?.triggerAttackRelease(
 							noteName,
 							noteDur * 1.35,
-							now,
+							safeTime,
 							0.58,
 						)
 					}
@@ -6720,7 +5279,24 @@ window.SystemDeckAudio = (() => {
 			}
 		}
 
-		queueNextNote() {
+		queueNextNote(localId = null) {
+			// 1. Session Guard
+			if (localId !== null && localId !== this.schedulerId) return
+			const currentId = this.schedulerId
+
+			// 2. Kill condition
+			if (
+				!this.musicRunning ||
+				this.fileIsPlaying ||
+				this.schedulerSuspended
+			) {
+				if (this.musicTimer) {
+					clearTimeout(this.musicTimer)
+					this.musicTimer = null
+				}
+				return
+			}
+
 			const trackRef =
 				this.songs[this.currentTrack] ||
 				this.songs.metal ||
@@ -6732,15 +5308,47 @@ window.SystemDeckAudio = (() => {
 			const barDur = 60 / tempo
 			const noteDur = barDur / 4
 
-			if (!this.Tone || !this.toneReady || this.muted || this.Tone.context.state !== "running") {
+			if (
+				!this.Tone ||
+				!this.toneReady ||
+				this.muted ||
+				this.Tone.context.state !== "running"
+			) {
 				this.musicTimer = window.setTimeout(
-					() => this.queueNextNote(),
-					noteDur * 1000,
+					() => this.queueNextNote(currentId),
+					100,
 				)
 				return
 			}
 
-			const now = this.Tone.now() + 0.02
+			const toneNow = this.Tone.now()
+			const lookahead = 0.15 // 150ms lookahead
+			const startBudget = performance.now()
+
+			// 3. No Catch-Up Rule: if we drifted too far (e.g. tab backgrounded), snap to future
+			const maxDrift = 0.25
+			if (this.nextStepTime < toneNow - maxDrift) {
+				this.nextStepTime = toneNow + 0.03
+			}
+
+			// Batch process steps up to the lookahead window
+			while (this.nextStepTime < toneNow + lookahead) {
+				// Hard execution budget: 8ms max per tick
+				if (performance.now() - startBudget > 8) break
+
+				this.processMusicStep(track, this.nextStepTime, noteDur)
+				this.nextStepTime += noteDur
+				this.musicIndex++
+			}
+
+			// Run the scheduler loop at a lower frequency
+			this.musicTimer = window.setTimeout(
+				() => this.queueNextNote(currentId),
+				40,
+			)
+		}
+
+		processMusicStep(track, time, noteDur) {
 			const totalSteps = track.arrangement.length * 16
 			const currentStep = this.musicIndex % totalSteps
 			const patternIdx = Math.floor(currentStep / 16)
@@ -6748,50 +5356,50 @@ window.SystemDeckAudio = (() => {
 			const pattern = track.patterns[patternName]
 			const stepInPattern = currentStep % 16
 
-			if (!pattern || typeof pattern !== "object") {
-				this.musicIndex++
-				this.musicTimer = window.setTimeout(
-					() => this.queueNextNote(),
-					noteDur * 1000,
-				)
-				return
-			}
+			if (!pattern || typeof pattern !== "object") return
 
 			const bassStep = Number(pattern?.bass?.[stepInPattern] || 0)
 			if (bassStep <= 0) this.lastBassFreq = null
 
-			Object.entries(pattern).forEach(([lane, laneSteps]) => {
-				if (lane === "drums" || !Array.isArray(laneSteps)) return
+			for (const lane in pattern) {
+				if (
+					lane === "drums" ||
+					!Object.prototype.hasOwnProperty.call(pattern, lane)
+				)
+					continue
+				const laneSteps = pattern[lane]
+				if (!Array.isArray(laneSteps)) continue
+
 				const note = Number(laneSteps[stepInPattern] || 0)
 				if (note > 0) {
-					this.playLaneStep(lane, note, now, noteDur, patternName)
+					this.playLaneStep(lane, note, time, noteDur, patternName)
 				}
-			})
+			}
 
 			const drum = pattern?.drums?.[stepInPattern]
-			if (drum === "k") this.playPercussion("kick", now)
-			if (drum === "s") this.playPercussion("snare", now)
-			if (drum === "h") this.playPercussion("hihat", now)
+			if (drum === "k") this.playPercussion("kick", time)
+			if (drum === "s") this.playPercussion("snare", time)
+			if (drum === "h") this.playPercussion("hihat", time)
+		}
 
-			this.musicIndex++
-			this.musicTimer = window.setTimeout(
-				() => this.queueNextNote(),
-				noteDur * 1000,
+		getSafeTime(requestedTime) {
+			const EPS = 0.0001
+			const now = this.Tone.now()
+			// Ensure we are at least 5ms ahead of real-time and after the last scheduled event
+			const floor = Math.max(
+				now + 0.005,
+				Number.isFinite(this.lastScheduledTime)
+					? this.lastScheduledTime + EPS
+					: now + 0.005,
 			)
+			const safe = Math.max(Number(requestedTime) || now, floor)
+			this.lastScheduledTime = safe
+			return safe
 		}
 
 		playPercussion(type, time) {
 			if (!this.Tone || !this.toneInstruments) return
-			const epsilon = 0.0001
-			const now = Number(this.Tone.now ? this.Tone.now() : 0)
-			const requested = Number(time)
-			const baseTime = Number.isFinite(requested) ? Math.max(requested, now) : now
-			const previous = Number(this.lastPercussionStartTimes?.[type] ?? -Infinity)
-			const safeTime = baseTime <= previous ? previous + epsilon : baseTime
-			if (!this.lastPercussionStartTimes) {
-				this.lastPercussionStartTimes = {}
-			}
-			this.lastPercussionStartTimes[type] = safeTime
+			const safeTime = this.getSafeTime(time)
 
 			if (type === "kick") {
 				this.toneInstruments.kick?.triggerAttackRelease(
