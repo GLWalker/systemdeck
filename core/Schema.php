@@ -1,4 +1,15 @@
 <?php
+/**
+ * SystemDeck - Schema
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Schema.php
+ * @license GPL-2.0-or-later
+ *
+ * Database Schema and CSS Token Authority
+ */
 
 namespace SystemDeck\Core;
 /**

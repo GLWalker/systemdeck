@@ -1,7 +1,14 @@
 <?php
 /**
- * SystemDeck DB Tables Browser
- * Shows SystemDeck table inventory and sample rows for quick diagnostics.
+ * SystemDeck - widget.php
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/widgets/db-tables-browser/widget.php
+ * @license GPL-2.0-or-later
+ *
+ * Database Tables Browser Widget
  */
 declare(strict_types=1);
 
@@ -16,6 +23,7 @@ class DbTablesBrowser extends BaseWidget
     public const ID = 'core.db-tables-browser';
     public const TITLE = 'SystemDeck DB Browser';
     public const ICON = 'dashicons-database-view';
+    public const DEFAULT_WIDTH = 4;
 
     public static function assets(): array
     {
@@ -120,4 +128,3 @@ class DbTablesBrowser extends BaseWidget
         }
     }
 }
-

@@ -1,4 +1,15 @@
 <?php
+/**
+ * SystemDeck - DashboardTunnel
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/modules/DashboardTunnel.php
+ * @license GPL-2.0-or-later
+ *
+ * Secure iframe tunneling for dashboard widgets
+ */
 
 /**
  * SystemDeck – Dashboard Tunnel (Universal Drop-In)
@@ -118,8 +129,8 @@ final class DashboardTunnel
 
         // Common runtime key for discovered/dashboard widgets.
         $candidates = [
-            'dashboard.' . sanitize_key($widget_id),
-            'discovered.' . sanitize_key($widget_id),
+            'dashboard.' . \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id($widget_id),
+            'discovered.' . \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id($widget_id),
             sanitize_text_field($widget_id),
         ];
 

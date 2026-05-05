@@ -1,3 +1,15 @@
+/**
+ * SystemDeck - telemetry-intelligence-engine.js
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/assets/js/runtime/telemetry-intelligence-engine.js
+ * @license GPL-2.0-or-later
+ *
+ * Client-side Telemetry Intelligence
+ */
+
 ;(function () {
 	"use strict"
 

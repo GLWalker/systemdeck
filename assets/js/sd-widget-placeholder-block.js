@@ -1,3 +1,15 @@
+/**
+ * SystemDeck - sd-widget-placeholder-block.js
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/assets/js/sd-widget-placeholder-block.js
+ * @license GPL-2.0-or-later
+ *
+ * Widget Placeholder Gutenberg Block Logic
+ */
+
 (function (wp) {
 	if (!wp || !wp.blocks || !wp.element || !wp.components || !wp.i18n || !wp.blockEditor) {
 		return;

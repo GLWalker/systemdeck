@@ -1,3 +1,17 @@
+<!--
+/**
+ * SystemDeck Vault Widget - Architectural Contract
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/widgets/vault/vault.md
+ * @license GPL-2.0-or-later
+ *
+ * Defines the behavioral and data boundaries for the Vault widget and its modular architecture.
+ */
+-->
+
 # SystemDeck Vault Widget Contract
 
 ## 1. Purpose

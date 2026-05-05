@@ -1,3 +1,15 @@
+/**
+ * SystemDeck - self-healing-engine.js
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/assets/js/runtime/self-healing-engine.js
+ * @license GPL-2.0-or-later
+ *
+ * System Self-healing and Error Recovery Engine
+ */
+
 ;(function () {
 	"use strict"
 

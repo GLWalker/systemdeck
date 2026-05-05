@@ -1,0 +1,239 @@
+/**
+ * SystemDeck - pins.css
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/assets/css/pins.css
+ * @license GPL-2.0-or-later
+ *
+ * Global Pin Component Styling
+ */
+
+/* ==========================================================================
+   SYSTEMDECK PIN UI AUTHORITY
+   Centralized shell language for all DOM and Pixi pins.
+   ========================================================================== */
+
+:root {
+	--sd-pin-bg: #ffffff;
+	--sd-pin-border: #dcdcde;
+	--sd-pin-border-hover: #bfc6ce;
+	--sd-pin-border-active: #2271b1;
+	--sd-pin-accent: #2271b1;
+	--sd-pin-accent-soft: rgba(34, 113, 177, 0.12);
+	--sd-pin-focus-ring: rgba(34, 113, 177, 0.28);
+	--sd-pin-text: #1d2327;
+	--sd-pin-text-soft: #50575e;
+	--sd-pin-text-faint: #646970;
+	--sd-pin-icon: #3c434a;
+	--sd-pin-separator: #e2e4e7;
+	--sd-pin-radius: 4px;
+	--sd-pin-padding-y: 12px;
+	--sd-pin-padding-x: 14px;
+	--sd-pin-shadow-hover: 0 1px 2px rgba(0, 0, 0, 0.06);
+	--sd-pin-shadow-drag: 0 4px 14px rgba(0, 0, 0, 0.1);
+}
+
+/* Base Shell: Postbox parity */
+:is(#systemdeck, #sd-canvas-root, .sd-canvas-shell) .postbox.sd-pin {
+	margin: 0;
+	background: var(--sd-pin-bg);
+	border: 1px solid var(--sd-pin-border);
+	border-radius: var(--sd-pin-radius);
+	box-shadow: none;
+	color: var(--sd-pin-text);
+	overflow: hidden;
+	transition: border-color 140ms ease, box-shadow 140ms ease,
+		transform 140ms ease;
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	width: 100%;
+	box-sizing: border-box;
+}
+
+:is(#systemdeck, #sd-canvas-root, .sd-canvas-shell) .postbox.sd-pin > .inside {
+	margin: 0;
+	padding: var(--sd-pin-padding-y) var(--sd-pin-padding-x);
+	color: inherit;
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+}
+
+/* Accent Strip Variant */
+:is(#systemdeck, #sd-canvas-root, .sd-canvas-shell) .postbox.sd-pin::before {
+	content: "";
+	position: absolute;
+	inset: 0 0 auto 0;
+	height: 2px;
+	background: transparent;
+	transition: background 140ms ease;
+	z-index: 5;
+}
+
+:is(#systemdeck, #sd-canvas-root, .sd-canvas-shell)
+	.postbox.sd-pin:hover::before,
+:is(#systemdeck, #sd-canvas-root, .sd-canvas-shell)
+	.postbox.sd-pin.is-selected::before,
+:is(#systemdeck, #sd-canvas-root, .sd-canvas-shell)
+	.postbox.sd-pin[data-selected="true"]::before,
+.postbox.sd-pin.is-urgent::before,
+.postbox.sd-pin.is-high::before,
+.postbox.sd-pin.is-moderate::before,
+.postbox.sd-pin.is-medium::before {
+	background: var(--sd-pin-accent);
+}
+
+:is(#systemdeck, #sd-canvas-root, .sd-canvas-shell) .postbox.sd-pin:hover {
+	border-color: var(--sd-pin-border-hover);
+	box-shadow: var(--sd-pin-shadow-hover);
+}
+
+:is(#systemdeck, #sd-canvas-root, .sd-canvas-shell) .postbox.sd-pin:focus,
+:is(#systemdeck, #sd-canvas-root, .sd-canvas-shell)
+	.postbox.sd-pin:focus-visible {
+	outline: none;
+	border-color: var(--sd-pin-border-active);
+	box-shadow: 0 0 0 3px var(--sd-pin-focus-ring);
+}
+
+:is(#systemdeck, #sd-canvas-root, .sd-canvas-shell) .postbox.sd-pin.is-selected,
+:is(#systemdeck, #sd-canvas-root, .sd-canvas-shell)
+	.postbox.sd-pin[data-selected="true"] {
+	border-color: var(--sd-pin-border-active);
+}
+
+:is(#systemdeck, #sd-canvas-root, .sd-canvas-shell)
+	.postbox.sd-pin.is-dragging {
+	opacity: 0.8;
+	border-color: var(--sd-pin-border-active);
+	box-shadow: var(--sd-pin-shadow-drag);
+	cursor: grabbing;
+}
+
+/* Media Object Layout (Premium Composition) */
+.sd-media-wrap {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	width: 100%;
+	height: 100%;
+}
+
+.sd-media-figure {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 32px;
+	height: 32px;
+	background: var(--sd-pin-accent-soft);
+	border-radius: 6px;
+	color: var(--sd-pin-accent);
+}
+
+.sd-media-figure .sd-pin-icon {
+	font-size: 20px;
+	width: 20px;
+	height: 20px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.sd-media-content {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	min-width: 0;
+	flex: 1;
+}
+
+/* Typography Role Classes */
+.sd-pin-label {
+	color: var(--sd-pin-text-soft);
+	font-size: 11px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	line-height: 1.2;
+	margin-bottom: 2px;
+}
+
+.sd-pin-value {
+	color: var(--sd-pin-text);
+	font-weight: 600;
+	font-size: 15px;
+	line-height: 1.1;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.sd-pin-title {
+	margin: 0;
+	padding: 0;
+	color: var(--sd-pin-text);
+	font-weight: 600;
+	font-size: 13px;
+	line-height: 1.2;
+}
+
+.sd-pin-meta,
+.sd-pin-description,
+.sd-pin-subtext {
+	color: var(--sd-pin-text-soft);
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+.sd-pin-kicker,
+.sd-pin-timestamp,
+.sd-pin-source {
+	color: var(--sd-pin-text-faint);
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+/* Note/Vault Specifics */
+.postbox.sd-pin.is-urgent {
+	--sd-pin-accent: var(--sd-error);
+	--sd-pin-accent-soft: rgba(214, 54, 56, 0.1);
+}
+
+.postbox.sd-pin.is-high {
+	--sd-pin-accent: #f0ad4e;
+	--sd-pin-accent-soft: rgba(240, 173, 78, 0.1);
+}
+
+.postbox.sd-pin.is-medium,
+.postbox.sd-pin.is-moderate {
+	--sd-pin-accent: var(--sd-warning);
+	--sd-pin-accent-soft: rgba(219, 166, 23, 0.1);
+}
+
+.postbox.sd-pin.is-low {
+	--sd-pin-accent: var(--sd-info);
+	--sd-pin-accent-soft: rgba(114, 174, 230, 0.1);
+}
+
+.sd-pin-edit-btn {
+	background: none;
+	border: none;
+	padding: 0;
+	margin: 0;
+	color: var(--sd-pin-accent);
+	font-size: inherit;
+	font-family: inherit;
+	cursor: pointer;
+	text-decoration: none;
+	display: inline;
+}
+
+.sd-pin-edit-btn:hover {
+	text-decoration: underline;
+}

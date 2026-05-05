@@ -1,7 +1,13 @@
 <?php
-
 /**
- * SystemDeck Vault Module
+ * SystemDeck Vault Widget
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/widgets/vault/widget.php
+ * @license GPL-2.0-or-later
+ *
  * A secure drag-and-drop file manager widget for workspaces.
  */
 
@@ -21,6 +27,8 @@ class Vault extends BaseWidget
     public const ID = 'core.vault';
     public const TITLE = 'File Vault';
     public const ICON = 'dashicons-portfolio';
+    public const DEFAULT_WIDTH = 3;
+    public const PIN_ID = 'pinned_file';
 
     private const CPT = 'sd_vault_file';
     private const STORAGE_MODE_META_KEY = '_sd_vault_storage_mode';
@@ -42,46 +50,165 @@ class Vault extends BaseWidget
     private const MIDI_LAST_MODIFIED_AT_META_KEY = '_sd_midi_last_modified_at';
     private const MIDI_LAST_REBUILT_AT_META_KEY = '_sd_midi_last_rebuilt_at';
 
+    // Authority & Origin tracking (Phase 2F)
+    private const AUTHORITY_META_KEY = '_sd_vault_authority';
+    private const ORIGIN_KEY = '_sd_vault_origin'; // Note: ORIGIN_META_KEY already exists as _sd_vault_origin
+    private const VAULT_SOURCE_ID_META_KEY = '_sd_vault_source_id'; // For attachments
+
     private static int $vault_private_upload_scope_depth = 0;
 
     public static function assets(): array
     {
         return [
             'css' => ['style.css', 'sd-vault-media.css', 'sd-player-style'],
-            'js' => ['sd-audio-engine', 'sd-player-app', 'app.js']
+            'js' => ['sd-audio-engine', 'sd-player-app', 'app.js', 'media-bridge.js']
         ];
     }
 
+    /**
+     * Opt-in to native WordPress media assets (JS/CSS).
+     */
     public static function requires_wp_media(): bool
     {
         return true;
     }
 
+    /**
+     * ============================
+     * PIN RUNTIME (Consolidated)
+     * ============================
+     */
+
+    public static function pin_definitions(): array
+    {
+        return [
+            [
+                'id' => self::PIN_ID,
+                'label' => 'Pinned File',
+                'type' => 'custom',
+                'source' => [
+                    'kind' => 'widget',
+                    'authority' => 'systemdeck',
+                    'id' => self::ID,
+                ],
+                'category' => 'vault',
+                'renderer' => 'dom',
+                'description' => 'A specific file pinned to your workspace.',
+                'icon' => 'dashicons-media-default',
+                'tags' => ['vault', 'pinned'],
+                'pin_safe' => true,
+                'defaults' => [
+                    'size' => '2x1',
+                    'design_template' => 'default',
+                ],
+            ],
+        ];
+    }
+
+    public static function pin_asset_handles(string $pin_id): array
+    {
+        return [
+            'js' => ['sd-pin-base-runtime'],
+            'css' => [],
+        ];
+    }
+
+    public static function pin_render(string $pin_id, array $context = []): string
+    {
+        // $pin_id is likely "vault.123"
+        $parts = explode('.', $pin_id);
+        $file_id = intval(end($parts));
+        if ($file_id <= 0) {
+            return '';
+        }
+
+        $post = get_post($file_id);
+        if (!$post || $post->post_type !== self::CPT) {
+            return '';
+        }
+
+        // ObjectAccessGate: ideally we'd check access here if it's a workspace pin
+        $workspace_id = sanitize_key((string) ($context['workspace_id'] ?? ''));
+        if ($workspace_id !== '' && function_exists('systemdeck_user_meets_workspace_access')) {
+            if (!systemdeck_user_meets_workspace_access(get_current_user_id(), $workspace_id)) {
+                return '';
+            }
+        }
+
+        $instance_id = sanitize_html_class((string) ($context['instance_id'] ?? $pin_id));
+        $level = get_post_meta($file_id, '_sd_vault_priority', true) ?: 'low';
+
+        $status_map = [
+            'low' => 'is-low',
+            'moderate' => 'is-moderate',
+            'medium' => 'is-moderate',
+            'high' => 'is-high',
+            'urgent' => 'is-urgent',
+        ];
+        $status_class = $status_map[$level] ?? 'is-low';
+
+        $mime = get_post_meta($file_id, '_sd_vault_mime_type', true);
+        $icon = 'dashicons-media-default';
+        if (strpos((string) $mime, 'image/') === 0)
+            $icon = 'dashicons-format-image';
+        elseif (strpos((string) $mime, 'pdf') !== false)
+            $icon = 'dashicons-media-document';
+        elseif (strpos((string) $mime, 'audio/') === 0)
+            $icon = 'dashicons-media-audio';
+
+        ob_start();
+        ?>
+        <article class="postbox sd-pin <?php echo esc_attr($status_class); ?>" data-pin-action="open_vault_file"
+            data-file-id="<?php echo esc_attr((string) $file_id); ?>"
+            data-workspace-id="<?php echo esc_attr($workspace_id); ?>">
+            <div class="sd-media-wrap">
+                <div class="sd-media-figure">
+                    <span class="sd-pin-icon dashicons <?php echo esc_attr($icon); ?>"></span>
+                </div>
+                <div class="sd-media-content">
+                    <div class="sd-pin-label">
+                        <?php echo esc_html__('File', 'systemdeck'); ?>
+                    </div>
+                    <h4 class="sd-pin-title"><?php echo esc_html($post->post_title); ?></h4>
+                    <div class="sd-pin-meta">
+                        <span class="sd-pin-description"><?php echo esc_html($mime); ?></span>
+                        <span class="sd-pin-edit-link"> | <button type="button" class="sd-pin-edit-btn"
+                                data-mode="edit"><?php echo esc_html__('Edit', 'systemdeck'); ?></button></span>
+                    </div>
+                </div>
+            </div>
+        </article>
+        <?php
+        return (string) ob_get_clean();
+    }
+
+
     public static function register_vault(): void
     {
-        // Boot the security directory watcher and stream handler
+        // Always init VaultManager (safe if already booted)
         if (class_exists(VaultManager::class)) {
             VaultManager::init();
         }
-
-        register_post_type(self::CPT, [
-            'label' => __('SystemDeck Vault File', 'systemdeck'),
-            'public' => false,
-            'show_ui' => true, // Allowed for debug
-            'show_in_menu' => false,
-            'menu_icon' => self::ICON,
-            'capability_type' => 'post',
-            'supports' => ['title', 'editor', 'author', 'excerpt', 'comments'],
-            'map_meta_cap' => true,
-            'can_export' => true
-        ]);
-
+        // Only register CPT if not already handled externally
+        if (!post_type_exists(self::CPT)) {
+            register_post_type(self::CPT, [
+                'label' => __('SystemDeck Vault File', 'systemdeck'),
+                'public' => false,
+                'show_ui' => true,
+                'show_in_menu' => false,
+                'menu_icon' => self::ICON,
+                'capability_type' => 'post',
+                'supports' => ['title', 'editor', 'author', 'excerpt', 'comments'],
+                'map_meta_cap' => true,
+                'can_export' => true
+            ]);
+        }
+        // Always normalize (safe idempotent)
         self::maybe_normalize_existing_items();
+    }
 
-        add_filter('manage_sd_vault_file_posts_columns', [self::class, 'manage_admin_columns']);
-        add_action('manage_sd_vault_file_posts_custom_column', [self::class, 'render_admin_columns'], 10, 2);
-        add_action('add_meta_boxes', [self::class, 'add_meta_boxes']);
-        add_action('save_post_sd_vault_file', [self::class, 'save_meta_boxes']);
+    public static function register_ajax_hooks(): void
+    {
         add_action('wp_ajax_sd_core_vault_ajax_upload_file', [self::class, 'handle_ajax_upload_file']);
         add_action('wp_ajax_sd_core_vault_ajax_link_attachment', [self::class, 'handle_ajax_link_attachment']);
         add_action('wp_ajax_sd_core_vault_ajax_get_files', [self::class, 'handle_ajax_get_files']);
@@ -89,15 +216,54 @@ class Vault extends BaseWidget
         add_action('wp_ajax_sd_core_vault_ajax_import_from_media_library', [self::class, 'handle_ajax_import_from_media_library']);
         add_action('wp_ajax_sd_core_vault_ajax_export_to_media_library', [self::class, 'handle_ajax_export_to_media_library']);
         add_action('wp_ajax_sd_core_vault_ajax_make_private', [self::class, 'handle_ajax_make_private']);
-        add_action('wp_ajax_sd_core_vault_ajax_get_file_comments', [self::class, 'handle_ajax_get_file_comments']);
-        add_action('wp_ajax_sd_core_vault_ajax_add_file_comment', [self::class, 'handle_ajax_add_file_comment']);
-        add_action('wp_ajax_sd_toggle_vault_sticky', [self::class, 'handle_ajax_toggle_vault_sticky']);
         add_action('wp_ajax_sd_core_vault_ajax_get_file_details', [self::class, 'handle_ajax_get_file_details']);
         add_action('wp_ajax_sd_core_vault_ajax_save_file_details', [self::class, 'handle_ajax_save_file_details']);
         add_action('wp_ajax_sd_core_vault_ajax_get_midi_editor_payload', [self::class, 'handle_ajax_get_midi_editor_payload']);
         add_action('wp_ajax_sd_core_vault_ajax_validate_midi_derivative', [self::class, 'handle_ajax_validate_midi_derivative']);
         add_action('wp_ajax_sd_core_vault_ajax_save_midi_derivative', [self::class, 'handle_ajax_save_midi_derivative']);
         add_action('wp_ajax_sd_core_vault_ajax_rebuild_midi_derivative', [self::class, 'handle_ajax_rebuild_midi_derivative']);
+        add_action('wp_ajax_sd_core_vault_ajax_get_file_comments', [self::class, 'handle_ajax_get_file_comments']);
+        add_action('wp_ajax_sd_core_vault_ajax_add_file_comment', [self::class, 'handle_ajax_add_file_comment']);
+        add_action('wp_ajax_sd_core_vault_ajax_attach_existing_vault_file', [self::class, 'handle_ajax_attach_existing_vault_file']);
+        add_action('wp_ajax_sd_toggle_vault_sticky', [self::class, 'handle_ajax_toggle_vault_sticky']);
+
+        // Phase 2F: Authority Actions
+        add_action('wp_ajax_sd_core_vault_ajax_copy_from_media_library', [self::class, 'handle_ajax_copy_from_media_library']);
+        add_action('wp_ajax_sd_core_vault_ajax_publish_to_vault', [self::class, 'handle_ajax_publish_to_vault']);
+        add_action('wp_ajax_sd_core_vault_ajax_copy_to_media_library', [self::class, 'handle_ajax_copy_to_media_library']);
+        add_action('wp_ajax_sd_core_vault_ajax_publish_to_media_library', [self::class, 'handle_ajax_publish_to_media_library']);
+    }
+
+    public static function exclude_from_recent_comments(array $args): array
+    {
+        // To exclude our internal vault files, we must explicitly tell the query
+        // to only include all other registered post types.
+        $post_types = get_post_types([], 'names');
+
+        if (isset($post_types[self::CPT])) {
+            unset($post_types[self::CPT]);
+        }
+
+        $args['post_type'] = array_values($post_types);
+
+        return $args;
+    }
+
+    public static function exclude_from_admin_sql(array $clauses): array
+    {
+        if (is_admin()) {
+            global $pagenow;
+            // Filter on Dashboard and Main Comments list
+            if ($pagenow === 'index.php' || $pagenow === 'edit-comments.php') {
+                global $wpdb;
+                // If the query hasn't joined posts, join it so we can check post_type
+                if (strpos($clauses['join'], "{$wpdb->posts}") === false) {
+                    $clauses['join'] .= " JOIN {$wpdb->posts} ON {$wpdb->comments}.comment_post_ID = {$wpdb->posts}.ID";
+                }
+                $clauses['where'] .= " AND {$wpdb->posts}.post_type != '" . self::CPT . "'";
+            }
+        }
+        return $clauses;
     }
 
     private static function maybe_normalize_existing_items(): void
@@ -124,10 +290,10 @@ class Vault extends BaseWidget
 
     private static function check_vault_nonce()
     {
-        // F-13 FIX: Standardize on single nonce action. The legacy secondary nonce
-        // weakened CSRF protection by allowing one action's token to validate another.
-        if (!check_ajax_referer('systemdeck_runtime', '_ajax_nonce', false)) {
-            wp_send_json_error('Security check failed');
+        // Use check_ajax_referer with 'systemdeck_runtime' which is the canonical nonce action
+        // It automatically looks for 'nonce' or '_ajax_nonce' in $_POST
+        if (!check_ajax_referer('systemdeck_runtime', 'nonce', false) && !check_ajax_referer('systemdeck_runtime', '_ajax_nonce', false)) {
+            wp_send_json_error(['error' => 'Security check failed']);
         }
     }
 
@@ -137,7 +303,7 @@ class Vault extends BaseWidget
         try {
             wp_send_json_success(self::ajax_upload_file($_POST));
         } catch (\Exception $e) {
-            wp_send_json_error($e->getMessage());
+            wp_send_json_error(['error' => $e->getMessage()]);
         }
     }
 
@@ -147,7 +313,7 @@ class Vault extends BaseWidget
         try {
             wp_send_json_success(self::ajax_link_attachment($_POST));
         } catch (\Exception $e) {
-            wp_send_json_error($e->getMessage());
+            wp_send_json_error(['error' => $e->getMessage()]);
         }
     }
 
@@ -157,7 +323,7 @@ class Vault extends BaseWidget
         try {
             wp_send_json_success(self::ajax_get_files($_POST));
         } catch (\Exception $e) {
-            wp_send_json_error($e->getMessage());
+            wp_send_json_error(['error' => $e->getMessage()]);
         }
     }
 
@@ -167,7 +333,7 @@ class Vault extends BaseWidget
         try {
             wp_send_json_success(self::ajax_delete_file($_POST));
         } catch (\Exception $e) {
-            wp_send_json_error($e->getMessage());
+            wp_send_json_error(['error' => $e->getMessage()]);
         }
     }
 
@@ -177,7 +343,7 @@ class Vault extends BaseWidget
         try {
             wp_send_json_success(self::ajax_import_from_media_library($_POST));
         } catch (\Exception $e) {
-            wp_send_json_error($e->getMessage());
+            wp_send_json_error(['error' => $e->getMessage()]);
         }
     }
 
@@ -187,7 +353,7 @@ class Vault extends BaseWidget
         try {
             wp_send_json_success(self::ajax_export_to_media_library($_POST));
         } catch (\Exception $e) {
-            wp_send_json_error($e->getMessage());
+            wp_send_json_error(['error' => $e->getMessage()]);
         }
     }
 
@@ -197,8 +363,145 @@ class Vault extends BaseWidget
         try {
             wp_send_json_success(self::ajax_make_private($_POST));
         } catch (\Exception $e) {
-            wp_send_json_error($e->getMessage());
+            wp_send_json_error(['error' => $e->getMessage()]);
         }
+    }
+
+    public static function handle_ajax_copy_from_media_library()
+    {
+        self::check_vault_nonce();
+        try {
+            wp_send_json_success(self::ajax_copy_from_media_library($_POST));
+        } catch (\Exception $e) {
+            wp_send_json_error(['error' => $e->getMessage()]);
+        }
+    }
+
+    public static function handle_ajax_publish_to_vault()
+    {
+        self::check_vault_nonce();
+        try {
+            wp_send_json_success(self::ajax_publish_to_vault($_POST));
+        } catch (\Exception $e) {
+            wp_send_json_error(['error' => $e->getMessage()]);
+        }
+    }
+
+    public static function handle_ajax_copy_to_media_library()
+    {
+        self::check_vault_nonce();
+        try {
+            wp_send_json_success(self::ajax_copy_to_media_library($_POST));
+        } catch (\Exception $e) {
+            wp_send_json_error(['error' => $e->getMessage()]);
+        }
+    }
+
+    public static function handle_ajax_publish_to_media_library()
+    {
+        self::check_vault_nonce();
+        try {
+            wp_send_json_success(self::ajax_publish_to_media_library($_POST));
+        } catch (\Exception $e) {
+            wp_send_json_error(['error' => $e->getMessage()]);
+        }
+    }
+
+    public static function ajax_copy_from_media_library(array $request): array
+    {
+        $attachment_id = max(0, (int) ($request['attachment_id'] ?? 0));
+        if ($attachment_id <= 0) {
+            throw new \Exception('Invalid attachment.');
+        }
+
+        $user_id = get_current_user_id();
+        $absolute_vault_path = self::copy_attachment_file_to_vault($attachment_id, $user_id);
+        $relative_vault_path = $user_id . '/' . wp_basename($absolute_vault_path);
+
+        $vault_id = self::create_vault_cpt_from_attachment($attachment_id, $relative_vault_path, 'copied_from_media');
+
+        return [
+            'status' => 'success',
+            'vault_id' => $vault_id,
+            'message' => 'File copied to Vault successfully.'
+        ];
+    }
+
+    public static function ajax_publish_to_vault(array $request): array
+    {
+        $attachment_id = max(0, (int) ($request['attachment_id'] ?? 0));
+        if ($attachment_id <= 0) {
+            throw new \Exception('Invalid attachment.');
+        }
+
+        $user_id = get_current_user_id();
+        $absolute_vault_path = self::copy_attachment_file_to_vault($attachment_id, $user_id);
+        $relative_vault_path = $user_id . '/' . wp_basename($absolute_vault_path);
+
+        $vault_id = self::create_vault_cpt_from_attachment($attachment_id, $relative_vault_path, 'vault_primary');
+
+        // Double verification before deletion: Ensure file exists in Vault
+        if (!is_file($absolute_vault_path)) {
+            throw new \Exception('Vault file verification failed before Media Library removal.');
+        }
+
+        // Verification succeeded, now delete original from Media Library
+        wp_delete_attachment($attachment_id, true);
+
+        return [
+            'status' => 'success',
+            'vault_id' => $vault_id,
+            'message' => 'File published to Vault and removed from Media Library.'
+        ];
+    }
+
+    public static function ajax_copy_to_media_library(array $request): array
+    {
+        $vault_id = max(0, (int) ($request['id'] ?? 0));
+        if ($vault_id <= 0) {
+            throw new \Exception('Invalid Vault file.');
+        }
+
+        \SystemDeck\Core\Services\ObjectAccessGate::require_author($vault_id, self::CPT, get_current_user_id());
+
+        $upload_data = self::copy_vault_file_to_uploads($vault_id);
+        $attachment_id = self::create_attachment_from_vault_cpt($vault_id, $upload_data);
+
+        // Update Vault meta with copy reference
+        update_post_meta($vault_id, self::AUTHORITY_META_KEY, 'copied_to_media');
+        update_post_meta($vault_id, self::ATTACHMENT_ID_META_KEY, $attachment_id);
+
+        return [
+            'status' => 'success',
+            'attachment_id' => $attachment_id,
+            'message' => 'File copied to Media Library successfully.'
+        ];
+    }
+
+    public static function ajax_publish_to_media_library(array $request): array
+    {
+        $vault_id = max(0, (int) ($request['id'] ?? 0));
+        if ($vault_id <= 0) {
+            throw new \Exception('Invalid Vault file.');
+        }
+
+        \SystemDeck\Core\Services\ObjectAccessGate::require_author($vault_id, self::CPT, get_current_user_id());
+
+        $upload_data = self::copy_vault_file_to_uploads($vault_id);
+        $attachment_id = self::create_attachment_from_vault_cpt($vault_id, $upload_data);
+
+        // Success verified, delete Vault record and file
+        $source_path = self::get_vault_absolute_path($vault_id);
+        if ($source_path && is_file($source_path)) {
+            @unlink($source_path);
+        }
+        self::delete_vault_record_only($vault_id);
+
+        return [
+            'status' => 'success',
+            'attachment_id' => $attachment_id,
+            'message' => 'File published to Media Library and removed from Vault.'
+        ];
     }
 
     public static function handle_ajax_get_file_details()
@@ -207,7 +510,7 @@ class Vault extends BaseWidget
         try {
             wp_send_json_success(self::ajax_get_file_details($_POST));
         } catch (\Exception $e) {
-            wp_send_json_error($e->getMessage());
+            wp_send_json_error(['error' => $e->getMessage()]);
         }
     }
 
@@ -217,7 +520,7 @@ class Vault extends BaseWidget
         try {
             wp_send_json_success(self::ajax_save_file_details($_POST));
         } catch (\Exception $e) {
-            wp_send_json_error($e->getMessage());
+            wp_send_json_error(['error' => $e->getMessage()]);
         }
     }
 
@@ -227,7 +530,7 @@ class Vault extends BaseWidget
         try {
             wp_send_json_success(self::ajax_get_midi_editor_payload($_POST));
         } catch (\Exception $e) {
-            wp_send_json_error($e->getMessage());
+            wp_send_json_error(['error' => $e->getMessage()]);
         }
     }
 
@@ -237,7 +540,7 @@ class Vault extends BaseWidget
         try {
             wp_send_json_success(self::ajax_validate_midi_derivative($_POST));
         } catch (\Exception $e) {
-            wp_send_json_error($e->getMessage());
+            wp_send_json_error(['error' => $e->getMessage()]);
         }
     }
 
@@ -247,7 +550,7 @@ class Vault extends BaseWidget
         try {
             wp_send_json_success(self::ajax_save_midi_derivative($_POST));
         } catch (\Exception $e) {
-            wp_send_json_error($e->getMessage());
+            wp_send_json_error(['error' => $e->getMessage()]);
         }
     }
 
@@ -257,7 +560,7 @@ class Vault extends BaseWidget
         try {
             wp_send_json_success(self::ajax_rebuild_midi_derivative($_POST));
         } catch (\Exception $e) {
-            wp_send_json_error($e->getMessage());
+            wp_send_json_error(['error' => $e->getMessage()]);
         }
     }
 
@@ -267,7 +570,7 @@ class Vault extends BaseWidget
         try {
             wp_send_json_success(self::ajax_get_file_comments($_POST));
         } catch (\Exception $e) {
-            wp_send_json_error($e->getMessage());
+            wp_send_json_error(['error' => $e->getMessage()]);
         }
     }
 
@@ -277,7 +580,17 @@ class Vault extends BaseWidget
         try {
             wp_send_json_success(self::ajax_add_file_comment($_POST));
         } catch (\Exception $e) {
-            wp_send_json_error($e->getMessage());
+            wp_send_json_error(['error' => $e->getMessage()]);
+        }
+    }
+
+    public static function handle_ajax_attach_existing_vault_file()
+    {
+        self::check_vault_nonce();
+        try {
+            wp_send_json_success(self::ajax_attach_existing_vault_file($_POST));
+        } catch (\Exception $e) {
+            wp_send_json_error(['error' => $e->getMessage()]);
         }
     }
 
@@ -287,7 +600,7 @@ class Vault extends BaseWidget
         try {
             wp_send_json_success(self::ajax_toggle_vault_sticky($_POST));
         } catch (\Exception $e) {
-            wp_send_json_error(['message' => $e->getMessage()]);
+            wp_send_json_error(['error' => $e->getMessage()]);
         }
     }
 
@@ -332,7 +645,7 @@ class Vault extends BaseWidget
 
         echo '<p><strong>File Path (Relative to Vault):</strong><br><code>' . esc_html($path) . '</code></p>';
         echo '<p><strong>MIME Type:</strong> ' . esc_html($mime) . '</p>';
-        echo '<p><strong>Size:</strong> ' . esc_html(size_format((int)$size)) . '</p>';
+        echo '<p><strong>Size:</strong> ' . esc_html(size_format((int) $size)) . '</p>';
 
         $scope = self::normalize_scope_value((string) get_post_meta($post->ID, '_sd_vault_scope', true));
         echo '<p><strong>Workspace Assignment:</strong><br/>';
@@ -358,78 +671,82 @@ class Vault extends BaseWidget
 
     protected static function output(array $context): void
     {
-        $workspace_id = (string)($context['workspace_id'] ?? '');
-?>
-        <div class="sd-vault-wrapper" id="sd-vault-widget" data-workspace-id="<?php echo esc_attr($workspace_id); ?>">
+        $workspace_id = (string) ($context['workspace_id'] ?? '');
+        ?>
+        <div class="sd-vault-wrapper sd-vault-widget" data-workspace-id="<?php echo esc_attr($workspace_id); ?>">
 
             <div class="sd-vault-recent">
                 <div class="sd-toolbar">
-                    <input type="file" id="sd-vault-file-input" class="sd-hidden" />
-                    <button type="button" class="button button-small button-primary" id="sd-vault-upload-file">
+                    <input type="file" class="sd-vault-file-input sd-hidden" />
+                    <button type="button" class="button button-small button-primary sd-vault-upload-file">
                         <span class="dashicons dashicons-upload sd-button-icon" aria-hidden="true"></span>
                         <?php _e('Upload to Vault', 'systemdeck'); ?>
                     </button>
-                    <button type="button" class="button button-small" id="sd-vault-open-media">
+                    <button type="button" class="button button-small sd-vault-open-media">
                         <span class="dashicons dashicons-admin-media sd-button-icon" aria-hidden="true"></span>
                         <?php _e('Add from Media Library', 'systemdeck'); ?>
                     </button>
                 </div>
 
-                <table class="wp-list-table widefat fixed striped sd-vault-table" id="sd-vault-table" style="display:none;">
-                    <thead>
-                        <tr>
-                            <th scope="col" class="column-sticky"><span class="dashicons dashicons-admin-post" aria-hidden="true"></span></th>
-                            <th scope="col" class="column-title"><?php _e('Title', 'systemdeck'); ?></th>
-                            <th scope="col" class="column-workspace"><?php _e('Workspace', 'systemdeck'); ?></th>
-                            <th scope="col" class="column-size"><?php _e('Size', 'systemdeck'); ?></th>
-                            <th scope="col" class="column-comments"><span class="dashicons dashicons-admin-comments" title="Comments" aria-hidden="true"></span></th>
-                            <th scope="col" class="column-date"><?php _e('Date', 'systemdeck'); ?></th>
-                        </tr>
-                    </thead>
-                    <tbody id="sd-vault-list">
-                        <tr class="loading-text">
-                            <td colspan="6"><?php _e('Loading files...', 'systemdeck'); ?></td>
-                        </tr>
-                    </tbody>
-                </table>
+                <div class="sd-table-container">
+                    <table class="wp-list-table widefat fixed striped sd-vault-table" style="display:none;">
+                        <thead>
+                            <tr>
+                                <th scope="col" class="column-sticky"><span class="dashicons dashicons-admin-post"
+                                        aria-hidden="true"></span></th>
+                                <th scope="col" class="column-title"><?php _e('Title', 'systemdeck'); ?></th>
+                                <th scope="col" class="column-comments"><span class="dashicons dashicons-admin-comments"
+                                        title="Comments" aria-hidden="true"></span></th>
+                                <th scope="col" class="column-date"><?php _e('Date', 'systemdeck'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody class="sd-vault-list">
+                            <tr class="loading-text">
+                                <td colspan="4"><?php _e('Loading files...', 'systemdeck'); ?></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
 
-                <div class="sd-vault-empty-state" id="sd-vault-empty-state" style="display:none;">
+                <div class="sd-empty-state sd-vault-empty-state" style="display:none;">
                     <?php _e('No files found in your vault.', 'systemdeck'); ?>
                 </div>
 
-                <div class="tablenav bottom sd-pagination sd-vault-pagination" id="sd-vault-pagination" style="display:none;">
+                <div class="tablenav bottom sd-pagination sd-vault-pagination" style="display:none;">
                     <div class="alignleft actions">
-                        <span class="displaying-num" id="sd-vault-total-count"></span>
+                        <span class="displaying-num sd-vault-total-count"></span>
                     </div>
                     <div class="tablenav-pages">
                         <span class="pagination-links">
-                            <button type="button" class="button button-small" id="sd-vault-prev" disabled>&lsaquo;</button>
+                            <button type="button" class="button button-small sd-vault-prev" disabled>&lsaquo;</button>
                             <span class="paging-input">
-                                <span id="sd-vault-current-page">1</span> <?php _e('of', 'systemdeck'); ?> <span id="sd-vault-total-pages">1</span>
+                                <span class="sd-vault-current-page">1</span> <?php _e('of', 'systemdeck'); ?> <span
+                                    class="sd-vault-total-pages">1</span>
                             </span>
-                            <button type="button" class="button button-small" id="sd-vault-next" disabled>&rsaquo;</button>
+                            <button type="button" class="button button-small sd-vault-next" disabled>&rsaquo;</button>
                         </span>
                     </div>
                 </div>
             </div>
 
             <!-- File Details/Edit Modal -->
-            <div id="sd-vault-details-modal" class="sd-vault-details-shell-modal" style="display:none;">
-
-                <div tabindex="0" class="media-modal wp-core-ui" role="dialog" aria-labelledby="media-frame-title">
+            <div class="sd-vault-details-shell-modal" style="display:none;">
+                <div class="media-modal-backdrop sd-vault-details-backdrop"></div>
+                <div tabindex="0" class="media-modal wp-core-ui sd-vault-details-modal-inner" role="dialog" aria-modal="true" aria-labelledby="media-frame-title">
 
                     <div class="media-modal-content" role="document">
                         <div class="edit-attachment-frame media-frame mode-select hide-menu hide-router hide-toolbar">
                             <div class="edit-media-header">
-                                <button type="button" class="left dashicons" id="sd-vault-details-prev" disabled>
-                                    <span class="screen-reader-text"><?php _e('Edit previous vault item', 'systemdeck'); ?></span>
+                                <button type="button" class="left dashicons sd-vault-details-prev" disabled>
+                                    <span
+                                        class="screen-reader-text"><?php _e('Edit previous vault item', 'systemdeck'); ?></span>
                                 </button>
 
-                                <button type="button" class="right dashicons" id="sd-vault-details-next" disabled>
+                                <button type="button" class="right dashicons sd-vault-details-next" disabled>
                                     <span class="screen-reader-text"><?php _e('Edit next vault item', 'systemdeck'); ?></span>
                                 </button>
 
-                                <button type="button" class="media-modal-close" id="sd-vault-details-close">
+                                <button type="button" class="media-modal-close sd-vault-details-close">
                                     <span class="media-modal-icon" aria-hidden="true"></span>
                                     <span class="screen-reader-text"><?php _e('Close dialog', 'systemdeck'); ?></span>
                                 </button>
@@ -437,19 +754,20 @@ class Vault extends BaseWidget
                             </div>
 
                             <div class="media-frame-title">
-                                <h1 id="sd-vault-details-modal-title"><?php _e('Attachment details', 'systemdeck'); ?></h1>
+                                <h1 class="sd-vault-details-modal-title"><?php _e('Attachment details', 'systemdeck'); ?></h1>
                             </div>
 
                             <div class="media-frame-content">
 
-                                <div id="sd-vault-attachment-details" class="attachment-details save-ready">
+                                <div class="attachment-details save-ready sd-vault-attachment-details">
 
-                                    <div class="attachment-media-view portrait" id="sd-vault-details-media-view">
+                                    <div class="attachment-media-view portrait sd-vault-details-media-view">
 
                                         <h2 class="screen-reader-text"><?php _e('Attachment Preview', 'systemdeck'); ?></h2>
 
-                                        <div class="thumbnail" id="sd-vault-details-preview-shell">
-                                            <div class="attachment-actions" id="sd-vault-details-preview-actions" style="display:none;"></div>
+                                        <div class="sd-vault-details-preview-shell thumbnail">
+                                            <div class="attachment-actions sd-vault-details-preview-actions"
+                                                style="display:none;"></div>
 
                                         </div>
 
@@ -462,132 +780,117 @@ class Vault extends BaseWidget
                                         </span>
                                         <div class="details">
                                             <h2 class="screen-reader-text"><?php _e('Details', 'systemdeck'); ?></h2>
-                                            <span id="sd-vault-priority-badge" class="sd-status-badge is-low" style="display:none;"></span>
-                                            <div class="uploaded"><strong><?php _e('Uploaded on:', 'systemdeck'); ?></strong> <span id="sd-vault-details-uploaded"></span></div>
+                                            <span class="sd-status-badge is-low sd-vault-priority-badge"
+                                                style="display:none;"></span>
+                                            <div class="uploaded"><strong><?php _e('Uploaded on:', 'systemdeck'); ?></strong>
+                                                <span class="sd-vault-details-uploaded"></span>
+                                            </div>
                                             <div class="uploaded-by word-wrap-break-word">
                                                 <strong><?php _e('Uploaded by:', 'systemdeck'); ?></strong>
-                                                <span id="sd-vault-details-author"></span>
+                                                <span class="sd-vault-details-author"></span>
                                             </div>
                                             <div class="uploaded-to">
                                                 <strong><?php _e('Uploaded to:', 'systemdeck'); ?></strong>
-                                                <span id="sd-vault-details-workspace"></span>
+                                                <span class="sd-vault-details-workspace"></span>
                                             </div>
                                             <div class="status">
                                                 <strong><?php _e('Status:', 'systemdeck'); ?></strong>
-                                                <span id="sd-vault-details-status"></span>
+                                                <span class="sd-vault-details-status"></span>
                                             </div>
-                                            <div class="filename"><strong><?php _e('File name:', 'systemdeck'); ?></strong> <span id="sd-vault-details-filename"></span></div>
-                                            <div class="file-type"><strong><?php _e('File type:', 'systemdeck'); ?></strong> <span id="sd-vault-details-filetype"></span></div>
-                                            <div class="file-size"><strong><?php _e('File size:', 'systemdeck'); ?></strong> <span id="sd-vault-details-filesize"></span></div>
-                                            <div class="dimensions" id="sd-vault-details-dimensions-row" style="display:none;"><strong><?php _e('Dimensions:', 'systemdeck'); ?></strong> <span id="sd-vault-details-dimensions"></span></div>
-                                            <div class="file-length" id="sd-vault-details-length-row" style="display:none;"><strong><?php _e('Length:', 'systemdeck'); ?></strong> <span id="sd-vault-details-length"></span></div>
-                                            <div class="bitrate" id="sd-vault-details-bitrate-row" style="display:none;"><strong><?php _e('Bitrate:', 'systemdeck'); ?></strong> <span id="sd-vault-details-bitrate"></span></div>
+                                            <div class="filename"><strong><?php _e('File name:', 'systemdeck'); ?></strong>
+                                                <span class="sd-vault-details-filename"></span>
+                                            </div>
+                                            <div class="file-type"><strong><?php _e('File type:', 'systemdeck'); ?></strong>
+                                                <span class="sd-vault-details-filetype"></span>
+                                            </div>
+                                            <div class="file-size"><strong><?php _e('File size:', 'systemdeck'); ?></strong>
+                                                <span class="sd-vault-details-filesize"></span>
+                                            </div>
+                                            <div class="dimensions sd-vault-details-dimensions-row" style="display:none;">
+                                                <strong><?php _e('Dimensions:', 'systemdeck'); ?></strong> <span
+                                                    class="sd-vault-details-dimensions"></span>
+                                            </div>
+                                            <div class="file-length sd-vault-details-length-row" style="display:none;">
+                                                <strong><?php _e('Length:', 'systemdeck'); ?></strong> <span
+                                                    class="sd-vault-details-length"></span>
+                                            </div>
+                                            <div class="bitrate sd-vault-details-bitrate-row" style="display:none;">
+                                                <strong><?php _e('Bitrate:', 'systemdeck'); ?></strong> <span
+                                                    class="sd-vault-details-bitrate"></span>
+                                            </div>
                                             <div class="compat-meta"></div>
                                         </div>
 
                                         <div class="settings">
-                                            <input type="hidden" id="sd-vault-details-id" value="">
+                                            <input type="hidden" class="sd-vault-details-id" value="">
 
-                                            <span class="setting alt-text has-description" data-setting="alt" id="sd-vault-details-alt-setting">
-                                                <label for="sd-vault-details-alt-text" class="name"><?php _e('Alternative Text', 'systemdeck'); ?></label>
-                                                <textarea id="sd-vault-details-alt-text" aria-describedby="sd-vault-alt-text-description"></textarea>
+                                            <span class="setting alt-text has-description sd-vault-details-alt-setting"
+                                                data-setting="alt">
+                                                <label class="name"><?php _e('Alternative Text', 'systemdeck'); ?></label>
+                                                <textarea class="sd-vault-details-alt-text"></textarea>
                                             </span>
-                                            <p class="description" id="sd-vault-alt-text-description"><?php _e('Describe the purpose of the file when relevant. Leave empty if decorative or not applicable.', 'systemdeck'); ?></p>
+                                            <p class="description sd-vault-alt-text-description">
+                                                <?php _e('Describe the purpose of the file when relevant. Leave empty if decorative or not applicable.', 'systemdeck'); ?>
+                                            </p>
 
                                             <span class="setting" data-setting="title">
-                                                <label for="sd-vault-details-title" class="name"><?php _e('Title', 'systemdeck'); ?></label>
-                                                <input type="text" id="sd-vault-details-title">
+                                                <label class="name"><?php _e('Title', 'systemdeck'); ?></label>
+                                                <input type="text" class="sd-vault-details-title">
                                             </span>
 
-                                            <span class="setting" data-setting="artist" id="sd-vault-details-artist-setting" style="display:none;">
-                                                <label for="sd-vault-details-artist" class="name"><?php _e('Artist', 'systemdeck'); ?></label>
-                                                <input type="text" id="sd-vault-details-artist">
+                                            <span class="setting sd-vault-details-artist-setting" data-setting="artist"
+                                                style="display:none;">
+                                                <label class="name"><?php _e('Artist', 'systemdeck'); ?></label>
+                                                <input type="text" class="sd-vault-details-artist">
                                             </span>
 
-                                            <span class="setting" data-setting="album" id="sd-vault-details-album-setting" style="display:none;">
-                                                <label for="sd-vault-details-album" class="name"><?php _e('Album', 'systemdeck'); ?></label>
-                                                <input type="text" id="sd-vault-details-album">
+                                            <span class="setting sd-vault-details-album-setting" data-setting="album"
+                                                style="display:none;">
+                                                <label class="name"><?php _e('Album', 'systemdeck'); ?></label>
+                                                <input type="text" class="sd-vault-details-album">
                                             </span>
 
                                             <span class="setting" data-setting="caption">
-                                                <label for="sd-vault-details-caption" class="name"><?php _e('Caption', 'systemdeck'); ?></label>
-                                                <textarea id="sd-vault-details-caption"></textarea>
+                                                <label class="name"><?php _e('Caption', 'systemdeck'); ?></label>
+                                                <textarea class="sd-vault-details-caption"></textarea>
                                             </span>
 
                                             <span class="setting" data-setting="description">
-                                                <label for="sd-vault-details-description" class="name"><?php _e('Description', 'systemdeck'); ?></label>
-                                                <textarea id="sd-vault-details-description"></textarea>
+                                                <label class="name"><?php _e('Description', 'systemdeck'); ?></label>
+                                                <textarea class="sd-vault-details-description"></textarea>
                                             </span>
 
                                             <span class="setting" data-setting="url">
-                                                <label for="sd-vault-details-copy-link" class="name"><?php _e('File URL:', 'systemdeck'); ?></label>
-                                                <input type="text" class="attachment-details-copy-link" id="sd-vault-details-copy-link" readonly>
+                                                <label class="name"><?php _e('File URL:', 'systemdeck'); ?></label>
+                                                <input type="text"
+                                                    class="attachment-details-copy-link sd-vault-details-copy-link" readonly>
                                                 <span class="copy-to-clipboard-container">
-                                                    <button type="button" class="button button-small copy-attachment-url" data-clipboard-target="#sd-vault-details-copy-link"><?php _e('Copy URL to clipboard', 'systemdeck'); ?></button>
-                                                    <span class="success hidden" aria-hidden="true"><?php _e('Copied!', 'systemdeck'); ?></span>
+                                                    <button type="button"
+                                                        class="button button-small copy-attachment-url"><?php _e('Copy URL to clipboard', 'systemdeck'); ?></button>
+                                                    <span class="success hidden"
+                                                        aria-hidden="true"><?php _e('Copied!', 'systemdeck'); ?></span>
                                                 </span>
                                             </span>
 
-                                            <div class="attachment-compat">
-                                                <div class="compat-item" id="sd-vault-details-extension">
-                                                    <div class="label" aria-hidden="true"></div>
-                                                    <div class="field">
-                                                        <div class="sd-vault-media-extension">
-                                                            <span class="setting" data-setting="pin">
-                                                                <label class="name" for="sd-vault-details-is-shared"><?php _e('Pin File', 'systemdeck'); ?></label>
-                                                                <span class="value">
-                                                                    <label class="sd-checkbox-label">
-                                                                        <input type="checkbox" id="sd-vault-details-is-shared" value="1">
-                                                                        <?php _e('Pin this file into the active workspace', 'systemdeck'); ?>
-                                                                    </label>
-                                                                </span>
-                                                            </span>
-
-                                                            <span class="setting" id="sd-vault-details-priority-wrap" style="display:none;">
-                                                                <span class="name"><?php _e('Priority', 'systemdeck'); ?></span>
-                                                                <span class="value sd-vault-priority-options">
-                                                                    <label><input type="radio" name="sd_vault_priority" value="urgent"> <?php _e('Urgent', 'systemdeck'); ?></label>
-                                                                    <label><input type="radio" name="sd_vault_priority" value="high"> <?php _e('High', 'systemdeck'); ?></label>
-                                                                    <label><input type="radio" name="sd_vault_priority" value="moderate"> <?php _e('Moderate', 'systemdeck'); ?></label>
-                                                                    <label><input type="radio" name="sd_vault_priority" value="low" checked> <?php _e('Low', 'systemdeck'); ?></label>
-                                                                </span>
-                                                            </span>
-
-                                                            <p class="description" id="sd-vault-details-readonly-note" style="display:none;"><?php _e('This file is currently public. Use Media Library for attachment field edits; Vault controls remain available below.', 'systemdeck'); ?></p>
-
-                                                            <div class="sd-vault-details-save-row">
-                                                                <button type="button" class="button button-primary" id="sd-vault-save-details"><?php _e('Update', 'systemdeck'); ?></button>
-                                                            </div>
-
-                                                            <div class="sd-vault-media-comments">
-                                                                <div class="sd-vault-media-comments-heading"><?php _e('Comments', 'systemdeck'); ?></div>
-                                                                <div id="sd-vault-details-comments-list">
-                                                                    <p style="padding:15px; color:#646970;"><?php _e('Loading discussion...', 'systemdeck'); ?></p>
-                                                                </div>
-                                                                <div class="sd-vault-comment-form" style="margin-top: 12px;">
-                                                                    <textarea id="sd-vault-details-new-comment" class="widefat" rows="4" placeholder="<?php esc_attr_e('Write a comment...', 'systemdeck'); ?>"></textarea>
-                                                                    <input type="hidden" id="sd-vault-details-parent-comment" value="0">
-                                                                    <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
-                                                                        <button type="button" class="button button-primary" id="sd-vault-details-save-comment"><?php _e('Post Comment', 'systemdeck'); ?></button>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                            <div class="sd-vault-details-save-row">
+                                                <button type="button"
+                                                    class="button button-primary sd-vault-save-details"><?php _e('Update Media Details', 'systemdeck'); ?></button>
                                             </div>
                                         </div>
 
                                         <div class="actions">
-                                            <a class="view-attachment" href="#" id="sd-vault-open-public-link" style="display:none;"><?php _e('View media file', 'systemdeck'); ?></a>
-                                            <span class="links-separator" id="sd-vault-open-public-sep" style="display:none;">|</span>
-                                            <a href="#" id="sd-vault-open-media-details" style="display:none;"><?php _e('Edit more details', 'systemdeck'); ?></a>
-                                            <span class="links-separator" id="sd-vault-open-media-sep" style="display:none;">|</span>
-                                            <a href="#" id="sd-vault-download-details" download style="display:none;"><?php _e('Download file', 'systemdeck'); ?></a>
-                                            <span class="links-separator" id="sd-vault-download-sep" style="display:none;">|</span>
-                                            <button type="button" class="button-link delete-attachment" id="sd-vault-delete-details" style="display:none;"><?php _e('Delete permanently', 'systemdeck'); ?></button>
-                                            <span class="links-separator" id="sd-vault-export-sep" style="display:none;">|</span>
-                                            <button type="button" class="button-link" id="sd-vault-export-details" style="display:none;"><?php _e('Publish to Media Library', 'systemdeck'); ?></button>
+                                            <a class="view-attachment sd-vault-open-public-link" href="#"
+                                                style="display:none;"><?php _e('View media file', 'systemdeck'); ?></a>
+                                            <span class="links-separator sd-vault-open-public-sep"
+                                                style="display:none;">|</span>
+                                            <a href="#" class="sd-vault-open-media-details"
+                                                style="display:none;"><?php _e('Edit more details', 'systemdeck'); ?></a>
+                                            <span class="links-separator sd-vault-open-media-sep" style="display:none;">|</span>
+                                            <a href="#" class="sd-vault-download-details" download
+                                                style="display:none;"><?php _e('Download file', 'systemdeck'); ?></a>
+                                            <span class="links-separator sd-vault-download-sep" style="display:none;">|</span>
+                                            <button type="button" class="button-link delete-attachment sd-vault-delete-details"
+                                                style="display:none;"><?php _e('Delete permanently', 'systemdeck'); ?></button>
                                         </div>
                                     </div>
                                 </div>
@@ -595,23 +898,25 @@ class Vault extends BaseWidget
                         </div>
                     </div>
                 </div>
-
-                <div class="media-modal-backdrop"></div>
             </div>
 
-            <div id="sd-vault-comments-modal" class="sd-modal-overlay sd-note-view-modal sd-vault-context" style="display:none;">
+            <div class="sd-modal-overlay sd-note-view-modal sd-vault-context sd-vault-comments-modal" style="display:none;">
                 <div class="components-modal__frame components-modal" role="dialog" tabindex="-1">
                     <div class="components-modal__content" role="document">
                         <div class="components-modal__header">
                             <div class="components-modal__header-heading-container">
-                                <h1 id="sd-vault-comment-file-title" class="components-modal__header-heading"></h1>
+                                <h1 class="components-modal__header-heading sd-vault-comment-file-title"></h1>
                             </div>
 
                             <div class="sd-vault-comments-modal-header-actions">
-                                <span id="sd-vault-comment-file-urgency" class="sd-status-badge is-low sd-hidden"></span>
-                                <button type="button" class="components-button has-icon" id="sd-vault-comments-close" aria-label="<?php esc_attr_e('Close dialog', 'systemdeck'); ?>">
-                                    <svg width="24" height="24" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                                        <path d="M13 11.8l6.1-6.3-1-1-6.1 6.2-6.1-6.2-1 1 6.1 6.3-6.5 6.7 1 1 6.5-6.6 6.5 6.6 1-1z"></path>
+                                <span class="sd-status-badge is-low sd-hidden sd-vault-comment-file-urgency"></span>
+                                <button type="button" class="components-button has-icon sd-vault-comments-close"
+                                    aria-label="<?php esc_attr_e('Close dialog', 'systemdeck'); ?>">
+                                    <svg width="24" height="24" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                                        aria-hidden="true" focusable="false">
+                                        <path
+                                            d="M13 11.8l6.1-6.3-1-1-6.1 6.2-6.1-6.2-1 1 6.1 6.3-6.5 6.7 1 1 6.5-6.6 6.5 6.6 1-1z">
+                                        </path>
                                     </svg>
                                 </button>
                             </div>
@@ -619,23 +924,25 @@ class Vault extends BaseWidget
 
                         <div class="sd-vault-comments-modal-body">
                             <div class="sd-vault-read-layout">
-                                <div id="sd-vault-read-preview" class="sd-vault-read-preview"></div>
-                                <div id="sd-vault-read-meta" class="sd-vault-read-meta"></div>
+                                <div class="sd-vault-read-preview"></div>
+                                <div class="sd-vault-read-meta"></div>
                             </div>
 
-                            <input type="hidden" id="sd-vault-comment-file-id" value="">
+                            <input type="hidden" class="sd-vault-comment-file-id" value="">
 
                             <div class="sd-vault-comments-section">
                                 <h4><?php _e('Discussion', 'systemdeck'); ?></h4>
-                                <div id="sd-vault-comments-list"></div>
+                                <div class="sd-vault-comments-list"></div>
 
                                 <div class="sd-vault-comment-form">
                                     <div class="textarea-wrap">
-                                        <textarea id="sd-vault-new-comment" class="widefat" rows="4" placeholder="<?php esc_attr_e('Write a comment...', 'systemdeck'); ?>"></textarea>
+                                        <textarea class="widefat sd-vault-new-comment" rows="4"
+                                            placeholder="<?php esc_attr_e('Write a comment...', 'systemdeck'); ?>"></textarea>
                                     </div>
-                                    <input type="hidden" id="sd-vault-parent-comment" value="0">
+                                    <input type="hidden" class="sd-vault-parent-comment" value="0">
                                     <p class="submit">
-                                        <button type="button" class="button button-primary" id="sd-vault-save-comment"><?php _e('Post Comment', 'systemdeck'); ?></button>
+                                        <button type="button"
+                                            class="button button-primary sd-vault-save-comment"><?php _e('Post Comment', 'systemdeck'); ?></button>
                                     </p>
                                 </div>
                             </div>
@@ -645,12 +952,12 @@ class Vault extends BaseWidget
             </div>
 
         </div>
-<?php
+        <?php
     }
 
     private static function resolve_workspace_name(string $workspace_id): string
     {
-        $workspace_id = sanitize_text_field($workspace_id);
+        $workspace_id = sanitize_key($workspace_id);
         if ($workspace_id === '') {
             return '';
         }
@@ -678,8 +985,8 @@ class Vault extends BaseWidget
         $user_id = max(0, (int) get_current_user_id());
         $custom_dir = '/systemdeck-vault/' . $user_id;
         $dirs['subdir'] = '';
-        $dirs['path']   = $dirs['basedir'] . $custom_dir;
-        $dirs['url']    = $dirs['baseurl'] . $custom_dir;
+        $dirs['path'] = $dirs['basedir'] . $custom_dir;
+        $dirs['url'] = $dirs['baseurl'] . $custom_dir;
         return $dirs;
     }
 
@@ -1327,8 +1634,8 @@ class Vault extends BaseWidget
             'album' => $album,
             'mime' => $mime,
             'size' => $size_bytes > 0 ? size_format($size_bytes) : '',
-            'date' => get_the_date('Y/m/d \a\t g:i a', $post_id),
-            'modified' => get_the_modified_date('Y/m/d \a\t g:i a', $post_id),
+            'date' => get_the_date('m/d/Y', $post_id),
+            'modified' => get_the_modified_date('m/d/Y', $post_id),
             'is_modified' => get_post_field('post_modified_gmt', $post_id) !== get_post_field('post_date_gmt', $post_id),
             'scope' => $scope,
             'priority' => $priority,
@@ -1345,11 +1652,18 @@ class Vault extends BaseWidget
             'comment_count' => (int) get_comments_number($post_id),
         ];
 
-        if (is_array($attachment)) {
-            $payload['attachment'] = $attachment;
-        }
+		if (is_array($attachment)) {
+			$payload['attachment'] = $attachment;
+		}
 
-        return $payload;
+		if (self::is_midi_file($mime, $payload['title'])) {
+			$midi_payload = self::read_midi_editor_payload($post_id);
+			if ($midi_payload) {
+				$payload['active_derivative'] = $midi_payload['active_derivative'];
+			}
+		}
+
+		return $payload;
     }
 
     public static function ajax_link_attachment($request): array
@@ -1496,14 +1810,50 @@ class Vault extends BaseWidget
         $limit = isset($request['limit']) ? max(1, intval($request['limit'])) : 5;
         $paged = isset($request['paged']) ? max(1, intval($request['paged'])) : 1;
 
+        $workspace_id = sanitize_key($request['workspace_id'] ?? '');
+
         $args = [
             'post_type' => self::CPT,
             'author' => $user_id,
-            'posts_per_page' => 200,
+            'posts_per_page' => $limit,
+            'paged' => $paged,
             'post_status' => ['publish', 'private', 'inherit'],
-            'orderby' => 'post_modified',
-            'order' => 'DESC',
+            'meta_query' => [
+                'relation' => 'OR',
+                'sticky_clause' => [
+                    'key' => '_sd_vault_sticky',
+                    'compare' => 'EXISTS',
+                    'type' => 'NUMERIC',
+                ],
+                'no_sticky_clause' => [
+                    'key' => '_sd_vault_sticky',
+                    'compare' => 'NOT EXISTS',
+                ],
+            ],
+            'orderby' => [
+                'sticky_clause' => 'DESC',
+                'post_modified' => 'DESC',
+            ],
         ];
+
+        if (!empty($workspace_id)) {
+            $args['meta_query'] = [
+                'relation' => 'AND',
+                $args['meta_query'],
+                [
+                    'relation' => 'OR',
+                    [
+                        'key' => '_sd_vault_workspace_id',
+                        'value' => $workspace_id,
+                        'compare' => '='
+                    ],
+                    [
+                        'key' => '_sd_vault_workspace_id',
+                        'compare' => 'NOT EXISTS'
+                    ]
+                ]
+            ];
+        }
 
         $query = new \WP_Query($args);
         $files = [];
@@ -1511,37 +1861,14 @@ class Vault extends BaseWidget
         while ($query->have_posts()) {
             $query->the_post();
             $id = get_the_ID();
-            if (get_post_meta($id, '_sd_vault_sticky', true) === '') {
-                update_post_meta($id, '_sd_vault_sticky', '0');
-            }
-            $payload = self::build_vault_file_payload($id);
-            $payload['_sort_modified_ts'] = (int) get_post_modified_time('U', true, $id);
-            $files[] = $payload;
+            $files[] = self::build_vault_file_payload($id);
         }
+        $total = (int) $query->found_posts;
+        $max_pages = (int) $query->max_num_pages;
         wp_reset_postdata();
 
-        usort($files, static function (array $a, array $b): int {
-            $stickyA = !empty($a['is_sticky']) ? 1 : 0;
-            $stickyB = !empty($b['is_sticky']) ? 1 : 0;
-            if ($stickyA !== $stickyB) {
-                return $stickyB <=> $stickyA;
-            }
-            $modifiedA = (int) ($a['_sort_modified_ts'] ?? 0);
-            $modifiedB = (int) ($b['_sort_modified_ts'] ?? 0);
-            return $modifiedB <=> $modifiedA;
-        });
-        foreach ($files as &$file) {
-            unset($file['_sort_modified_ts']);
-        }
-        unset($file);
-
-        $total = count($files);
-        $max_pages = max(1, (int) ceil($total / $limit));
-        $paged = min($paged, $max_pages);
-        $offset = ($paged - 1) * $limit;
-
         return [
-            'files' => array_slice($files, $offset, $limit),
+            'files' => $files,
             'total' => $total,
             'max_pages' => $max_pages,
             'paged' => $paged,
@@ -1558,7 +1885,8 @@ class Vault extends BaseWidget
             @unlink($absolute_path);
         }
 
-        self::maybe_delete_managed_public_attachment($id);
+        // Do NOT delete linked/published Media Library attachments from Vault delete.
+        // Publishing/exporting transfers public attachment ownership to WP Media Library.
         self::sync_vault_projection($id, 'private', '');
         wp_delete_post($id, true);
         return ['status' => 'success'];
@@ -1593,7 +1921,8 @@ class Vault extends BaseWidget
     public static function ajax_save_file_details($request): array
     {
         $id = intval($request['id'] ?? 0);
-        if (!$id) throw new \Exception('Invalid dynamic ID');
+        if (!$id)
+            throw new \Exception('Invalid dynamic ID');
 
         // Author-only write gate — delegates to core ObjectAccessGate.
         \SystemDeck\Core\Services\ObjectAccessGate::require_author($id, self::CPT, get_current_user_id());
@@ -1605,7 +1934,7 @@ class Vault extends BaseWidget
         $artist = sanitize_text_field((string) ($request['artist'] ?? ''));
         $album = sanitize_text_field((string) ($request['album'] ?? ''));
         $scope = self::normalize_scope_value(sanitize_text_field((string) ($request['scope'] ?? 'private')));
-        $workspace_id = sanitize_text_field($request['workspace_id'] ?? '');
+        $workspace_id = sanitize_key($request['workspace_id'] ?? '');
         $workspace_name = sanitize_text_field((string) ($request['workspace_name'] ?? self::resolve_workspace_name($workspace_id)));
         $priority = sanitize_key($request['priority'] ?? 'low');
         $storage_mode = self::get_storage_mode($id);
@@ -1773,11 +2102,16 @@ class Vault extends BaseWidget
 
         $icon = 'dashicons-media-default';
         $mime = get_post_meta($file_id, '_sd_vault_mime_type', true);
-        if (strpos($mime, 'image/') === 0) $icon = 'dashicons-format-image';
-        elseif (strpos($mime, 'pdf') !== false) $icon = 'dashicons-media-document';
-        elseif (strpos($mime, 'audio/') === 0 || strpos($mime, 'midi') !== false) $icon = 'dashicons-media-audio';
-        elseif (strpos($mime, 'video/') === 0) $icon = 'dashicons-media-video';
-        elseif (strpos($mime, 'text/') === 0) $icon = 'dashicons-editor-alignleft';
+        if (strpos($mime, 'image/') === 0)
+            $icon = 'dashicons-format-image';
+        elseif (strpos($mime, 'pdf') !== false)
+            $icon = 'dashicons-media-document';
+        elseif (strpos($mime, 'audio/') === 0 || strpos($mime, 'midi') !== false)
+            $icon = 'dashicons-media-audio';
+        elseif (strpos($mime, 'video/') === 0)
+            $icon = 'dashicons-media-video';
+        elseif (strpos($mime, 'text/') === 0)
+            $icon = 'dashicons-editor-alignleft';
 
         $stream_url = self::build_private_stream_url($file_id);
         $payload = [
@@ -1789,8 +2123,8 @@ class Vault extends BaseWidget
                 'file_type' => (string) $mime,
                 'url' => $stream_url,
             ],
-            'grid_span' => '1x1',
-            'renderer' => 'vault',
+            'grid_span' => '2x1',
+            'renderer' => 'dom',
         ];
         error_log('[VAULT PROJECTION] sync start: ' . wp_json_encode([
             'id' => $file_id,
@@ -1800,18 +2134,18 @@ class Vault extends BaseWidget
         ]));
 
         $settings = [
-            'fileId'       => $file_id,
-            'type'         => 'vault',
-            'pin_kind'     => 'pinned_file',
-            'label'        => $title,
-            'title'        => $title,
-            'icon'         => $icon,
-            'grid_span'    => '1x1',
-            'size'         => '1x1',
-            'renderer'     => 'vault',
+            'fileId' => $file_id,
+            'type' => 'vault',
+            'pin_kind' => 'pinned_file',
+            'label' => $title,
+            'title' => $title,
+            'icon' => $icon,
+            'grid_span' => '2x1',
+            'size' => '2x1',
+            'renderer' => 'dom',
             'design_template' => 'default',
             'sticky_level' => get_post_meta($file_id, '_sd_vault_priority', true) ?: 'low',
-            'data'         => [
+            'data' => [
                 'fileId' => $file_id,
                 'type' => 'vault',
                 'pin_kind' => 'pinned_file',
@@ -1872,10 +2206,10 @@ class Vault extends BaseWidget
 
         $new_post = [
             'post_mime_type' => $post->post_mime_type,
-            'post_title'     => $post->post_title,
-            'post_status'    => 'inherit',
-            'post_type'      => 'attachment',
-            'post_author'    => get_current_user_id()
+            'post_title' => $post->post_title,
+            'post_status' => 'inherit',
+            'post_type' => 'attachment',
+            'post_author' => get_current_user_id()
         ];
 
         require_once(ABSPATH . 'wp-admin/includes/image.php');
@@ -1933,10 +2267,50 @@ class Vault extends BaseWidget
         ];
     }
 
+    public static function ajax_attach_existing_vault_file($request): array
+    {
+        $id = max(0, (int) ($request['id'] ?? 0));
+        if ($id <= 0) {
+            throw new \Exception('Invalid Vault file.');
+        }
+
+        \SystemDeck\Core\Services\ObjectAccessGate::require_author($id, self::CPT, get_current_user_id());
+
+        $workspace_id = sanitize_key((string) ($request['workspace_id'] ?? ''));
+        $workspace_name = sanitize_text_field((string) ($request['workspace_name'] ?? self::resolve_workspace_name($workspace_id)));
+        $is_shared = !empty($request['is_shared']) || ($request['scope'] ?? '') === 'pinned';
+        $scope = $is_shared ? 'pinned' : 'private';
+        $priority = sanitize_key((string) ($request['priority'] ?? 'low'));
+
+        update_post_meta($id, '_sd_vault_scope', $scope);
+        update_post_meta($id, '_sd_vault_priority', $priority);
+
+        if ($scope === 'pinned' && $workspace_id) {
+            update_post_meta($id, '_sd_vault_workspace_id', $workspace_id);
+            update_post_meta($id, self::WORKSPACE_NAME_META_KEY, $workspace_name);
+            self::sync_vault_projection($id, 'pinned', $workspace_id);
+            wp_update_post([
+                'ID' => $id,
+                'post_status' => 'publish',
+            ]);
+        } else {
+            delete_post_meta($id, '_sd_vault_workspace_id');
+            delete_post_meta($id, self::WORKSPACE_NAME_META_KEY);
+            self::sync_vault_projection($id, 'private', '');
+            wp_update_post([
+                'ID' => $id,
+                'post_status' => 'private',
+            ]);
+        }
+
+        return ['status' => 'success', 'id' => $id];
+    }
+
     public static function ajax_get_file_comments($request): array
     {
         $file_id = intval($request['file_id'] ?? 0);
-        if (!$file_id) throw new \Exception('Invalid file ID');
+        if (!$file_id)
+            throw new \Exception('Invalid file ID');
         self::get_scope_value($file_id);
 
         // Access gate — delegates to core ObjectAccessGate.
@@ -1954,9 +2328,9 @@ class Vault extends BaseWidget
 
     public static function ajax_add_file_comment($request): array
     {
-        $file_id   = intval($request['file_id'] ?? 0);
-        $content   = $request['content'] ?? '';
-        $user_id   = get_current_user_id();
+        $file_id = intval($request['file_id'] ?? 0);
+        $content = $request['content'] ?? '';
+        $user_id = get_current_user_id();
         $parent_id = intval($request['parent_id'] ?? 0);
         self::get_scope_value($file_id);
 
@@ -1991,6 +2365,158 @@ class Vault extends BaseWidget
             'is_sticky' => $next === 1,
         ];
     }
-}
 
-add_action('init', [Vault::class, 'register_vault']);
+    /**
+     * ============================
+     * PHASE 2F: AUTHORITY HELPERS
+     * ============================
+     */
+
+    private static function copy_attachment_file_to_vault(int $attachment_id, int $user_id): string
+    {
+        $source_path = get_attached_file($attachment_id);
+        if (!$source_path || !is_file($source_path)) {
+            throw new \Exception('Source attachment file not found.');
+        }
+
+        $user_vault_dir = VaultManager::ensure_user_vault_exists($user_id);
+        $filename = wp_basename($source_path);
+        $target_filename = wp_unique_filename($user_vault_dir, $filename);
+        $target_path = trailingslashit($user_vault_dir) . $target_filename;
+
+        if (!copy($source_path, $target_path)) {
+            throw new \Exception('Failed to copy file to Vault.');
+        }
+
+        // Verify
+        if (!is_file($target_path) || filesize($target_path) !== filesize($source_path)) {
+            @unlink($target_path);
+            throw new \Exception('Vault file verification failed.');
+        }
+
+        return $target_path;
+    }
+
+    private static function move_attachment_file_to_vault(int $attachment_id, int $user_id): string
+    {
+        $source_path = get_attached_file($attachment_id);
+        $target_path = self::copy_attachment_file_to_vault($attachment_id, $user_id);
+
+        // Copy succeeded and verified, now delete original
+        if (!wp_delete_attachment($attachment_id, true)) {
+            // If delete fails, we might have a ghost attachment, but we kept the file in Vault.
+            // However, the rule says "only delete original if verified". 
+            // wp_delete_attachment deletes the record AND the file.
+        }
+
+        return $target_path;
+    }
+
+    private static function copy_vault_file_to_uploads(int $vault_id): array
+    {
+        $source_path = self::get_vault_absolute_path($vault_id);
+        if (!$source_path || !is_file($source_path)) {
+            throw new \Exception('Source Vault file not found.');
+        }
+
+        $upload_dir = wp_upload_dir();
+        if (!empty($upload_dir['error'])) {
+            throw new \Exception('Upload directory error: ' . $upload_dir['error']);
+        }
+
+        $filename = wp_basename($source_path);
+        $target_filename = wp_unique_filename($upload_dir['path'], $filename);
+        $target_path = trailingslashit($upload_dir['path']) . $target_filename;
+
+        if (!copy($source_path, $target_path)) {
+            throw new \Exception('Failed to copy file to Media Library.');
+        }
+
+        // Verify
+        if (!is_file($target_path) || filesize($target_path) !== filesize($source_path)) {
+            @unlink($target_path);
+            throw new \Exception('Media file verification failed.');
+        }
+
+        return [
+            'path' => $target_path,
+            'url' => trailingslashit($upload_dir['url']) . $target_filename,
+            'file' => trailingslashit($upload_dir['subdir']) . $target_filename,
+        ];
+    }
+
+    private static function move_vault_file_to_uploads(int $vault_id): array
+    {
+        $source_path = self::get_vault_absolute_path($vault_id);
+        $result = self::copy_vault_file_to_uploads($vault_id);
+
+        // Copy succeeded and verified, now delete original
+        @unlink($source_path);
+        
+        return $result;
+    }
+
+    private static function create_vault_cpt_from_attachment(int $attachment_id, string $vault_path, string $authority): int
+    {
+        $attachment = get_post($attachment_id);
+        $user_id = get_current_user_id();
+
+        $post_id = wp_insert_post([
+            'post_type' => self::CPT,
+            'post_title' => $attachment->post_title,
+            'post_content' => $attachment->post_content,
+            'post_excerpt' => $attachment->post_excerpt,
+            'post_status' => 'private',
+            'post_author' => $user_id,
+        ]);
+
+        if (is_wp_error($post_id)) {
+            throw new \Exception('Failed to create Vault record.');
+        }
+
+        update_post_meta($post_id, self::VAULT_PATH_META_KEY, VaultManager::normalize_vault_relative_path($vault_path));
+        update_post_meta($post_id, self::AUTHORITY_META_KEY, $authority);
+        update_post_meta($post_id, self::ORIGIN_META_KEY, 'media');
+        update_post_meta($post_id, self::ATTACHMENT_ID_META_KEY, $attachment_id);
+        update_post_meta($post_id, self::STORAGE_MODE_META_KEY, 'vault_private');
+        update_post_meta($post_id, '_sd_vault_mime_type', get_post_mime_type($attachment_id));
+
+        return $post_id;
+    }
+
+    private static function create_attachment_from_vault_cpt(int $vault_id, array $upload_data): int
+    {
+        $vault_post = get_post($vault_id);
+        $filename = wp_basename($upload_data['path']);
+        $mime = get_post_meta($vault_id, '_sd_vault_mime_type', true);
+
+        $attachment = [
+            'post_mime_type' => $mime,
+            'post_title' => $vault_post->post_title,
+            'post_content' => $vault_post->post_content,
+            'post_excerpt' => $vault_post->post_excerpt,
+            'post_status' => 'inherit',
+        ];
+
+        $attach_id = wp_insert_attachment($attachment, $upload_data['path']);
+        if (is_wp_error($attach_id)) {
+            throw new \Exception('Failed to create Media Library attachment.');
+        }
+
+        require_once(ABSPATH . 'wp-admin/includes/image.php');
+        $attach_data = wp_generate_attachment_metadata($attach_id, $upload_data['path']);
+        wp_update_attachment_metadata($attach_id, $attach_data);
+
+        // Authority tracking meta on attachment
+        update_post_meta($attach_id, self::VAULT_SOURCE_ID_META_KEY, $vault_id);
+        update_post_meta($attach_id, self::ORIGIN_META_KEY, 'vault');
+
+        return $attach_id;
+    }
+
+    private static function delete_vault_record_only(int $vault_id): void
+    {
+        self::sync_vault_projection($vault_id, 'private', '');
+        wp_delete_post($vault_id, true);
+    }
+}

@@ -184,6 +184,7 @@ export const setActiveScreen = (screenId) => ({
  * @param {object} widgetData - The raw data from the inspector { id, title, html, type, data }
  */
 export function addWidgetToDeck(widgetData) {
+	const preferredWidth = Math.max(1, Math.min(6, Number(widgetData?.data?.default_width || 2) || 2))
 	return {
 		type: "ADD_WIDGET_TO_DECK",
 		payload: {
@@ -200,7 +201,7 @@ export function addWidgetToDeck(widgetData) {
 			// Default placement (desktop base: 1/3 width)
 			x: 0,
 			y: 0,
-			w: 2,
+			w: preferredWidth,
 			h: 4,
 		},
 	}

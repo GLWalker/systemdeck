@@ -1,3 +1,15 @@
+/**
+ * SystemDeck - DiscoveryCanvas.js
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/assets/js/command-center/DiscoveryCanvas.js
+ * @license GPL-2.0-or-later
+ *
+ * Discovery Canvas Component Logic
+ */
+
 import {
 	useState,
 	useRef,

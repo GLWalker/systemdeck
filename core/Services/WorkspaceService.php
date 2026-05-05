@@ -1,4 +1,15 @@
 <?php
+/**
+ * SystemDeck - WorkspaceService
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Services/WorkspaceService.php
+ * @license GPL-2.0-or-later
+ *
+ * Workspace Lifecycle Management
+ */
 declare(strict_types=1);
 
 namespace SystemDeck\Core\Services;

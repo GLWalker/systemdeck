@@ -1,4 +1,15 @@
 <?php
+/**
+ * SystemDeck - ThemeUtilities
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/ThemeUtilities.php
+ * @license GPL-2.0-or-later
+ *
+ * Theme Compatibility and Utility Helpers
+ */
 
 declare(strict_types=1);
 

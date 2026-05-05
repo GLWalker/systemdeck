@@ -1,20 +1,13 @@
 /**
- * SystemDeck Shell Core Framework
- * Critical structure and layout logic. Modification requires explicit permission.
+ * SystemDeck - systemdeck-shell.css
  *
- * ⚠️ LOCKED FILE - DO NOT MODIFY
- * For customizations and styling overrides, use:
- * ANYTHING BUT THIS!
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/assets/css/systemdeck-shell.css
+ * @license GPL-2.0-or-later
  *
- * TABLE OF CONTENTS:
- * 1. Variables
- * 2. Scoped Reset
- * 3. Setup (Links & Typography)
- * 4. System Framework
- * 5. Docking System
- * 6. Resize Handles
- * 7. Deck Menu
- * 8. Workspace Inner
+ * Primary SystemDeck Shell Layout and Skin
  */
 
 /* =========================================
@@ -151,6 +144,17 @@
 
 body.sd-is-resizing #systemdeck {
     --sd-resize-glow-blur: 12px;
+}
+
+/* Prevent WP global drag-and-drop overlay from hijacking the screen */
+body.sd-context-retail .uploader-window,
+body.sd-context-retail #wpmedia-dragdrop-area,
+body.sd-context-retail .plupload.dragdrop,
+#systemdeck .uploader-window {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
 }
 
 /* =========================================

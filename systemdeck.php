@@ -35,6 +35,11 @@ if (defined('WP_CLI') && WP_CLI && file_exists(SYSTEMDECK_PATH . 'devtools/cli-r
     require_once SYSTEMDECK_PATH . 'devtools/cli-registry.php';
 }
 
+// Core Component Bootstrapping (Universal CPTs & Hooks)
+if (class_exists('\\SystemDeck\\Core\\Services\\ModuleBootstrap')) {
+    \SystemDeck\Core\Services\ModuleBootstrap::run();
+}
+
 // SAFETY CHECKS
 
 if (version_compare(PHP_VERSION, SYSTEMDECK_MIN_PHP, '<')) {
@@ -68,7 +73,7 @@ add_action('admin_head', function () {
  * Hooked early to 'init' to ensure routes are registered before permission gates.
  * This fixes the "too early" translation error while keeping registration un-gated.
  */
-add_action('init', 'systemdeck_register_infrastructure', 5);
+add_action('init', 'systemdeck_register_infrastructure', 0);
 
 function systemdeck_load_app_provider_modules(): void
 {
@@ -136,6 +141,24 @@ function systemdeck_register_infrastructure(): void
     if (class_exists('\\SystemDeck\\Core\\Assets')) {
         \SystemDeck\Core\Assets::init();
     }
+
+    // Register sd-common at the earliest admin hook so the handle is always
+    // present before any admin_enqueue_scripts or admin_print_styles callback
+    // resolves the sd-pins dependency chain (WP 6.9.1 strict dep validation).
+    add_action('admin_init', static function () {
+        if (!wp_style_is('sd-common', 'registered')) {
+            wp_register_style('sd-common', SYSTEMDECK_URL . 'assets/css/common.css', [], SYSTEMDECK_VERSION);
+        }
+    }, 0);
+
+    // Re-register sd-common immediately before WP resolves the style dep chain
+    // (admin_print_styles priority 10). The diagnostic confirmed something between
+    // priority 1 and 10 deregisters the handle (likely a third-party security plugin).
+    add_action('admin_print_styles', static function () {
+        if (!wp_style_is('sd-common', 'registered')) {
+            wp_register_style('sd-common', SYSTEMDECK_URL . 'assets/css/common.css', [], SYSTEMDECK_VERSION);
+        }
+    }, 1);
 
     if (class_exists('\\SystemDeck\\Core\\Logo')) {
         \SystemDeck\Core\Logo::init();
@@ -486,7 +509,7 @@ function systemdeck_get_shared_workspaces_for_user(int $user_id): array
             'show_top_level_menu' => (bool) get_post_meta($post->ID, \SystemDeck\Core\Services\CanvasRepository::META_SHOW_TOP_LEVEL_MENU, true),
             'menu_icon' => (string) (sanitize_html_class((string) get_post_meta($post->ID, \SystemDeck\Core\Services\CanvasRepository::META_MENU_ICON, true)) ?: 'dashicons-screenoptions'),
             'is_app_workspace' => (bool) get_post_meta($post->ID, \SystemDeck\Core\Services\CanvasRepository::META_IS_APP_WORKSPACE, true),
-            'app_id' => sanitize_key((string) get_post_meta($post->ID, \SystemDeck\Core\Services\CanvasRepository::META_APP_ID, true)),
+            'app_id' => \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) get_post_meta($post->ID, \SystemDeck\Core\Services\CanvasRepository::META_APP_ID, true)),
             'archived' => false,
         ];
     }
@@ -573,6 +596,7 @@ class SystemDeck_Assets
         add_action('wp_enqueue_scripts', [self::class, 'register_assets']);
         add_action('admin_enqueue_scripts', [self::class, 'register_assets']);
 
+
         // Canvas Engine (Runtime)
         if (class_exists('SystemDeck\Core\CanvasEngine')) {
             $canvas = new \SystemDeck\Core\CanvasEngine();
@@ -609,12 +633,17 @@ class SystemDeck_Assets
         $tone_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'assets/vendor/tone.min.js') ?: SYSTEMDECK_VERSION);
         $tonejs_midi_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'assets/vendor/tonejs-midi.min.js') ?: SYSTEMDECK_VERSION);
         $audio_engine_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'assets/js/sd-audio-engine.js') ?: SYSTEMDECK_VERSION);
+        $playback_adapter_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'assets/js/sd-playback-adapter.js') ?: SYSTEMDECK_VERSION);
         $player_style_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'widgets/player/style.css') ?: SYSTEMDECK_VERSION);
         $player_app_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'widgets/player/app.js') ?: SYSTEMDECK_VERSION);
 
         wp_register_script('tone', SYSTEMDECK_URL . 'assets/vendor/tone.min.js', [], $tone_ver, true);
         wp_register_script('sd-tonejs-midi', SYSTEMDECK_URL . 'assets/vendor/tonejs-midi.min.js', [], $tonejs_midi_ver, true);
         wp_register_script('sd-audio-engine', SYSTEMDECK_URL . 'assets/js/sd-audio-engine.js', [], $audio_engine_ver, true);
+        wp_register_script('sd-playback-adapter', SYSTEMDECK_URL . 'assets/js/sd-playback-adapter.js', ['jquery', 'sd-audio-engine'], $playback_adapter_ver, true);
+        if (class_exists('\\SystemDeck\\Core\\Assets')) {
+            \SystemDeck\Core\Assets::register_all();
+        }
         wp_register_style('sd-player-style', SYSTEMDECK_URL . 'widgets/player/style.css', ['sd-legacy-common'], $player_style_ver);
         wp_register_script('sd-player-app', SYSTEMDECK_URL . 'widgets/player/app.js', ['jquery', 'sd-audio-engine'], $player_app_ver, true);
         wp_add_inline_script(
@@ -1005,6 +1034,7 @@ class SystemDeck_Assets
             if (file_exists($asset_file)) {
                 $build_assets = require $asset_file;
 
+                /*
                 if (file_exists($build_dir . 'systemdeck-runtime.css')) {
                     wp_enqueue_style(
                         'systemdeck-runtime',
@@ -1022,6 +1052,7 @@ class SystemDeck_Assets
                         $build_assets['version']
                     );
                 }
+                */
             }
 
             // Enqueue Shell
@@ -1206,6 +1237,7 @@ class SystemDeck_Assets
                 'source_id' => (string) ($widget_def['source_id'] ?? ''),
                 'is_legacy' => !empty($widget_def['is_legacy']),
                 'app_id' => (string) ($widget_def['app_id'] ?? ''),
+                'default_width' => (int) ($widget_def['default_width'] ?? 0),
                 'visibility_policy' => (string) ($widget_def['visibility_policy'] ?? 'global'),
                 'seed_on_app_provision' => !empty($widget_def['seed_on_app_provision']),
             ];

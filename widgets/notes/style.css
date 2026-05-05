@@ -1,3 +1,15 @@
+/**
+ * SystemDeck - style.css
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/widgets/notes/style.css
+ * @license GPL-2.0-or-later
+ *
+ * Notes Widget (Styling)
+ */
+
 .sd-note-view-modal .components-modal__frame {
     max-height: min(90vh, 1000px);
 }
@@ -33,16 +45,6 @@
 }
 
 /* 2. List Elements */
-.sd-note-pin-btn {
-    color: #a7aaad;
-    cursor: pointer;
-}
-
-.sd-note-pin-btn.active,
-.sd-note-pin-btn:hover {
-    color: #2271b1;
-}
-
 .sd-note-workspace-origin {
     color: #646970;
     font-size: 12px;
@@ -66,10 +68,6 @@
     font-size: 11px;
 }
 
-.sd-note-date-label {
-    color: #8c8f94;
-}
-
 .sd-note-code-badge {
     color: #1d2327;
     margin-left: 4px;
@@ -78,16 +76,6 @@
 .sd-note-code-badge .dashicons {
     font-size: 12px;
     margin-top: 2px;
-}
-
-.post-com-count-wrapper {
-    display: flex;
-    justify-content: center;
-}
-
-.sd-no-comments {
-    color: #8c8f94;
-    font-size: 14px;
 }
 
 .sd-note-context-link {
@@ -232,10 +220,26 @@
 }
 
 /* 7. Notes Specific Structure */
+.sd-notes-widget {
+    position: relative;
+    height: auto;
+    min-height: 0;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
 
-.sd-notes-table {
-    border: none;
-    border-bottom: 1px solid #dcdcde;
+.sd-notes-table th.column-title {
+    width: 60%;
+}
+
+.sd-notes-table th.column-comments {
+    width: 10%;
+}
+
+.sd-notes-table th.column-date {
+    width: 25%;
 }
 
 .sd-notes-form-header {
@@ -309,17 +313,6 @@
 .sd-error-text {
     color: #d63638;
     font-weight: 500;
-}
-
-.sd-empty-state {
-    display: block;
-    visibility: hidden;
-}
-
-.sd-loading-td {
-    padding: 12px;
-    text-align: center;
-    color: #646970;
 }
 
 #sd-note-code-wrapper,

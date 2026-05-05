@@ -1,4 +1,15 @@
 <?php
+/**
+ * SystemDeck - MetricRegistry
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Services/MetricRegistry.php
+ * @license GPL-2.0-or-later
+ *
+ * Telemetry Metric Registry (Data Collection)
+ */
 declare(strict_types=1);
 
 namespace SystemDeck\Core\Services;

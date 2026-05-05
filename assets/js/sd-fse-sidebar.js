@@ -1,8 +1,15 @@
 /**
- * SystemDeck FSE Sidebar
- * Native React integration for the WordPress Site Editor.
- * Version 1.4.1 (Forensic Restore)
+ * SystemDeck - sd-fse-sidebar.js
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/assets/js/sd-fse-sidebar.js
+ * @license GPL-2.0-or-later
+ *
+ * Full Site Editor Sidebar Integration
  */
+
 ;(function (wp) {
 	const { registerPlugin } = wp.plugins
 	const { PluginSidebar } = wp.editor || wp.editSite || wp.editPost || {}

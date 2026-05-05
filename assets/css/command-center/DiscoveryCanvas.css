@@ -1,4 +1,51 @@
+/**
+ * SystemDeck - DiscoveryCanvas.css
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/assets/css/command-center/DiscoveryCanvas.css
+ * @license GPL-2.0-or-later
+ *
+ * Discovery Canvas Component Styling
+ */
+
 /* Discovery Canvas Styles */
+
+.sd-canvas-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin: 0 0 20px 0;
+	padding: 0;
+}
+
+.sd-canvas-header .wp-heading-inline {
+	margin: 0;
+}
+
+.sd-canvas-header .wp-header-end {
+	display: none;
+}
+
+.sd-canvas-header__logo {
+	height: 18px;
+	width: auto;
+	display: flex;
+	align-items: center;
+	opacity: 0.85;
+	transition: opacity 160ms ease;
+}
+
+.sd-canvas-header__logo:hover {
+	opacity: 1;
+}
+
+.sd-canvas-header__logo svg {
+	height: 100%;
+	width: auto;
+	display: block;
+}
 
 /* Discovery Grid (Management Cards) */
 .sd-discovery-canvas .sd-discovery-grid {

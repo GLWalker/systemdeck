@@ -1,4 +1,15 @@
 <?php
+/**
+ * SystemDeck - WidgetPreviewRoute
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Rest/WidgetPreviewRoute.php
+ * @license GPL-2.0-or-later
+ *
+ * REST API Endpoint for Widget Previews
+ */
 declare(strict_types=1);
 
 namespace SystemDeck\Core\Rest;

@@ -1,4 +1,15 @@
 <?php
+/**
+ * SystemDeck - AppRuntime
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/AppRuntime.php
+ * @license GPL-2.0-or-later
+ *
+ * Main Application Runtime (State & Lifecycle)
+ */
 declare(strict_types=1);
 
 namespace SystemDeck\Core;
@@ -25,7 +36,7 @@ final class AppRuntime
                 continue;
             }
 
-            $id = sanitize_key((string) ($app['id'] ?? ''));
+            $id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($app['id'] ?? ''));
             $root_widget_id = sanitize_text_field((string) (
                 $app['root_widget_id']
                 ?? (is_array($app['widgets'] ?? null) ? ($app['widgets']['root_widget_id'] ?? '') : '')
@@ -135,7 +146,7 @@ final class AppRuntime
 
     public static function get_app(string $app_id): ?array
     {
-        $normalized_id = sanitize_key($app_id);
+        $normalized_id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id($app_id);
         if ($normalized_id === '') {
             return null;
         }

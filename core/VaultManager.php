@@ -1,7 +1,14 @@
 <?php
 /**
- * SystemDeck Vault Manager
- * Securely manages the physical file system isolation for internal files.
+ * SystemDeck - VaultManager
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/VaultManager.php
+ * @license GPL-2.0-or-later
+ *
+ * Private Storage and Media Management Authority
  */
 declare(strict_types=1);
 
@@ -150,22 +157,72 @@ final class VaultManager
         $mime = $post->post_mime_type ?: 'application/octet-stream';
         $size = filesize($absolute_path);
 
+        if (defined('SYSTEMDECK_DEBUG_AUDIO') && SYSTEMDECK_DEBUG_AUDIO) {
+            error_log(sprintf(
+                "[Vault Stream Audit] ID: %d, Path: %s, Mime: %s, Size: %d, Range: %s",
+                $vault_id,
+                $absolute_path,
+                $mime,
+                $size,
+                $_SERVER['HTTP_RANGE'] ?? 'none'
+            ));
+        }
+
+        // Standard stream headers
         header('Content-Type: ' . $mime);
-        header('Content-Length: ' . $size);
-        // F-23 FIX: Security headers to prevent MIME-sniffing and clickjacking.
-        header('X-Content-Type-Options: nosniff');
-        header('X-Frame-Options: DENY');
+        header('Accept-Ranges: bytes');
         
+        // Security headers
+        header('X-Content-Type-Options: nosniff');
+        if (function_exists('header_remove')) {
+            header_remove('X-Frame-Options');
+        }
+        if (isset($_GET['download'])) {
+            header('X-Frame-Options: DENY');
+        } else {
+            header('X-Frame-Options: SAMEORIGIN');
+        }
+        header('Cache-Control: private, max-age=31536000');
+        
+        // Handle Range requests (essential for seeking in Chrome/Safari)
+        if (isset($_SERVER['HTTP_RANGE'])) {
+            $range = $_SERVER['HTTP_RANGE'];
+            if (preg_match('/bytes=(\d+)-(\d+)?/', $range, $matches)) {
+                $start = intval($matches[1]);
+                $end = isset($matches[2]) ? intval($matches[2]) : $size - 1;
+                
+                header('HTTP/1.1 206 Partial Content');
+                header("Content-Range: bytes $start-$end/$size");
+                header('Content-Length: ' . ($end - $start + 1));
+                
+                $fp = fopen($absolute_path, 'rb');
+                fseek($fp, $start);
+                
+                while (ob_get_level()) ob_end_clean();
+                
+                // Stream in chunks to avoid memory limits
+                $buffer = 8192;
+                $bytes_to_read = $end - $start + 1;
+                while (!feof($fp) && $bytes_to_read > 0) {
+                    $chunk_size = min($buffer, $bytes_to_read);
+                    echo fread($fp, $chunk_size);
+                    $bytes_to_read -= $chunk_size;
+                    flush();
+                }
+                
+                fclose($fp);
+                exit;
+            }
+        }
+
+        header('Content-Length: ' . $size);
+
         // For downloads vs inline viewing
         if (isset($_GET['download'])) {
             header('Content-Disposition: attachment; filename="' . basename($absolute_path) . '"');
         } else {
             header('Content-Disposition: inline; filename="' . basename($absolute_path) . '"');
         }
-        
-        // Cache control
-        header('Cache-Control: private, max-age=31536000');
-        header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 31536000) . ' GMT');
 
         // Clean out any output buffers before streaming
         while (ob_get_level()) {

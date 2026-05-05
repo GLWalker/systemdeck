@@ -1,8 +1,14 @@
 <?php
 /**
- * SystemDeck StorageEngine
- * Core controller for high-performance state persistence.
- * Status: PATCHED (Fixes Data Loss Bug)
+ * SystemDeck - StorageEngine
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/StorageEngine.php
+ * @license GPL-2.0-or-later
+ *
+ * Unified Database Persistence Interface
  */
 
 declare(strict_types=1);

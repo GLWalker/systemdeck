@@ -1,16 +1,15 @@
 /**
- * SystemDeck Inspector Engine — The Magic Mouse (V2.1)
+ * SystemDeck - sd-inspector-engine.js
  *
- * Direct port of src/runtime/Inspector.js into a self-contained IIFE.
- * Runs INSIDE the preview iframe (loaded when sd_preview=1&sd_inspect=1).
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/assets/js/sd-inspector-engine.js
+ * @license GPL-2.0-or-later
  *
- * Protocol:
- *   RECEIVE  parent → { command: "sd_inspector_toggle", active: bool }
- *   RECEIVE  parent → { command: "sd_grid_toggle", active: bool }
- *   SEND     iframe → { command: "sd_inspector_ready" }
- *   SEND     iframe → { command: "sd_inspector_data", data: {...} }
- *   SEND     iframe → { type: "sd_element_selected", data: {...} }  (legacy)
+ * Core Inspector Logic and Data Bridge
  */
+
 ;(function () {
 	"use strict"
 

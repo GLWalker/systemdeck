@@ -1,416 +1,470 @@
-.sd-vault-details-shell-modal {
-    position: fixed;
-    inset: 0;
-    z-index: 160000;
+/**
+ * SystemDeck Vault Widget - Media Modal Styles
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/widgets/vault/sd-vault-media.css
+ * @license GPL-2.0-or-later
+ *
+ * Specific layout overrides for the WordPress Media Library bridge and Vault details modal.
+ */
+
+/* -------------------------------------------------------------------------
+ * VAULT NATIVE EXTENSION (PHASE 2A)
+ * ------------------------------------------------------------------------- */
+
+/* SystemDeck Vault extension styles below */
+
+/* Vault native modal enhancements */
+.sd-vault-details-modal-inner .sd-vault-attachment-details {
+	display: flex;
+	align-items: stretch;
+	height: 100%;
 }
 
-#sd-vault-details-modal .edit-media-header {
-    overflow: hidden;
+.sd-vault-details-modal-inner .attachment-media-view,
+.sd-vault-details-modal-inner .attachment-info {
+	position: static;
+	height: auto;
 }
 
-#sd-vault-details-modal .media-modal-close,
-#sd-vault-details-modal .edit-media-header .left,
-#sd-vault-details-modal .edit-media-header .right {
-    cursor: pointer;
-    color: #787c82;
-    background-color: transparent;
-    height: 50px;
-    width: 50px;
-    padding: 0;
-    position: absolute;
-    text-align: center;
-    border: 0;
-    border-left: 1px solid #dcdcde !important;
-    transition: color .1s ease-in-out, background .1s ease-in-out;
+.sd-vault-details-modal-inner .attachment-media-view {
+	flex: 1;
+	overflow: auto;
 }
 
-#sd-vault-details-modal .media-modal-close {
-    top: 0;
-    right: 0;
+.sd-vault-details-modal-inner .attachment-info {
+	flex-shrink: 0;
+	background: #f6f7f7;
+	border-left: 1px solid #dcdcde;
+	overflow-y: auto;
 }
 
-#sd-vault-details-modal .edit-media-header .left {
-    right: 102px;
+.sd-vault-details-modal-inner .media-frame-content {
+	display: flex;
 }
 
-#sd-vault-details-modal .edit-media-header .right {
-    right: 51px;
+/* -------------------------------------------------------------------------
+ * VAULT MEDIA EXTENSION (NATIVE INTEGRATION)
+ * ------------------------------------------------------------------------- */
+.sd-vault-details-save-row {
+	clear: both;
+	width: 100%;
+	margin: 20px 0;
+	text-align: right;
 }
 
-#sd-vault-details-modal .media-frame-title {
-    left: 0;
-    right: 150px;
+.sd-vault-media-extension {
+	padding: 0;
 }
 
-#sd-vault-details-modal .media-frame-content,
-#sd-vault-details-modal .media-frame-router {
-    left: 0;
+.sd-vault-media-extension__heading {
+	font-weight: 600;
+	text-transform: uppercase;
+	font-size: 12px;
+	color: #646970;
+	margin-bottom: 8px;
 }
 
-#sd-vault-details-modal .media-frame-content {
-    border-bottom: none;
-    bottom: 0;
-    top: 50px;
+.sd-vault-media-extension__text {
+	font-size: 12px;
+	font-style: italic;
+	color: #646970;
+	margin-bottom: 12px;
 }
 
-#sd-vault-details-modal .attachment-details {
-    position: absolute;
-    overflow: auto;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    box-shadow: inset 0 4px 4px -4px rgba(0, 0, 0, 0.1);
+.sd-vault-read-meta {
+	margin-bottom: 16px;
 }
 
-#sd-vault-details-modal .attachment-media-view {
-    float: left;
-    width: 65%;
-    height: 100%;
+.sd-vault-read-meta-row {
+	font-size: 12px;
+	line-height: 1.4;
+	margin-bottom: 4px;
 }
 
-#sd-vault-details-modal .media-frame-title h1 {
-    padding: 0 16px;
-    font-size: 22px;
-    line-height: 2.27272727;
-    margin: 0;
-    font-weight: 600;
+.sd-vault-extension-setting {
+	margin-bottom: 12px;
 }
 
-#sd-vault-details-modal .edit-media-header .right:before,
-#sd-vault-details-modal .edit-media-header .left:before {
-    font: normal 20px/50px dashicons !important;
-    display: inline;
-    font-weight: 300;
+.sd-vault-extension-setting label {
+	font-size: 13px;
+	display: block;
 }
 
-#sd-vault-details-modal .edit-media-header .left:before {
-    content: "\f341";
+.sd-vault-extension-setting select {
+	width: 100%;
+	margin-top: 4px;
 }
 
-#sd-vault-details-modal .edit-media-header .right:before {
-    content: "\f345";
+.sd-vault-extension-actions {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-top: 16px;
 }
 
-#sd-vault-details-modal .media-modal-close:hover,
-#sd-vault-details-modal .media-modal-close:focus,
-#sd-vault-details-modal .edit-media-header .left:hover,
-#sd-vault-details-modal .edit-media-header .right:hover,
-#sd-vault-details-modal .edit-media-header .left:focus,
-#sd-vault-details-modal .edit-media-header .right:focus {
-    background: #dcdcde;
-    border-color: #c3c4c7;
-    color: #000;
-    outline: none;
-    box-shadow: none;
+.sd-vault-sep {
+	color: #dcdcde;
 }
 
-#sd-vault-details-modal .media-modal-close:focus,
-#sd-vault-details-modal .edit-media-header .left:focus,
-#sd-vault-details-modal .edit-media-header .right:focus {
-    outline: 2px solid transparent;
-    outline-offset: -2px;
+/* -------------------------------------------------------------------------
+ * FRONTEND NATIVE MODAL LAYOUT FIXES
+ * ------------------------------------------------------------------------- */
+/* Vault extension styles integrated into native modal */
+/* Extension styles below */
+
+/* -------------------------------------------------------------------------
+ * VAULT EDIT SHELL ENHANCEMENTS (PHASE 2B)
+ * ------------------------------------------------------------------------- */
+
+.sd-vault-native-id-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 12px;
+	font-size: 13px;
 }
 
-#sd-vault-details-modal .media-modal-close:focus .media-modal-icon:before,
-#sd-vault-details-modal .media-modal-close:hover .media-modal-icon:before {
-    color: #000;
+.sd-vault-origin-badge {
+	font-size: 10px;
+	text-transform: uppercase;
+	background: #f0f0f1;
+	color: #646970;
+	padding: 2px 6px;
+	border-radius: 3px;
+	letter-spacing: 0.02em;
 }
 
-#sd-vault-details-modal .edit-media-header [disabled],
-#sd-vault-details-modal .edit-media-header [disabled]:hover {
-    color: #c3c4c7;
-    background: inherit;
-    cursor: default;
+.sd-vault-edit-form {
+	margin-top: 20px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
 }
 
-#sd-vault-details-modal .attachment-media-view .thumbnail {
-    box-sizing: border-box;
-    padding: 16px;
-    height: 100%;
+.sd-vault-field {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
 }
 
-#sd-vault-details-modal .attachment-media-view .details-image {
-    display: block;
-    margin: 0 auto 16px;
-    max-width: 100%;
-    max-height: 90%;
-    max-height: calc(100% - 42px);
+.sd-vault-field label {
+	font-size: 11px;
+	font-weight: 700;
+	text-transform: uppercase;
+	color: #646970;
 }
 
-#sd-vault-details-modal .attachment-media-view .details-image.icon {
-    background: none;
+.sd-vault-field input[type="text"],
+.sd-vault-field textarea {
+	width: 100%;
+	font-size: 13px;
+	padding: 6px 8px;
+	border: 1px solid #8c8f94;
+	border-radius: 3px;
 }
 
-#sd-vault-details-modal .attachment-media-view .attachment-actions {
-    text-align: center;
+.sd-vault-field textarea {
+	height: 60px;
+	resize: vertical;
 }
 
-#sd-vault-details-modal .attachment-info {
-    overflow: auto;
-    box-sizing: border-box;
-    margin-bottom: 0;
-    padding: 12px 16px 0;
-    width: 35%;
-    height: 100%;
-    box-shadow: inset 0 4px 4px -4px rgba(0, 0, 0, 0.1);
-    border-bottom: 0;
-    border-left: 1px solid #dcdcde;
-    background: #f6f7f7;
+.sd-vault-field-row {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 12px;
 }
 
-#sd-vault-details-modal .attachment-info .details,
-#sd-vault-details-modal .attachment-info .settings {
-    position: relative;
-    overflow: hidden;
-    float: none;
-    margin-bottom: 15px;
-    padding-bottom: 15px;
-    border-bottom: 1px solid #dcdcde;
+.sd-vault-copy-url-wrap {
+	display: flex;
+	gap: 4px;
 }
 
-#sd-vault-details-modal .attachment-info .filename {
-    font-weight: 400;
-    color: #646970;
+.sd-vault-copy-url-wrap input {
+	flex: 1;
+	font-family: monospace;
+	font-size: 11px !important;
+	background: #f6f7f7;
 }
 
-#sd-vault-details-modal #sd-vault-details-preview-actions.has-midi-tools {
-    display: block !important;
-    margin-top: 12px;
-    text-align: left;
+.sd-vault-copy-url-btn {
+	white-space: nowrap;
 }
 
-#sd-vault-details-modal #sd-vault-details-preview-actions.has-midi-tools .sd-vault-midi-editor-wrap {
-    margin-bottom: 0;
+.sd-vault-priority-radios label {
+	font-weight: 400 !important;
+	font-size: 13px !important;
+	display: inline-flex !important;
+	align-items: center;
+	gap: 4px;
 }
 
-.media-modal .sd-vault-media-extension,
-.media-modal .sd-vault-media-audio-extension {
-    margin-top: 16px;
-    padding-top: 12px;
-    border-top: 1px solid #dcdcde;
+.sd-vault-details-comments-host h4 {
+	margin: 20px 0 8px;
+	font-size: 13px;
+	font-weight: 600;
+	color: #1d2327;
 }
 
-#sd-vault-details-extension .label {
-    display: none;
+.sd-vault-details-comments-list {
+	max-height: 250px;
+	overflow-y: auto;
+	margin-bottom: 12px;
 }
 
-#sd-vault-details-extension .field {
-    float: none;
-    width: 100%;
-    margin: 0;
+.sd-vault-details-comment-form .submit {
+	margin: 8px 0 0;
+	text-align: right;
 }
 
-#sd-vault-details-extension .sd-vault-media-extension {
-    margin-top: 0;
-    padding-top: 0;
-    border-top: 0;
+/* -------------------------------------------------------------------------
+ * VAULT MIDI PLAYER BRIDGE (PHASE 7)
+ * ------------------------------------------------------------------------- */
+/* MIDI tools inside WP-style attachment preview */
+.sd-vault-midi-editor-wrap {
+	max-width: 760px;
+	margin: 0 auto;
+	padding: 0 16px 16px;
+	box-sizing: border-box;
 }
 
-.media-modal .sd-vault-media-extension__heading {
-    margin: 0 0 8px;
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: #50575e;
+.sd-vault-midi-editor-panel {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
 }
 
-.media-modal .sd-vault-media-extension__text {
-    margin: 0 0 10px;
-    font-size: 12px;
-    line-height: 1.5;
-    color: #646970;
+.sd-vault-midi-editor-details {
+	padding: 0;
 }
 
-.media-modal .sd-vault-media-extension__check {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 10px;
+.sd-vault-midi-editor-summary-toggle {
+	padding: 10px 12px;
+	cursor: pointer;
+	font-weight: 600;
+	color: #1d2327;
+	border-bottom: 1px solid #dcdcde;
+	background: #f6f7f7;
 }
 
-.media-modal .sd-vault-media-extension__priority {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-bottom: 12px;
-    font-size: 12px;
-    color: #50575e;
+.sd-vault-midi-summary-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 1px;
+	background: #dcdcde;
+	margin: 12px;
+	border: 1px solid #dcdcde;
 }
 
-.media-modal .sd-vault-media-extension__actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
+.sd-vault-midi-summary-item {
+	background: #fff;
+	padding: 8px 10px;
 }
 
-.media-modal .attachment-compat .sd-vault-media-extension,
-.media-modal .attachment-compat .sd-vault-media-extension__text,
-.media-modal .attachment-compat .sd-vault-details-meta-grid,
-.media-modal .attachment-compat .sd-vault-media-comments,
-.media-modal .attachment-compat .sd-vault-details-save-row,
-.media-modal .attachment-compat #sd-vault-details-readonly-note {
-    float: none;
-    clear: both;
-    width: 100%;
+.sd-vault-midi-summary-label {
+	display: block;
+	font-size: 11px;
+	font-weight: 600;
+	color: #646970;
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
 }
 
-.media-modal .attachment-info .details {
-    position: relative;
+.sd-vault-midi-summary-value {
+	display: block;
+	margin-top: 2px;
+	font-size: 13px;
+	color: #1d2327;
+	word-break: break-word;
 }
 
-.media-modal .attachment-info .details #sd-vault-priority-badge {
-    position: absolute;
-    top: 0;
-    right: 0;
-    float: none;
-    clear: none;
-    width: auto;
-    max-width: 100%;
-    margin: 0;
-    padding: 2px 8px;
-    border-radius: 3px;
-    line-height: 1.4;
-    z-index: 1;
+.sd-vault-midi-editor-label {
+	display: block;
+	margin: 12px 12px 6px;
+	font-weight: 600;
+	color: #1d2327;
 }
 
-.media-modal .attachment-compat .sd-vault-details-meta-grid {
-    display: grid;
-    gap: 8px;
-    margin-bottom: 14px;
+.sd-vault-midi-json {
+	display: block;
+	width: calc(100% - 24px);
+	min-height: 120px;
+	margin: 0 12px;
+	font-family: Consolas, Monaco, monospace;
+	font-size: 12px;
+	resize: vertical;
+	overflow: hidden;
 }
 
-.media-modal .attachment-compat .sd-vault-media-extension .setting > .name,
-.media-modal .attachment-compat .sd-vault-media-extension .setting > .value {
-    float: left;
-    display: block;
+.sd-vault-midi-editor-panel.is-valid {
+	border-color: #00a32a;
+	box-shadow: 0 0 0 1px #00a32a;
 }
 
-.media-modal .attachment-compat .sd-vault-media-extension .setting > .name {
-    width: 30%;
-    margin-right: 4%;
-    text-align: right;
+.sd-vault-midi-editor-panel.is-invalid {
+	border-color: #d63638;
+	box-shadow: 0 0 0 1px #d63638;
 }
 
-.media-modal .attachment-compat .sd-vault-media-extension .setting > .value {
-    width: 65%;
+.sd-vault-midi-editor-panel.is-dirty {
+	border-color: #dba617;
+	box-shadow: 0 0 0 1px #dba617;
 }
 
-.media-modal .attachment-compat .sd-checkbox-label {
-    display: flex;
-    align-items: flex-start;
-    justify-content: flex-start;
-    gap: 8px;
-    line-height: 1.5;
+.sd-vault-midi-editor-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 12px;
 }
 
-.media-modal .attachment-compat .sd-checkbox-label input[type="checkbox"] {
-    margin-top: 2px;
+.sd-vault-midi-editor-message {
+	margin: 12px;
+	padding: 8px 10px;
+	border-left: 4px solid #72aee6;
+	background: #f0f6fc;
+	color: #1d2327;
 }
 
-.media-modal .attachment-compat .sd-vault-priority-options {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
+.sd-vault-midi-editor-message.is-success {
+	border-left-color: #00a32a;
+	background: #edfaef;
 }
 
-.media-modal .attachment-compat .sd-vault-priority-options label {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    margin: 0;
+.sd-vault-midi-editor-message.is-error {
+	border-left-color: #d63638;
+	background: #fcf0f1;
 }
 
-.media-modal .attachment-compat .sd-vault-priority-options input[type="radio"] {
-    margin: 0;
+/* -------------------------------------------------------------------------
+ * VAULT MIDI PLAYER BRIDGE (PHASE 7)
+ * ------------------------------------------------------------------------- */
+.sd-vault-midi-player-bridge {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	padding: 10px 12px;
+	max-width: 100%;
+	margin: 12px 0;
+	box-shadow: none;
 }
 
-.media-modal .attachment-compat .sd-vault-details-save-row {
-    display: flex;
-    justify-content: flex-end;
-    width: 100%;
-    margin-top: 12px;
+.sd-midi-bridge-visual {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+	color: #1d2327;
 }
 
-.media-modal .attachment-compat .sd-vault-media-comments {
-    margin-top: 18px;
-    padding-top: 12px;
-    border-top: 1px solid #dcdcde;
+.sd-midi-bridge-visual .dashicons {
+	font-size: 18px;
+	width: 18px;
+	height: 18px;
+	margin-bottom: 0;
+	color: #72aee6;
 }
 
-.media-modal .attachment-compat .sd-vault-media-comments-heading {
-    margin: 0 0 8px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #50575e;
+.sd-midi-bridge-status {
+	font-weight: 500;
+	font-size: 12px;
+	color: #646970;
 }
 
-.media-modal .attachment-compat .sd-vault-comment-form {
-    margin-top: 12px;
+.sd-midi-bridge-controls {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
 }
 
-#sd-vault-details-comments-list:empty {
-    display: none;
+.sd-midi-bridge-controls .button {
+	height: 30px;
+	width: 30px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
 }
 
-#sd-vault-details-alt-text[readonly],
-#sd-vault-details-title[readonly],
-#sd-vault-details-caption[readonly],
-#sd-vault-details-description[readonly] {
-    background: #f6f7f7;
-    color: #646970;
+.sd-midi-bridge-progress-wrap {
+	flex: 1;
+	height: 6px;
+	background: #dcdcde;
+	border-radius: 3px;
+	position: relative;
+	overflow: hidden;
 }
 
-#sd-vault-details-modal .mejs-button > button {
-    background: transparent var(--sd-vault-mejs-controls-url) no-repeat !important;
-    border: 0 !important;
-    padding: 0 !important;
-    margin: 10px 6px !important;
-    overflow: hidden;
-    position: absolute;
-    height: 20px;
-    width: 20px;
-    font-size: 0;
-    line-height: 0;
+.sd-midi-bridge-progress-bar {
+	position: absolute;
+	left: 0;
+	top: 0;
+	height: 100%;
+	background: #2271b1;
+	transition: width 0.1s linear;
 }
 
-#sd-vault-details-modal .mejs-play > button {
-    background-position: 0 0 !important;
+.sd-midi-bridge-time {
+	font-family: monospace;
+	font-size: 11px;
+	color: #646970;
+	min-width: 70px;
+	text-align: right;
 }
 
-#sd-vault-details-modal .mejs-pause > button {
-    background-position: -20px 0 !important;
+.attachment-media-view.sd-vault-has-systemdeck-player .wp-media-wrapper.wp-audio,
+.attachment-media-view.sd-vault-has-systemdeck-player .mejs-container {
+	display: none !important;
 }
 
-#sd-vault-details-modal .mejs-mute > button {
-    background-position: -60px 0 !important;
-}
+@media screen and (max-width: 782px) {
+	.sd-vault-read-preview__midi-player {
+		background: #f6f7f7;
+		border: 1px solid #dcdcde;
+		padding: 20px;
+		border-radius: 4px;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 15px;
+		width: 100%;
+		max-width: 400px;
+		margin: 20px auto;
+	}
 
-#sd-vault-details-modal .mejs-unmute > button {
-    background-position: -40px 0 !important;
-}
+	.sd-vault-midi-transport {
+		display: flex;
+		gap: 10px;
+	}
 
-#sd-vault-details-modal .mejs-container:focus {
-    outline: none;
-    box-shadow: none;
-}
+	.sd-vault-midi-transport .button {
+		height: 40px;
+		width: 40px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0;
+	}
 
-#sd-vault-details-modal .mejs-time,
-#sd-vault-details-modal .mejs-time span,
-#sd-vault-details-modal .mejs-currenttime,
-#sd-vault-details-modal .mejs-duration,
-#sd-vault-details-modal .mejs-time-float-current {
-    color: #fff !important;
-}
+	.sd-vault-midi-transport .button .dashicons {
+		font-size: 20px;
+		width: 20px;
+		height: 20px;
+	}
 
-#sd-vault-details-modal .mejs-time {
-    box-sizing: content-box !important;
-    font-weight: normal;
-    word-wrap: normal;
-}
+	.sd-vault-midi-status {
+		font-size: 13px;
+		color: #646970;
+		font-weight: 500;
+	}
 
-#sd-vault-details-modal .mejs-controls a.mejs-horizontal-volume-slider {
-    display: table;
+	.sd-vault-midi-status .description {
+		color: #d63638;
+		font-style: italic;
+	}
 }

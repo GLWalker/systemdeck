@@ -1,8 +1,14 @@
 <?php
 /**
- * SystemDeck Harvester
- * Specialized tool for extracting and persisting structural metrics (theme.json telemetry).
- * PHASE 3 FIX: Adds RGB normalization and Font Families.
+ * SystemDeck - Harvester
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Harvester.php
+ * @license GPL-2.0-or-later
+ *
+ * Component Discovery and Scanning Engine
  */
 declare(strict_types=1);
 

@@ -1,14 +1,14 @@
 <?php
 /**
- * ObjectAccessGate — Centralized single-object authorization for SystemDeck widgets.
+ * SystemDeck - ObjectAccessGate
  *
- * Extracted from Notes::resolve_sticky_access() and Vault's inline access checks
- * which implemented the same three-step pattern:
- *   1. Is the user the post_author? → full access
- *   2. Is the scope "shared/pinned" AND does the user meet workspace access? → view+comment
- *   3. Otherwise → denied
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Services/ObjectAccessGate.php
+ * @license GPL-2.0-or-later
  *
- * @package SystemDeck\Core\Services
+ * Permission Authority Service (Security Enforcement)
  */
 
 namespace SystemDeck\Core\Services;

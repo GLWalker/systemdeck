@@ -1,3 +1,15 @@
+/**
+ * SystemDeck - style.css
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/widgets/db-tables-browser/style.css
+ * @license GPL-2.0-or-later
+ *
+ * Database Tables Browser Widget (Styling)
+ */
+
 .sd-db-browser-summary {
 	margin-bottom: 12px;
 }

@@ -1,4 +1,15 @@
 <?php
+/**
+ * SystemDeck - Assets
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Assets.php
+ * @license GPL-2.0-or-later
+ *
+ * Core Asset Registration and Enqueue Management
+ */
 declare(strict_types=1);
 /**
  * SystemDeck Assets Manager
@@ -169,9 +180,14 @@ class Assets
                 'deps' => ['systemdeck-shell'],
             ],
             [
+                'handle' => 'sd-pins',
+                'path' => 'assets/css/pins.css',
+                'deps' => ['sd-common', 'dashicons'],
+            ],
+            [
                 'handle' => 'sd-grid',
                 'path' => 'assets/css/grid.css',
-                'deps' => ['sd-common', 'dashicons'],
+                'deps' => ['sd-pins', 'dashicons'],
             ],
             [
                 'handle' => 'sd-legacy-common',

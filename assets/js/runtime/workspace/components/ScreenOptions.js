@@ -115,6 +115,7 @@ const createPreviewWidgetItem = (widget, layoutItems) => {
 	const widgetTitle = String(widget?.title || widgetId).trim()
 	const instanceId = `sd_preview_${widgetId.replace(/[^a-z0-9_-]/gi, "_")}`
 	const position = nextPreviewWidgetPosition(layoutItems)
+	position.w = Math.max(1, Math.min(6, Number(widget?.default_width || 2) || 2))
 	return {
 		i: instanceId,
 		id: instanceId,

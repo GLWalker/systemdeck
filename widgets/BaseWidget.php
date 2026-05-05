@@ -1,4 +1,16 @@
 <?php
+/**
+ * SystemDeck - BaseWidget
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/widgets/BaseWidget.php
+ * @license GPL-2.0-or-later
+ *
+ * Abstract base class for all SystemDeck widgets.
+ */
+
 declare(strict_types=1);
 
 namespace SystemDeck\Widgets;
@@ -12,6 +24,7 @@ abstract class BaseWidget
     /** OPTIONAL */
     public const ICON = 'dashicons-admin-generic';
     public const CONTEXT = 'normal';
+    public const DEFAULT_WIDTH = 0;
 
     /**
      * Optional asset declaration

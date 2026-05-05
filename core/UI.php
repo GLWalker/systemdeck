@@ -1,7 +1,14 @@
 <?php
 /**
- * SystemDeck UI Components
- * Standardized reusable UI elements for widgets and the shell.
+ * SystemDeck - UI
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/UI.php
+ * @license GPL-2.0-or-later
+ *
+ * Standardized UI Component Rendering
  */
 declare(strict_types=1);
 
@@ -96,34 +103,27 @@ class UI
         $value = $pin_data['value'] ?? '';
         $html = $pin_data['html'] ?? '';
 
-        $style = "grid-column: span {$w}; grid-row: span {$h};";
-
-        echo "<div class=\"sd-pinned-item\" id=\"pin-{$id}\" data-id=\"{$id}\" style=\"{$style}\">";
-        echo '<span class="dashicons dashicons-dismiss sd-pin-remove" title="Unpin" data-id="' . $id . '"></span>';
-
         if (!empty($html)) {
-            echo '<div class="sd-pin-content custom">';
             echo wp_kses_post($html);
-            echo '</div>';
         } else {
-            echo '<div class="sd-pin-content default">';
-
+            echo '<div class="sd-pinned-label" id="sd-pin-title-' . esc_attr($instance_id) . '">';
             if (!empty($icon)) {
                 if (strpos(trim($icon), '<svg') === 0) {
                     echo '<span class="sd-pin-icon custom">' . $icon . '</span>';
                 } else {
-                    echo '<span class="dashicons ' . esc_attr($icon) . ' sd-pin-icon"></span>';
+                    echo '<span class="dashicons ' . esc_attr($icon) . ' sd-pin-icon" style="font-size: 14px; width: 14px; height: 14px; margin-right: 4px;"></span>';
                 }
+            }
+            echo esc_html($label);
+            echo '</div>';
+
+            if (!empty($value)) {
+                echo '<h4 class="sd-pin-title">' . wp_kses_post($value) . '</h4>';
             }
 
             echo '<div class="sd-pin-meta">';
-            echo '<span class="sd-pin-label">' . esc_html($label) . '</span>';
-            echo '<span class="sd-pin-value">' . wp_kses_post($value) . '</span>';
-            echo '</div>';
-
+            echo '<span class="sd-pin-description">' . esc_html($label) . '</span>';
             echo '</div>';
         }
-
-        echo '</div>';
     }
 }

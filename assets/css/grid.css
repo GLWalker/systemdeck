@@ -1,3 +1,15 @@
+/**
+ * SystemDeck - grid.css
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/assets/css/grid.css
+ * @license GPL-2.0-or-later
+ *
+ * Main Workspace Grid Layout Styles
+ */
+
 /* ==========================================================================
    SystemDeck Grid Runtime Styles (non-Command Center)
    ========================================================================== */
@@ -8,7 +20,8 @@ body.is-dragging-metaboxes #systemdeck .sd-workspace-grid {
     outline-offset: -4px;
 }
 
-body.is-dragging-metaboxes #systemdeck .sd-grid-widget.is-drop-target {
+body.is-dragging-metaboxes #systemdeck .sd-grid-widget.is-drop-target,
+body.is-dragging-metaboxes #systemdeck .sd-grid-pin.is-drop-target {
     outline: 3px dashed #c3c4c7;
     outline-offset: -3px;
 }
@@ -33,7 +46,7 @@ body.is-dragging-metaboxes #systemdeck .sd-grid-widget.is-drop-target {
     box-sizing: border-box;
 }
 
-.sd-pinned-grid.is-dragging .sd-pinned-item {
+.sd-pinned-grid.is-dragging .sd-grid-pin {
     border-style: dashed;
     border-color: color-mix(in srgb, var(--sd-highlight-color, var(--sd-highlight)) 35%, white);
 }

@@ -1,3 +1,15 @@
+/**
+ * SystemDeck - TelemetryStreamEngine.js
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/assets/js/runtime/TelemetryStreamEngine.js
+ * @license GPL-2.0-or-later
+ *
+ * Live Telemetry Stream Processing
+ */
+
 ;(function () {
 	"use strict"
 

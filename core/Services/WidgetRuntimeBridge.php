@@ -1,4 +1,15 @@
 <?php
+/**
+ * SystemDeck - WidgetRuntimeBridge
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Services/WidgetRuntimeBridge.php
+ * @license GPL-2.0-or-later
+ *
+ * Widget Runtime Interface (Asset & State Injection)
+ */
 declare(strict_types=1);
 
 namespace SystemDeck\Core\Services;
@@ -39,7 +50,7 @@ final class WidgetRuntimeBridge
         $source_id = $resolved_id;
         $origin = (string) ($definition['origin'] ?? 'external');
         if (($origin === 'dashboard' || $origin === 'discovered') && !empty($definition['source_id'])) {
-            $source_id = sanitize_text_field((string) $definition['source_id']);
+            $source_id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) $definition['source_id']);
         }
 
         return [
@@ -173,13 +184,11 @@ final class WidgetRuntimeBridge
         return $widget_id;
     }
 
-    public static function sanitize_widget_id(string $widget_id): string
+    public static function sanitize_widget_id($widget_id): string
     {
-        $widget_id = trim($widget_id);
-        if ($widget_id === '') {
-            return '';
-        }
-
-        return (string) preg_replace('/[^a-zA-Z0-9._-]/', '', $widget_id);
+        $id = is_scalar($widget_id) ? (string) $widget_id : '';
+        $id = wp_unslash($id);
+        $id = strtolower(trim($id));
+        return (string) preg_replace('/[^a-z0-9._-]/', '', $id);
     }
 }

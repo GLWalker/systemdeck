@@ -47,6 +47,44 @@ SystemDeck is designed to be a platform, not just a fixed plugin.
 -   WordPress 6.7+
 -   PHP 8.0+
 
+## Security & Framing Policy
+
+SystemDeck uses same-origin iframe rendering for certain runtime features, including:
+
+-   Tunnel-hosted dashboard content
+-   Embedded admin surfaces
+-   Inline media previews (Vault)
+
+Because of this, SystemDeck requires that WordPress admin routes can be framed within the same origin.
+
+### Required Behavior
+
+For full functionality, the site must allow:
+
+`X-Frame-Options: SAMEORIGIN`
+
+on WordPress admin and SystemDeck-managed routes.
+
+### Potential Conflicts
+
+If a server or security plugin enforces:
+
+`X-Frame-Options: DENY`
+
+or restrictive `Content-Security-Policy` frame rules, the following features may not function correctly:
+
+-   Tunnel-hosted widgets
+-   Vault inline previews (PDF, media)
+-   Embedded admin interfaces
+
+### Recommended Configuration
+
+-   Allow same-origin framing for `/wp-admin/*` and SystemDeck routes
+-   Avoid globally forcing `DENY` unless explicitly required
+-   Use stricter policies only on public-facing frontend routes if needed
+
+SystemDeck does not require cross-origin framing and does not expose admin surfaces to external domains.
+
 ## Install
 
 1. Download or clone this repository into `wp-content/plugins/systemdeck`

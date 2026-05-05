@@ -1,7 +1,15 @@
 /**
- * SystemDeck Inspector HUD (Retail Edition)
- * Version 1.6.0 (Full Parity with FSE)
+ * SystemDeck - sd-inspector-hud.js
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/assets/js/sd-inspector-hud.js
+ * @license GPL-2.0-or-later
+ *
+ * On-screen Inspector HUD Visuals
  */
+
 ;(function (wp) {
 	const {
 		render,

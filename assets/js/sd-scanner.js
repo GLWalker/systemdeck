@@ -1,9 +1,15 @@
 /**
- * SystemDeck Widget Scanner
+ * SystemDeck - sd-scanner.js
  *
- * Handles "Deep Scanning" of the WordPress Dashboard via an invisible iframe.
- * Scrapes .postbox elements to discover available dashboard widgets.
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/assets/js/sd-scanner.js
+ * @license GPL-2.0-or-later
+ *
+ * Security and Integrity Scanner Engine
  */
+
 jQuery(document).ready(function ($) {
 	var $startBtn = $("#sd-start-scan")
 	var $frameWrap = $("#sd-scanner-frame-wrap")

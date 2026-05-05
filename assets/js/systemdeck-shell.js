@@ -1,3 +1,15 @@
+/**
+ * SystemDeck - systemdeck-shell.js
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/assets/js/systemdeck-shell.js
+ * @license GPL-2.0-or-later
+ *
+ * Main Shell Interaction and Menu Controller
+ */
+
 ;(function () {
 	"use strict"
 

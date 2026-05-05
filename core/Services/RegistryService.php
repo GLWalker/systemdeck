@@ -1,13 +1,14 @@
 <?php
 /**
- * Registry Service (Mailbox Authority)
+ * SystemDeck - RegistryService
  *
- * BUILD-TIME ONLY
- * - Scans widgets
- * - Builds snapshot
- * - Writes mailbox
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Services/RegistryService.php
+ * @license GPL-2.0-or-later
  *
- * RUNTIME MUST NEVER SCAN
+ * Main Component Registry (Caching & Discovery)
  */
 declare(strict_types=1);
 
@@ -120,7 +121,10 @@ final class RegistryService
                     'class' => $class,
                     'assets' => ($is_base_widget && method_exists($class, 'assets')) ? $class::assets() : self::detect_assets($folder),
                     'render_callback' => [$class, 'render'],
-                    'app_id' => ($is_base_widget && defined("$class::APP_ID")) ? sanitize_key((string) constant("$class::APP_ID")) : '',
+                    'app_id' => ($is_base_widget && defined("$class::APP_ID")) ? \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) constant("$class::APP_ID")) : '',
+                    'default_width' => ($is_base_widget && defined("$class::DEFAULT_WIDTH"))
+                        ? max(0, min(6, (int) constant("$class::DEFAULT_WIDTH")))
+                        : 0,
                     'visibility_policy' => ($is_base_widget && defined("$class::VISIBILITY_POLICY"))
                         ? self::normalize_visibility_policy((string) constant("$class::VISIBILITY_POLICY"))
                         : 'global',
@@ -145,8 +149,8 @@ final class RegistryService
                 // so rebuilds remain idempotent and do not flip between
                 // discovered.* and dashboard.* namespaces across runs.
                 $source_id = (string) ($dw['id'] ?? '');
-                $widget_id = 'dashboard.' . sanitize_key($source_id);
-                $provider_name = $plugin_providers[sanitize_key($source_id)] ?? '';
+                $widget_id = 'dashboard.' . \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id($source_id);
+                $provider_name = $plugin_providers[\SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id($source_id)] ?? '';
 
                 $snapshot['widgets'][$widget_id] = [
                     'id' => $widget_id,
@@ -171,8 +175,8 @@ final class RegistryService
          */
         $plugin_providers = self::discover_dashboard_widget_plugin_providers();
         foreach (self::discover_dashboard_widgets() as $dw) {
-            $widget_id = 'dashboard.' . sanitize_key($dw['id']);
-            $provider_name = $plugin_providers[sanitize_key((string) $dw['id'])] ?? '';
+            $widget_id = 'dashboard.' . \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id($dw['id']);
+            $provider_name = $plugin_providers[\SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) $dw['id'])] ?? '';
             $snapshot['widgets'][$widget_id] = [
                 'id' => $widget_id,
                 'title' => $dw['title'],
@@ -202,7 +206,7 @@ final class RegistryService
             if (!is_array($def) || (($def['origin'] ?? '') !== 'dashboard')) {
                 continue;
             }
-            $src = sanitize_key((string) ($def['source_id'] ?? ''));
+            $src = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($def['source_id'] ?? ''));
             if ($src !== '') {
                 $dashboard_sources[$src] = true;
             }
@@ -213,7 +217,7 @@ final class RegistryService
                 if (!is_array($def) || (($def['origin'] ?? '') !== 'discovered')) {
                     continue;
                 }
-                $src = sanitize_key((string) ($def['source_id'] ?? ''));
+                $src = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($def['source_id'] ?? ''));
                 if ($src !== '' && isset($dashboard_sources[$src])) {
                     unset($snapshot['widgets'][$wid]);
                 }
@@ -378,6 +382,7 @@ final class RegistryService
                 continue;
             }
             if (wp_script_is($js, 'registered')) {
+                $js_handle = $js;
                 wp_enqueue_script($js);
             } elseif (self::looks_like_handle_token($js)) {
                 // Handle tokens (e.g. sd-telemetry-stream-engine) must be registered upstream.
@@ -391,6 +396,14 @@ final class RegistryService
                     SYSTEMDECK_VERSION,
                     true
                 );
+            }
+
+            if ($widget_id === "core.vault" && str_contains($js_handle, "sd-widget-vault")) {
+                wp_enqueue_script("sd-playback-adapter");
+                wp_localize_script($js_handle, "sd_vault_bridge", [
+                    "ajaxurl" => admin_url("admin-ajax.php"),
+                    "nonce" => wp_create_nonce("systemdeck_runtime"),
+                ]);
             }
         }
     }
@@ -418,33 +431,75 @@ final class RegistryService
             wp_enqueue_media();
         }
 
+        /**
+         * ---------------------------------------------------------
+         * NATIVE MEDIA MODAL CORE (FRONTEND SAFETY)
+         * ---------------------------------------------------------
+         * We explicitly enqueue these to ensure the native modal
+         * has full UI fidelity even on the frontend.
+         */
+        $handles_js = [
+            'media-editor',
+            'media-views',
+            'media-models',
+            'media-audiovideo',
+            'wp-util',
+            'wp-backbone',
+            'underscore',
+            'backbone',
+            'mediaelement',
+            'wp-mediaelement'
+        ];
+
+        foreach ($handles_js as $h) {
+            if (wp_script_is($h, 'registered')) {
+                wp_enqueue_script($h);
+            }
+        }
+
+        $suffix = defined('SCRIPT_DEBUG') && SCRIPT_DEBUG ? '' : '.min';
+        $handles_css = [
+            'media-views' => includes_url("css/media-views$suffix.css"),
+            'buttons' => includes_url("css/buttons$suffix.css"),
+            'dashicons' => includes_url("css/dashicons$suffix.css"),
+            'mediaelement' => includes_url("js/mediaelement/mediaelementplayer-legacy$suffix.css"),
+            'wp-mediaelement' => includes_url("js/mediaelement/wp-mediaelement$suffix.css"),
+            'common' => admin_url("css/common$suffix.css"),
+            'forms' => admin_url("css/forms$suffix.css"),
+            'media' => admin_url("css/media$suffix.css"),
+        ];
+
+        foreach ($handles_css as $h => $url) {
+            if (!wp_style_is($h, 'registered')) {
+                $deps = [];
+                if ($h === 'media') {
+                    $deps = ['common', 'forms', 'buttons', 'dashicons', 'media-views'];
+                }
+                wp_register_style($h, $url, $deps);
+            }
+            wp_enqueue_style($h);
+        }
+
         if (wp_script_is('media-grid', 'registered')) {
             wp_enqueue_script('media-grid');
+            // Ensure media-grid has its settings on the frontend
+            $media_settings = [
+                'adminUrl' => admin_url(),
+                'ajaxUrl' => admin_url('admin-ajax.php'),
+                'refreshOnFocus' => false,
+            ];
+            wp_localize_script('media-grid', '_wpMediaGridSettings', $media_settings);
+
+            if (wp_script_is('media-models', 'registered')) {
+                wp_localize_script('media-models', '_wpMediaModelsSettings', $media_settings);
+            }
         }
 
         if (wp_script_is('media', 'registered')) {
             wp_enqueue_script('media');
         }
 
-        if (wp_style_is('wp-mediaelement', 'registered')) {
-            wp_enqueue_style('wp-mediaelement');
-        }
-
-        if (wp_script_is('wp-mediaelement', 'registered')) {
-            wp_enqueue_script('wp-mediaelement');
-        }
-
-        if (wp_script_is('mediaelement-vimeo', 'registered')) {
-            wp_enqueue_script('mediaelement-vimeo');
-        }
-
-        if (wp_style_is('sd-player-style', 'registered')) {
-            wp_enqueue_style('sd-player-style');
-        }
-
-        if (wp_script_is('sd-player-app', 'registered')) {
-            wp_enqueue_script('sd-player-app');
-        }
+        // Widget assets are now managed via WidgetAssetLoader and explicitly declared dependencies.
     }
 
     private static function looks_like_handle_token(string $asset): bool
@@ -629,7 +684,7 @@ final class RegistryService
                 continue;
             }
 
-            $source_id = sanitize_key($source_id);
+            $source_id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id($source_id);
             if ($source_id === '' || str_starts_with($source_id, 'sd_')) {
                 continue;
             }
@@ -653,14 +708,14 @@ final class RegistryService
         $plugin_candidates = self::discover_dashboard_widget_candidates_from_active_plugins();
         $plugin_candidate_index = [];
         foreach ((array) $plugin_candidates as $candidate) {
-            $pid = sanitize_key((string) ($candidate['id'] ?? ''));
+            $pid = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($candidate['id'] ?? ''));
             if ($pid !== '') {
                 $plugin_candidate_index[$pid] = true;
             }
         }
 
         foreach ((array) $plugin_candidates as $candidate) {
-            $source_id = sanitize_key((string) ($candidate['id'] ?? ''));
+            $source_id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($candidate['id'] ?? ''));
             if ($source_id === '' || str_starts_with($source_id, 'sd_')) {
                 continue;
             }
@@ -682,7 +737,7 @@ final class RegistryService
 
         $settings_candidates = self::discover_dashboard_widget_candidates_from_settings();
         foreach ((array) $settings_candidates as $candidate) {
-            $source_id = sanitize_key((string) ($candidate['id'] ?? ''));
+            $source_id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($candidate['id'] ?? ''));
             if ($source_id === '' || str_starts_with($source_id, 'sd_')) {
                 continue;
             }
@@ -751,7 +806,7 @@ final class RegistryService
         $widget_options = get_option('dashboard_widget_options', []);
         if (is_array($widget_options)) {
             foreach (array_keys($widget_options) as $k) {
-                $id = sanitize_key((string) $k);
+                $id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) $k);
                 if ($id !== '') {
                     $ids[$id] = true;
                 }
@@ -781,7 +836,7 @@ final class RegistryService
                     continue;
                 }
                 foreach (explode(',', (string) $value) as $part) {
-                    $id = sanitize_key(trim((string) $part));
+                    $id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id(trim((string) $part));
                     if ($id !== '') {
                         $ids[$id] = true;
                     }
@@ -793,7 +848,7 @@ final class RegistryService
         $closed = get_user_meta(get_current_user_id(), 'closedpostboxes_dashboard', true);
         if (is_array($closed)) {
             foreach ($closed as $part) {
-                $id = sanitize_key((string) $part);
+                $id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) $part);
                 if ($id !== '') {
                     $ids[$id] = true;
                 }
@@ -1078,7 +1133,7 @@ final class RegistryService
             'provider_name' => sanitize_text_field((string) ($def['provider_name'] ?? '')),
             'suite' => $suite,
             'render_mode' => $render_mode,
-            'source_id' => sanitize_text_field((string) ($def['source_id'] ?? '')),
+            'source_id' => \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($def['source_id'] ?? '')),
             'is_legacy' => (bool) ($def['is_legacy'] ?? false),
             'capability' => sanitize_text_field((string) ($def['capability'] ?? 'manage_options')),
             'nonce_scope' => sanitize_text_field((string) ($def['nonce_scope'] ?? 'systemdeck_runtime')),
@@ -1086,7 +1141,7 @@ final class RegistryService
             'tunnel_assets' => self::normalize_tunnel_assets_contract($def['tunnel_assets'] ?? []),
             'context_contract' => self::normalize_context_contract($def['context_contract'] ?? []),
             'version_constraints' => is_array($def['version_constraints'] ?? null) ? $def['version_constraints'] : [],
-            'app_id' => sanitize_key((string) ($def['app_id'] ?? '')),
+            'app_id' => \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($def['app_id'] ?? '')),
             'visibility_policy' => self::normalize_visibility_policy((string) ($def['visibility_policy'] ?? 'global')),
             'seed_on_app_provision' => (bool) ($def['seed_on_app_provision'] ?? false),
         ];

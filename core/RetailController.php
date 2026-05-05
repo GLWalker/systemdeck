@@ -1,7 +1,14 @@
 <?php
 /**
- * SystemDeck Retail Controller
- * Manages the "Retail Mode" (Frontend) logic and rendering.
+ * SystemDeck - RetailController
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/RetailController.php
+ * @license GPL-2.0-or-later
+ *
+ * Front-end Retail (non-admin) Runtime Controller
  */
 declare(strict_types=1);
 

@@ -1,4 +1,15 @@
 <?php
+/**
+ * SystemDeck - Logo
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Logo.php
+ * @license GPL-2.0-or-later
+ *
+ * System Branding and Logo Management
+ */
 declare(strict_types=1);
 
 namespace SystemDeck\Core;

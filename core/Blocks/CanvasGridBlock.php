@@ -1,4 +1,15 @@
 <?php
+/**
+ * SystemDeck - CanvasGridBlock
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Blocks/CanvasGridBlock.php
+ * @license GPL-2.0-or-later
+ *
+ * Gutenberg Block: Canvas Grid Container
+ */
 declare(strict_types=1);
 
 namespace SystemDeck\Core\Blocks;

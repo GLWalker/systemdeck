@@ -1,4 +1,15 @@
 <?php
+/**
+ * SystemDeck - widget.php
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/widgets/player/widget.php
+ * @license GPL-2.0-or-later
+ *
+ * SystemDeck Media Player Widget
+ */
 
 declare(strict_types=1);
 
@@ -52,13 +63,22 @@ final class Player extends BaseWidget
     {
         return [
             'css' => ['style.css'],
-            'js' => ['sd-audio-engine', 'app.js'],
+            'js' => [
+                'sd-audio-engine',
+                'sd-playback-adapter',
+                'app.js'
+            ],
         ];
+    }
+
+    public static function requires_wp_media(): bool
+    {
+        return true;
     }
 
     protected static function output(array $context): void
     {
-        $workspace_id = sanitize_text_field((string) ($context['workspace_id'] ?? ''));
+        $workspace_id = sanitize_key((string) ($context['workspace_id'] ?? ''));
 ?>
         <div class="sd-player-root" data-workspace-id="<?php echo esc_attr($workspace_id); ?>">
             <div class="sd-player-now" data-role="now-playing" data-title>
@@ -135,7 +155,11 @@ final class Player extends BaseWidget
             </div>
 
             <div class="sd-player-load-row">
-                <button type="button" class="button" data-action="load"><?php esc_html_e('Load', 'systemdeck'); ?></button>
+                <select class="sd-player-playlist-select" data-role="playlist" aria-label="<?php esc_attr_e('Select track', 'systemdeck'); ?>">
+                    <option value=""><?php esc_html_e('Loading playlist...', 'systemdeck'); ?></option>
+                </select>
+                <button type="button" class="button button-primary" data-action="play-selected"><?php esc_html_e('Load', 'systemdeck'); ?></button>
+                <button type="button" class="button" data-action="upload-vault"><?php esc_html_e('Upload', 'systemdeck'); ?></button>
                 <input type="file" accept="audio/*,.mid,.midi" data-role="file-input" hidden>
             </div>
 

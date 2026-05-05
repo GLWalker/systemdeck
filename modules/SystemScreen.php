@@ -1,6 +1,14 @@
 <?php
 /**
- * SystemDeck Command Center scanner page.
+ * SystemDeck - SystemScreen
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/modules/SystemScreen.php
+ * @license GPL-2.0-or-later
+ *
+ * System Screen (Command Center) logic and assets
  */
 
 declare(strict_types=1);

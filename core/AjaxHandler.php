@@ -1,7 +1,14 @@
 <?php
 /**
- * SystemDeck AJAX Handler
- * Handles legacy AJAX requests and bridges them to the new architecture.
+ * SystemDeck - AjaxHandler
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/AjaxHandler.php
+ * @license GPL-2.0-or-later
+ *
+ * Primary AJAX routing and security gateway
  */
 declare(strict_types=1);
 
@@ -11,6 +18,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+use SystemDeck\Core\Ajax\MediaAjaxController;
 use SystemDeck\Core\Ajax\NotesAjaxController;
 use SystemDeck\Core\Ajax\SystemAjaxController;
 use SystemDeck\Core\Ajax\WidgetAjaxController;
@@ -335,7 +343,7 @@ class AjaxHandler
      */
     public static function sanitize_layout_item(array $item, int $fallback_index = 0): ?array
     {
-        $id = sanitize_key((string) ($item['id'] ?? $item['i'] ?? ''));
+        $id = \SystemDeck\Core\Services\WidgetRuntimeBridge::sanitize_widget_id((string) ($item['id'] ?? $item['i'] ?? ''));
         if ($id === '') {
             return null;
         }
@@ -357,7 +365,7 @@ class AjaxHandler
      */
     private static function normalize_pin_record(array $pin, int $fallback_index = 0): ?array
     {
-        $id = sanitize_key((string) ($pin['id'] ?? ''));
+        $id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($pin['id'] ?? ''));
         if ($id === '') {
             return null;
         }
@@ -538,7 +546,7 @@ class AjaxHandler
             'order' => (int) ($workspace['order'] ?? 0),
             'shared' => !empty($workspace['shared']),
             'pinned' => !empty($workspace['pinned']),
-            'source_workspace_id' => sanitize_text_field((string) ($workspace['source_workspace_id'] ?? '')),
+            'source_workspace_id' => sanitize_key((string) ($workspace['source_workspace_id'] ?? '')),
             'source_version_at_clone' => (int) ($workspace['source_version_at_clone'] ?? 0),
         ];
     }
@@ -573,8 +581,8 @@ class AjaxHandler
     public static function evaluate_widget_toggle_policy(array $widget_def, array $workspace_record, string $widget_id): array
     {
         $policy = self::normalize_visibility_policy((string) ($widget_def['visibility_policy'] ?? 'global'));
-        $widget_app_id = sanitize_key((string) ($widget_def['app_id'] ?? ''));
-        $workspace_app_id = sanitize_key((string) ($workspace_record['app_id'] ?? ''));
+        $widget_app_id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($widget_def['app_id'] ?? ''));
+        $workspace_app_id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($workspace_record['app_id'] ?? ''));
         $is_app_workspace = !empty($workspace_record['is_app_workspace']);
         $is_matching_app_workspace = $is_app_workspace && $workspace_app_id !== '' && $widget_app_id !== '' && $workspace_app_id === $widget_app_id;
         $is_active = self::is_widget_active_for_workspace($workspace_record, $widget_id);
@@ -671,6 +679,7 @@ class AjaxHandler
             'get_discovered_widgets' => [SystemAjaxController::class, 'handle_get_discovered_widgets'],
             'reset_systemdeck' => [SystemAjaxController::class, 'handle_reset_systemdeck'],
             'save_user_preferences' => [SystemAjaxController::class, 'handle_save_user_preferences'],
+            'player_get_playlist' => [MediaAjaxController::class, 'handle_get_playlist'],
         ];
 
         foreach ($routes as $action => $callback) {
@@ -791,6 +800,7 @@ class AjaxHandler
             'get_pin_safe_metrics' => 'workspace_view',
             'create_registry_pin' => 'workspace_edit',
             'create_metric_pin' => 'workspace_edit',
+            'player_get_playlist' => 'workspace_view',
             'export_workspaces' => 'workspace_manage',
             'import_workspaces' => 'workspace_manage',
             'get_harvest' => 'workspace_view',
@@ -836,6 +846,7 @@ class AjaxHandler
             'get_discovered_widgets' => 'workspace_manage',
             'reset_systemdeck' => 'workspace_manage',
             'save_user_preferences' => 'workspace_manage',
+            'player_get_playlist' => 'workspace_view',
         ];
     }
 
@@ -887,7 +898,7 @@ class AjaxHandler
                 if (!is_array($app)) {
                     continue;
                 }
-                $aid = sanitize_key((string) ($app['id'] ?? ''));
+                $aid = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($app['id'] ?? ''));
                 $wid = sanitize_key((string) ($app['workspace_id'] ?? ''));
                 if ($aid !== '') {
                     $active_app_ids[$aid] = true;
@@ -915,7 +926,7 @@ class AjaxHandler
                     }
 
                     $is_app_workspace = !empty($ws['is_app_workspace']);
-                    $app_id = sanitize_key((string) ($ws['app_id'] ?? ''));
+                    $app_id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($ws['app_id'] ?? ''));
                     if (!$is_app_workspace && $app_id === '') {
                         continue;
                     }
@@ -1503,7 +1514,7 @@ class AjaxHandler
         }
 
         $workspace_id = self::normalize_workspace_id($_POST['workspace_id'] ?? 'default');
-        $instance_id = sanitize_key((string) ($_POST['instance_id'] ?? $pin_id));
+        $instance_id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($_POST['instance_id'] ?? $pin_id));
 
         $result = \SystemDeck\Core\Services\PinRuntimeBridge::render($pin_id, [
             'workspace_id' => $workspace_id,
@@ -1543,7 +1554,7 @@ class AjaxHandler
         if (is_array($saved_order) && !empty($saved_order)) {
             $ordered_map = [];
             foreach ($pins as $pin) {
-                $pid = sanitize_key((string) ($pin['id'] ?? ''));
+                $pid = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($pin['id'] ?? ''));
                 if ($pid !== '') {
                     $ordered_map[$pid] = $pin;
                 }
@@ -1605,7 +1616,7 @@ class AjaxHandler
         $existing_pins = StorageEngine::get('pins', $context) ?: [];
         $existing_pins_map = [];
         foreach ($existing_pins as $ep) {
-            $ep_id = sanitize_key((string) ($ep['id'] ?? ''));
+            $ep_id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($ep['id'] ?? ''));
             if ($ep_id !== '') {
                 $existing_pins_map[$ep_id] = $ep;
             }
@@ -1616,7 +1627,7 @@ class AjaxHandler
             if (!is_array($pin)) {
                 continue;
             }
-            $id = sanitize_key((string) ($pin['id'] ?? ''));
+            $id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($pin['id'] ?? ''));
             if ($id === '') {
                 continue;
             }
@@ -1758,8 +1769,11 @@ class AjaxHandler
                 if ($widget_title === '') {
                     $widget_title = sanitize_text_field(ucwords(str_replace(['.', '_', '-'], ' ', $widget_id)));
                 }
-                $position = self::next_overlay_widget_position($local_items);
-                $overlay_id = 'sd_local_' . sanitize_key(str_replace(['.', '-'], '_', $widget_id));
+                $position = self::next_overlay_widget_position(
+                    $local_items,
+                    self::get_registry_widget_default_width($widget_id)
+                );
+                $overlay_id = 'sd_local_' . \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id(str_replace(['.', '-'], '_', $widget_id));
                 $local_items[$overlay_id] = [
                     'i' => $overlay_id,
                     'id' => $overlay_id,
@@ -1871,7 +1885,10 @@ class AjaxHandler
             if ($instance_seed === '') {
                 $instance_seed = 'w_' . substr(md5((string) mt_rand()), 0, 12);
             }
-            $position = self::next_overlay_widget_position($layout_items);
+            $position = self::next_overlay_widget_position(
+                $layout_items,
+                self::get_registry_widget_default_width($widget_id)
+            );
             $snippet = sprintf(
                 '<!-- wp:systemdeck/widgets {"widgetId":"%1$s","title":"%2$s","sdItemId":"%3$s","columnSpan":%4$d,"rowSpan":%5$d,"gridX":%6$d,"gridY":%7$d} /-->',
                 $widget_id,
@@ -2104,7 +2121,7 @@ class AjaxHandler
                     $widget_title = sanitize_text_field(ucwords(str_replace(['.', '_', '-'], ' ', $widget_id)));
                 }
                 $position = self::next_overlay_widget_position($local_items);
-                $overlay_id = 'sd_local_' . sanitize_key(str_replace(['.', '-'], '_', $widget_id));
+                $overlay_id = 'sd_local_' . \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id(str_replace(['.', '-'], '_', $widget_id));
                 $local_items[$overlay_id] = [
                     'i' => $overlay_id,
                     'id' => $overlay_id,
@@ -2267,7 +2284,10 @@ class AjaxHandler
             if ($instance_seed === '') {
                 $instance_seed = 'w_' . substr(md5($widget_id . microtime(true)), 0, 12);
             }
-            $position = self::next_overlay_widget_position($layout_items);
+            $position = self::next_overlay_widget_position(
+                $layout_items,
+                self::get_registry_widget_default_width($widget_id)
+            );
             $snippet  = sprintf(
                 '<!-- wp:systemdeck/widgets {"widgetId":"%1$s","title":"%2$s","sdItemId":"%3$s","columnSpan":%4$d,"rowSpan":%5$d,"gridX":%6$d,"gridY":%7$d} /-->',
                 $widget_id,
@@ -2414,7 +2434,7 @@ class AjaxHandler
                 if (!is_array($item)) {
                     continue;
                 }
-                $candidate_id = sanitize_key((string) ($item['id'] ?? $item['i'] ?? ''));
+                $candidate_id = \SystemDeck\Core\Services\WidgetRuntimeBridge::sanitize_widget_id((string) ($item['id'] ?? $item['i'] ?? ''));
                 if ($candidate_id !== $item_id) {
                     continue;
                 }
@@ -2627,7 +2647,7 @@ class AjaxHandler
         $layout_map = [];
         $widget_queue_map = [];
         foreach ($sanitized_layout as $idx => $item) {
-            $id = sanitize_key((string) ($item['id'] ?? ''));
+            $id = \SystemDeck\Core\Services\WidgetRuntimeBridge::sanitize_widget_id((string) ($item['id'] ?? ''));
             $layout_map[$id] = [
                 'w' => self::normalize_widget_width((int) ($item['w'] ?? 2)),
                 'h' => max(1, min(12, (int) ($item['h'] ?? 1))),
@@ -2973,7 +2993,7 @@ class AjaxHandler
         }
 
         $is_app = (bool) get_post_meta($canvas_id, \SystemDeck\Core\Services\CanvasRepository::META_IS_APP_WORKSPACE, true);
-        $app_id = sanitize_key((string) get_post_meta($canvas_id, \SystemDeck\Core\Services\CanvasRepository::META_APP_ID, true));
+        $app_id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) get_post_meta($canvas_id, \SystemDeck\Core\Services\CanvasRepository::META_APP_ID, true));
         return $is_app || $app_id !== '';
     }
 
@@ -3050,7 +3070,7 @@ class AjaxHandler
             if (!is_array($item)) {
                 continue;
             }
-            $id = sanitize_key((string) ($item['id'] ?? $item['i'] ?? ''));
+            $id = \SystemDeck\Core\Services\WidgetRuntimeBridge::sanitize_widget_id((string) ($item['id'] ?? $item['i'] ?? ''));
             if ($id === '') {
                 continue;
             }
@@ -3091,19 +3111,38 @@ class AjaxHandler
     /**
      * @param array<string,array<string,mixed>> $layout_items
      */
-    private static function next_overlay_widget_position(array $layout_items): array
+    private static function next_overlay_widget_position(array $layout_items, int $preferred_width = 0): array
     {
         $max_y = 0;
         foreach ($layout_items as $item) {
             $max_y = max($max_y, (int) ($item['y'] ?? 0) + (int) ($item['h'] ?? 1));
         }
 
+        $width = self::normalize_widget_width($preferred_width > 0 ? $preferred_width : 2);
+
         return [
             'x' => 0,
             'y' => $max_y,
-            'w' => 2,
+            'w' => $width,
             'h' => 1,
         ];
+    }
+
+    private static function get_registry_widget_default_width(string $widget_id): int
+    {
+        $widget_id = \SystemDeck\Core\Services\WidgetRuntimeBridge::sanitize_widget_id($widget_id);
+        if ($widget_id === '') {
+            return 2;
+        }
+
+        $snapshot = class_exists('\\SystemDeck\\Core\\Registry')
+            ? \SystemDeck\Core\Registry::get_snapshot()
+            : ['widgets' => []];
+        $definitions = is_array($snapshot['widgets'] ?? null) ? $snapshot['widgets'] : [];
+        $definition = is_array($definitions[$widget_id] ?? null) ? $definitions[$widget_id] : [];
+        $default_width = (int) ($definition['default_width'] ?? 0);
+
+        return self::normalize_widget_width($default_width > 0 ? $default_width : 2);
     }
 
     /**
@@ -3169,7 +3208,7 @@ class AjaxHandler
             if (!is_array($item)) {
                 continue;
             }
-            $item_id = sanitize_key((string) ($item['id'] ?? ''));
+            $item_id = \SystemDeck\Core\Services\WidgetRuntimeBridge::sanitize_widget_id((string) ($item['id'] ?? ''));
             $type = (string) ($item['type'] ?? '');
             if ($item_id === '' || $type !== 'block_widget_placeholder') {
                 continue;
@@ -3792,7 +3831,7 @@ class AjaxHandler
             ], 404);
         }
 
-        $source_id = sanitize_text_field((string) ($workspaces[$workspace_id]['source_workspace_id'] ?? ''));
+        $source_id = sanitize_key((string) ($workspaces[$workspace_id]['source_workspace_id'] ?? ''));
         if ($source_id === '') {
             wp_send_json_error(['message' => 'Workspace has no shared source.'], 400);
         }
@@ -3850,7 +3889,7 @@ class AjaxHandler
             ], 404);
         }
 
-        $source_id = sanitize_text_field((string) ($workspaces[$workspace_id]['source_workspace_id'] ?? ''));
+        $source_id = sanitize_key((string) ($workspaces[$workspace_id]['source_workspace_id'] ?? ''));
         if ($source_id === '') {
             wp_send_json_success([
                 'has_update' => false,
@@ -4336,7 +4375,7 @@ class AjaxHandler
                 $raw_id = substr($raw_id, strlen('discovered.'));
             }
 
-            $id = sanitize_key($raw_id);
+            $id = \SystemDeck\Core\Services\WidgetRuntimeBridge::sanitize_widget_id($raw_id);
             $title = sanitize_text_field($widget['title'] ?? '');
 
             if (!$id || !$title)
@@ -4503,7 +4542,7 @@ class AjaxHandler
                     if ($wid !== '') {
                         $present[$wid] = true;
                     }
-                    $source_id = sanitize_key((string) ($def['source_id'] ?? ''));
+                    $source_id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($def['source_id'] ?? ''));
                     if ($source_id !== '') {
                         $present['dashboard.' . $source_id] = true;
                         $present['discovered.' . $source_id] = true;
@@ -4551,10 +4590,10 @@ class AjaxHandler
                 if (($w['origin'] ?? '') === 'dashboard' || ($w['origin'] ?? '') === 'discovered') {
                     $source_id = '';
                     if (!empty($w['source_id'])) {
-                        $source_id = sanitize_key((string) $w['source_id']);
+                        $source_id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) $w['source_id']);
                     } else {
                         $fallback = (string) ($w['id'] ?? '');
-                        $source_id = sanitize_key((string) str_replace(['dashboard.', 'discovered.'], '', $fallback));
+                        $source_id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id(str_replace(['dashboard.', 'discovered.'], '', $fallback));
                     }
                     // Skip malformed legacy discovered rows created from canonical IDs.
                     if (($w['origin'] ?? '') === 'discovered' && str_starts_with($source_id, 'dashboard')) {
@@ -4581,7 +4620,7 @@ class AjaxHandler
             if (method_exists('\\SystemDeck\\Core\\Services\\RegistryService', 'discover_dashboard_widgets_for_scanner')) {
                 $live_dashboard = \SystemDeck\Core\Services\RegistryService::discover_dashboard_widgets_for_scanner();
                 foreach ($live_dashboard as $dw) {
-                    $raw_id = isset($dw['id']) ? sanitize_key((string) $dw['id']) : '';
+                    $raw_id = isset($dw['id']) ? \SystemDeck\Core\Services\WidgetRuntimeBridge::sanitize_widget_id((string) $dw['id']) : '';
                     if ($raw_id === '') {
                         continue;
                     }
@@ -4609,7 +4648,7 @@ class AjaxHandler
             if (method_exists('\\SystemDeck\\Core\\Services\\RegistryService', 'discover_dashboard_widget_candidates_from_active_plugins')) {
                 $plugin_candidates = \SystemDeck\Core\Services\RegistryService::discover_dashboard_widget_candidates_from_active_plugins();
                 foreach ($plugin_candidates as $dw) {
-                    $raw_id = isset($dw['id']) ? sanitize_key((string) $dw['id']) : '';
+                    $raw_id = isset($dw['id']) ? \SystemDeck\Core\Services\WidgetRuntimeBridge::sanitize_widget_id((string) $dw['id']) : '';
                     if ($raw_id === '') {
                         continue;
                     }
@@ -4634,7 +4673,7 @@ class AjaxHandler
             if (method_exists('\\SystemDeck\\Core\\Services\\RegistryService', 'discover_dashboard_widget_candidates_from_settings')) {
                 $candidate_widgets = \SystemDeck\Core\Services\RegistryService::discover_dashboard_widget_candidates_from_settings();
                 foreach ($candidate_widgets as $dw) {
-                    $raw_id = isset($dw['id']) ? sanitize_key((string) $dw['id']) : '';
+                    $raw_id = isset($dw['id']) ? \SystemDeck\Core\Services\WidgetRuntimeBridge::sanitize_widget_id((string) $dw['id']) : '';
                     if ($raw_id === '') {
                         continue;
                     }

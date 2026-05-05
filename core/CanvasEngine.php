@@ -1,4 +1,15 @@
 <?php
+/**
+ * SystemDeck - CanvasEngine
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/CanvasEngine.php
+ * @license GPL-2.0-or-later
+ *
+ * Workspace Rendering & Layout Engine
+ */
 
 declare(strict_types=1);
 

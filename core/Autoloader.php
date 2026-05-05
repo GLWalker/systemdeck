@@ -1,10 +1,14 @@
 <?php
 /**
- * PSR-4 Autoloader for SystemDeck
- *
- * Automatically loads classes based on namespace and file structure.
+ * SystemDeck - Autoloader
  *
  * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Autoloader.php
+ * @license GPL-2.0-or-later
+ *
+ * Namespace-aware PSR-4 Autoloader
  */
 
 namespace SystemDeck\Core;

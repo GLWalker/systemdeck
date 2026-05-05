@@ -1,12 +1,15 @@
 /**
- * SystemDeck Visual Mode (V3.3.0)
+ * SystemDeck - sd-retail-system.js
  *
- * Objectives:
- * - Dynamic Viewport Breakpoints (SM, MD, LG, XL, XXL)
- * - Intelligent Auto-Scaling (Fit-to-Width)
- * - Initial Start at LG (783px)
- * - Real-time Scaling on Window Resize
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/assets/js/sd-retail-system.js
+ * @license GPL-2.0-or-later
+ *
+ * Retail (Front-end) Runtime System
  */
+
 ;(function ($) {
 	"use strict"
 

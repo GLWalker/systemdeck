@@ -1,4 +1,15 @@
 <?php
+/**
+ * SystemDeck - WidgetStateService
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Services/WidgetStateService.php
+ * @license GPL-2.0-or-later
+ *
+ * Widget State Persistence (Database Sync)
+ */
 declare(strict_types=1);
 
 namespace SystemDeck\Core\Services;

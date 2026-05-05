@@ -1,4 +1,15 @@
 <?php
+/**
+ * SystemDeck - WidgetPlaceholderBlock
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Blocks/WidgetPlaceholderBlock.php
+ * @license GPL-2.0-or-later
+ *
+ * Gutenberg Block: Widget Slot Placeholder
+ */
 declare(strict_types=1);
 
 namespace SystemDeck\Core\Blocks;
@@ -392,7 +403,7 @@ final class WidgetPlaceholderBlock
             if (!is_array($item)) {
                 continue;
             }
-            $id = sanitize_key((string) ($item['i'] ?? $item['id'] ?? ''));
+            $id = \SystemDeck\Core\Services\WidgetRuntimeBridge::sanitize_widget_id((string) ($item['i'] ?? $item['id'] ?? ''));
             if ($id === '') {
                 continue;
             }
@@ -426,9 +437,9 @@ final class WidgetPlaceholderBlock
      */
     private static function runtime_id_from_block(string $name, array $attrs, string $path): string
     {
-        $seed = sanitize_key((string) ($attrs['sdItemId'] ?? $attrs['anchor'] ?? ''));
+        $seed = \SystemDeck\Core\Services\WidgetRuntimeBridge::sanitize_widget_id((string) ($attrs['sdItemId'] ?? $attrs['anchor'] ?? ''));
         if ($seed === '') {
-            $seed = sanitize_key(str_replace('/', '_', $name) . '_' . $path);
+            $seed = \SystemDeck\Core\Services\WidgetRuntimeBridge::sanitize_widget_id(str_replace('/', '_', $name) . '_' . $path);
         }
         return 'sd_canvas_' . $seed;
     }

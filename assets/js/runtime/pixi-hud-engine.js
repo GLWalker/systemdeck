@@ -1,3 +1,15 @@
+/**
+ * SystemDeck - pixi-hud-engine.js
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/assets/js/runtime/pixi-hud-engine.js
+ * @license GPL-2.0-or-later
+ *
+ * PixiJS-based HUD Rendering Engine
+ */
+
 ;(function () {
 	"use strict"
 

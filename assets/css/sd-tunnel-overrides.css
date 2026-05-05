@@ -1,3 +1,15 @@
+/**
+ * SystemDeck - sd-tunnel-overrides.css
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/assets/css/sd-tunnel-overrides.css
+ * @license GPL-2.0-or-later
+ *
+ * Targeted CSS Overrides for Dashboard Tunneled Iframes
+ */
+
 /* SystemDeck Dashboard Tunnel Overrides
  * Keep tunnel chrome stripped without clobbering WordPress admin widget styling.
  */

@@ -1,18 +1,14 @@
 <?php
 /**
- * ProjectionService — Unified workspace projection sync for SystemDeck widgets.
+ * SystemDeck - ProjectionService
  *
- * Extracted from Notes::sync_pin_projection() and Vault::sync_vault_projection()
- * which are structurally identical — both:
- *   1. Check if scope matches the projected value → remove if not
- *   2. Resolve the effective workspace key through the same storage law used by
- *      layout/pin persistence
- *   3. Read any existing projection position for that effective workspace key
- *   4. Delete + insert into sd_items
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Services/ProjectionService.php
+ * @license GPL-2.0-or-later
  *
- * The differences (widget_prefix, icon, title, settings shape) are parameterized.
- *
- * @package SystemDeck\Core\Services
+ * Pin Projection Engine (Syncs Vault items to Workspace Pins)
  */
 
 namespace SystemDeck\Core\Services;
@@ -46,7 +42,7 @@ final class ProjectionService
     ): void {
         global $wpdb;
         $table_items = $wpdb->prefix . 'sd_items';
-        $pin_id = sanitize_key($pin_id);
+        $pin_id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id($pin_id);
         if ($pin_id === '' || $workspace_id === '') {
             return;
         }
@@ -148,7 +144,7 @@ final class ProjectionService
 
         $existing_pos = $existing ? $existing->position : null;
 
-        $position = $existing_pos ?: json_encode(['x' => 0, 'y' => 0, 'w' => 1, 'h' => 8]);
+        $position = $existing_pos ?: json_encode(['x' => 0, 'y' => 0, 'w' => 2, 'h' => 1]);
 
         // Settings must be a JSON string.
         $settings_json = is_string($settings) ? $settings : json_encode($settings);

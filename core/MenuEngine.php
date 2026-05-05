@@ -1,4 +1,15 @@
 <?php
+/**
+ * SystemDeck - MenuEngine
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/MenuEngine.php
+ * @license GPL-2.0-or-later
+ *
+ * Administrative Menu and Navigation Management
+ */
 
 /**
  * MenuEngine.php

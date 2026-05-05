@@ -1,7 +1,14 @@
 <?php
 /**
- * SystemDeck Context
- * Defines the signature for state resolution.
+ * SystemDeck - Context
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Context.php
+ * @license GPL-2.0-or-later
+ *
+ * User and Workspace Identity Context
  */
 
 declare(strict_types=1);

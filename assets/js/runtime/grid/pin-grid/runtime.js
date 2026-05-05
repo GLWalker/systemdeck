@@ -7,7 +7,6 @@ const PIN_GRID_TARGET_TILE_PX = 56
 const PIN_GRID_COMPACT_COLUMNS = 4
 const PIN_GRID_TABLET_COLUMNS = 8
 const PIN_ALLOWED_SPANS = new Set(["1x1", "1x2", "1x3", "2x1", "2x2", "2x3", "3x1", "3x2", "3x3"])
-const PIN_ALLOWED_TEMPLATES = new Set(["default", "samsung-lcd", "tandy-dot", "diagnostic-led"])
 
 export const normalizePinSpanToken = (rawToken, fallbackW = 1, fallbackH = 1) => {
 	if (typeof rawToken === "string") {
@@ -39,8 +38,9 @@ export const normalizePinType = (rawType, data = {}, settings = {}) => {
 }
 
 export const resolvePinTemplate = (rawTemplate) => {
-	const token = String(rawTemplate || "").trim().toLowerCase()
-	return PIN_ALLOWED_TEMPLATES.has(token) ? token : "default"
+	// LEGACY: Pin templates are deprecated in favor of Contract-aligned Shell Authority.
+	// Individual pins should own their internal design via advanced style.css if needed.
+	return "default"
 }
 
 export const normalizePinRenderer = (rawRenderer) => {
@@ -66,7 +66,7 @@ export const normalizePin = (pin, index = 0) => {
 	)
 	const [w, h] = size.split("x").map((value) => Number(value || 1))
 	const renderer = normalizePinRenderer(source.renderer || settings.renderer)
-	const designTemplate = resolvePinTemplate(source.design_template || settings.design_template || "default")
+	const designTemplate = "default"
 	const title = String(source.title || settings.label || incomingData.label || id).trim() || id
 	const metricKey = String(incomingData.metric_key || settings.metric_key || "").trim()
 	const noteId = Number(incomingData.noteId || settings.noteId || 0) || (id.startsWith("note.") ? Number(id.split(".").pop() || 0) : 0)
@@ -112,7 +112,7 @@ export const normalizePin = (pin, index = 0) => {
 			source_widget: sourceWidget,
 			metric_key: metricKey,
 			grid_span: size,
-			design_template: designTemplate,
+			design_template: "default",
 			renderer,
 			sticky_level: stickyLevel,
 			pin_kind: pinKind,

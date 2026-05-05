@@ -1,3 +1,15 @@
+/**
+ * SystemDeck - hud-atlas-pixi.css
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/admin-pages/hud-atlas/hud-atlas-pixi.css
+ * @license GPL-2.0-or-later
+ *
+ * HUD Atlas PixiJS-specific Styles
+ */
+
 /* Pixi activation */
 .sd-hud-atlas-module.is-pixi-active .sd-hud-atlas__pixi-stage {
     pointer-events: auto;

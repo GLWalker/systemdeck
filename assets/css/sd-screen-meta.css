@@ -1,3 +1,15 @@
+/**
+ * SystemDeck - sd-screen-meta.css
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/assets/css/sd-screen-meta.css
+ * @license GPL-2.0-or-later
+ *
+ * System Screen Meta Panel Styling
+ */
+
 /* Screen Options & Help Tabs Revert - SystemDeck Port */
 
 #systemdeck #workspace-meta-container {

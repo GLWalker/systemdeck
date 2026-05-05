@@ -1,4 +1,15 @@
 <?php
+/**
+ * SystemDeck - WorkspaceStateService
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Services/WorkspaceStateService.php
+ * @license GPL-2.0-or-later
+ *
+ * Workspace Persistence & State Reconciliation
+ */
 declare(strict_types=1);
 
 namespace SystemDeck\Core\Services;

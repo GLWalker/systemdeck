@@ -1,4 +1,15 @@
 <?php
+/**
+ * SystemDeck - widget.php
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/widgets/notes/widget.php
+ * @license GPL-2.0-or-later
+ *
+ * Notes Widget (Collaboration & Task Management)
+ */
 
 /**
  * SystemDeck Notes Module
@@ -18,8 +29,99 @@ class Notes extends BaseWidget
     public const ID = 'core.notes';
     public const TITLE = 'Notes';
     public const ICON = 'dashicons-edit-page';
+    public const DEFAULT_WIDTH = 3;
+    public const PIN_ID = 'pinned_note';
 
     private const CPT = 'sd_note';
+
+    private static function check_notes_nonce(): void
+    {
+        // Use check_ajax_referer with 'systemdeck_runtime' which is the canonical nonce action
+        // It automatically looks for 'nonce' or '_ajax_nonce' in $_POST
+        if (!check_ajax_referer('systemdeck_runtime', 'nonce', false) && !check_ajax_referer('systemdeck_runtime', '_ajax_nonce', false)) {
+            wp_send_json_error(['error' => 'Security check failed']);
+        }
+    }
+
+    public static function handle_ajax_get_notes()
+    {
+        self::check_notes_nonce();
+        try {
+            wp_send_json_success(self::ajax_get_notes($_POST));
+        } catch (\Exception $e) {
+            wp_send_json_error(['error' => $e->getMessage()]);
+        }
+    }
+
+    public static function handle_ajax_save_note()
+    {
+        self::check_notes_nonce();
+        try {
+            wp_send_json_success(self::ajax_save_note($_POST));
+        } catch (\Exception $e) {
+            wp_send_json_error(['error' => $e->getMessage()]);
+        }
+    }
+
+    public static function handle_ajax_delete_note()
+    {
+        self::check_notes_nonce();
+        try {
+            wp_send_json_success(self::ajax_delete_note($_POST));
+        } catch (\Exception $e) {
+            wp_send_json_error(['error' => $e->getMessage()]);
+        }
+    }
+
+    public static function handle_ajax_toggle_note_sticky()
+    {
+        self::check_notes_nonce();
+        try {
+            wp_send_json_success(self::ajax_toggle_note_sticky($_POST));
+        } catch (\Exception $e) {
+            wp_send_json_error(['error' => $e->getMessage()]);
+        }
+    }
+
+    public static function handle_ajax_get_read_note()
+    {
+        self::check_notes_nonce();
+        try {
+            wp_send_json_success(self::ajax_get_read_note($_POST));
+        } catch (\Exception $e) {
+            wp_send_json_error(['error' => $e->getMessage()]);
+        }
+    }
+
+    public static function handle_ajax_get_note_comments()
+    {
+        self::check_notes_nonce();
+        try {
+            wp_send_json_success(self::ajax_get_note_comments($_POST));
+        } catch (\Exception $e) {
+            wp_send_json_error(['error' => $e->getMessage()]);
+        }
+    }
+
+    public static function handle_ajax_add_note_comment()
+    {
+        self::check_notes_nonce();
+        try {
+            wp_send_json_success(self::ajax_add_note_comment($_POST));
+        } catch (\Exception $e) {
+            wp_send_json_error(['error' => $e->getMessage()]);
+        }
+    }
+
+    public static function handle_ajax_save_note_tasks()
+    {
+        self::check_notes_nonce();
+        try {
+            wp_send_json_success(self::ajax_save_note_tasks($_POST));
+        } catch (\Exception $e) {
+            wp_send_json_error(['error' => $e->getMessage()]);
+        }
+    }
 
     public static function assets(): array
     {
@@ -29,8 +131,105 @@ class Notes extends BaseWidget
         ];
     }
 
+    /**
+     * ============================
+     * PIN RUNTIME (Consolidated)
+     * ============================
+     */
+
+    public static function pin_definitions(): array
+    {
+        return [
+            [
+                'id' => self::PIN_ID,
+                'label' => 'Pinned Note',
+                'type' => 'custom',
+                'source' => [
+                    'kind' => 'widget',
+                    'authority' => 'systemdeck',
+                    'id' => self::ID,
+                ],
+                'category' => 'notes',
+                'renderer' => 'dom',
+                'description' => 'A specific note pinned to your workspace.',
+                'icon' => 'dashicons-paperclip',
+                'tags' => ['notes', 'pinned'],
+                'pin_safe' => true,
+                'defaults' => [
+                    'size' => '2x1',
+                    'design_template' => 'default',
+                ],
+            ],
+        ];
+    }
+
+    public static function pin_asset_handles(string $pin_id): array
+    {
+        return [
+            'js' => ['sd-pin-base-runtime'],
+            'css' => [],
+        ];
+    }
+
+    public static function pin_render(string $pin_id, array $context = []): string
+    {
+        // $pin_id is likely "note.123"
+        $parts = explode('.', $pin_id);
+        $note_id = intval(end($parts));
+        if (!$note_id) {
+            return '';
+        }
+
+        $note = get_post($note_id);
+        if (!$note || $note->post_type !== self::CPT) {
+            return '';
+        }
+
+        $instance_id = sanitize_html_class((string) ($context['instance_id'] ?? $pin_id));
+        $workspace_id = sanitize_key((string) ($context['workspace_id'] ?? ''));
+        $level = get_post_meta($note_id, '_sd_note_sticky_level', true) ?: 'low';
+        
+        $status_map = [
+            'low'      => 'is-low',
+            'medium'   => 'is-moderate',
+            'high'     => 'is-high',
+            'urgent'   => 'is-urgent',
+        ];
+        $status_class = $status_map[$level] ?? 'is-low';
+
+        ob_start();
+        ?>
+        <article class="postbox sd-pin <?php echo esc_attr($status_class); ?>" 
+                 data-pin-action="open_note" 
+                 data-note-id="<?php echo esc_attr((string)$note_id); ?>"
+                 data-workspace-id="<?php echo esc_attr($workspace_id); ?>">
+            <div class="sd-media-wrap">
+                <div class="sd-media-figure">
+                    <span class="sd-pin-icon dashicons dashicons-edit"></span>
+                </div>
+                <div class="sd-media-content">
+                    <div class="sd-pin-label" id="sd-pin-title-<?php echo esc_attr($instance_id); ?>">
+                        <?php echo esc_html__('Note', 'systemdeck'); ?>
+                    </div>
+                    <h4 class="sd-pin-title"><?php echo esc_html($note->post_title); ?></h4>
+                    <div class="sd-pin-meta">
+                        <span class="sd-pin-description">
+                            <?php echo esc_html(wp_trim_words($note->post_content, 12)); ?>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </article>
+        <?php
+        return (string) ob_get_clean();
+    }
+
     public static function register_cpt(): void
     {
+        if (post_type_exists(self::CPT)) {
+            return;
+        }
+
         register_post_type(self::CPT, [
             'label' => __('SystemDeck Note', 'systemdeck'),
             'public' => false,
@@ -42,11 +241,38 @@ class Notes extends BaseWidget
             'map_meta_cap' => true,
             'can_export' => true
         ]);
-        add_filter('manage_sd_note_posts_columns', [self::class, 'manage_admin_columns']);
-        add_action('manage_sd_note_posts_custom_column', [self::class, 'render_admin_columns'], 10, 2);
-        add_action('add_meta_boxes', [self::class, 'add_meta_boxes']);
-        add_action('save_post_sd_note', [self::class, 'save_meta_boxes']);
-        add_action('systemdeck_purge_workspace', [self::class, 'handle_workspace_purge']);
+    }
+
+    public static function exclude_from_recent_comments(array $args): array
+    {
+        // To exclude our internal notes, we must explicitly tell the query
+        // to only include all other registered post types.
+        $post_types = get_post_types([], 'names');
+
+        if (isset($post_types[self::CPT])) {
+            unset($post_types[self::CPT]);
+        }
+
+        $args['post_type'] = array_values($post_types);
+
+        return $args;
+    }
+
+    public static function exclude_from_admin_sql(array $clauses): array
+    {
+        if (is_admin()) {
+            global $pagenow;
+            // Filter on Dashboard and Main Comments list
+            if ($pagenow === 'index.php' || $pagenow === 'edit-comments.php') {
+                global $wpdb;
+                // If the query hasn't joined posts, join it so we can check post_type
+                if (strpos($clauses['join'], "{$wpdb->posts}") === false) {
+                    $clauses['join'] .= " JOIN {$wpdb->posts} ON {$wpdb->comments}.comment_post_ID = {$wpdb->posts}.ID";
+                }
+                $clauses['where'] .= " AND {$wpdb->posts}.post_type != '" . self::CPT . "'";
+            }
+        }
+        return $clauses;
     }
 
     public static function manage_admin_columns($columns)
@@ -141,8 +367,8 @@ class Notes extends BaseWidget
         if ($origin_nm) {
             echo '<p class="sd-meta-block-status"><strong>Origin Workspace:</strong><br/><span>' . esc_html($origin_nm) . '</span></p>';
         }
-        if ($pin_ws) {
-            $pin_ws_nm = get_post($pin_ws) ? get_the_title($pin_ws) : 'Unknown';
+        if ($pin_ws_id) {
+            $pin_ws_nm = get_post($pin_ws_id) ? get_the_title($pin_ws_id) : 'Unknown';
             echo '<p class="sd-meta-block-status"><strong>Pinned To:</strong><br/><span>' . esc_html($pin_ws_nm) . '</span></p>';
         }
 
@@ -209,72 +435,72 @@ class Notes extends BaseWidget
 
     protected static function output(array $context): void
     {
-?>
-        <div class="sd-notes-widget" id="sd-notes-widget">
+        ?>
+        <div class="sd-notes-widget">
             <div class="sd-toolbar">
 
-                <button type="button" class="button button-small button-primary" id="sd-note-new">
+                <button type="button" class="button button-small button-primary sd-note-new">
                     <?php _e('New Note', 'systemdeck'); ?>
                 </button>
 
-                <button type="button" class="button button-small sd-context-filter-btn" id="sd-note-context-filter"
+                <button type="button" class="button button-small sd-context-filter-btn sd-note-context-filter"
                     title="<?php esc_attr_e('Show notes for this page only', 'systemdeck'); ?>">
                     <span class="dashicons dashicons-filter sd-button-icon"></span>
                     <?php _e('This Page', 'systemdeck'); ?>
                 </button>
             </div>
 
-            <table class="wp-list-table widefat fixed striped sd-notes-table" id="sd-notes-table" style="display:none;">
-                <thead>
-                    <tr>
-                        <th scope="col" class="column-sticky"><span class="dashicons dashicons-admin-post"></span></th>
-                        <th scope="col" class="column-title"><?php _e('Title', 'systemdeck'); ?></th>
-                        <th scope="col" class="column-workspace"><?php _e('Workspace', 'systemdeck'); ?></th>
-                        <th scope="col" class="column-context"><?php _e('URL Context', 'systemdeck'); ?></th>
-                        <th scope="col" class="column-comments"><span class="dashicons dashicons-admin-comments"
-                                title="Comments"></span></th>
-                        <th scope="col" class="column-date"><?php _e('Date', 'systemdeck'); ?></th>
-                    </tr>
-                </thead>
-                <tbody id="sd-notes-list">
-                    <tr class="loading-text">
-                        <td colspan="6" class="sd-loading-td"><?php _e('Loading...', 'systemdeck'); ?></td>
-                    </tr>
-                </tbody>
-            </table>
+            <div class="sd-table-container">
+                <table class="wp-list-table widefat fixed striped sd-notes-table" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th scope="col" class="column-sticky"><span class="dashicons dashicons-admin-post"></span></th>
+                            <th scope="col" class="column-title"><?php _e('Title', 'systemdeck'); ?></th>
+                            <th scope="col" class="column-comments"><span class="dashicons dashicons-admin-comments"
+                                    title="Comments"></span></th>
+                            <th scope="col" class="column-date"><?php _e('Date', 'systemdeck'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody class="sd-notes-list">
+                        <tr class="loading-text">
+                            <td colspan="4" class="sd-loading-td"><?php _e('Loading...', 'systemdeck'); ?></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
-            <div class="sd-empty-state" id="sd-notes-empty-state" style="display:none;">
+            <div class="sd-empty-state sd-notes-empty-state" style="display:none;">
                 <?php _e('No notes found.', 'systemdeck'); ?>
             </div>
 
-            <div class="tablenav bottom sd-pagination sd-notes-pagination" id="sd-notes-pagination" style="display:none;">
+            <div class="tablenav bottom sd-pagination sd-notes-pagination" style="display:none;">
                 <div class="alignleft actions">
-                    <span class="displaying-num" id="sd-notes-total-count"></span>
+                    <span class="displaying-num sd-notes-total-count"></span>
                 </div>
                 <div class="tablenav-pages">
                     <span class="pagination-links">
-                        <button type="button" class="button button-small" id="sd-notes-prev" disabled>&lsaquo;</button>
+                        <button type="button" class="button button-small sd-notes-prev" disabled>&lsaquo;</button>
                         <span class="paging-input">
-                            <span id="sd-notes-current-page">1</span> <?php _e('of', 'systemdeck'); ?> <span
-                                id="sd-notes-total-pages">1</span>
+                            <span class="sd-notes-current-page">1</span> <?php _e('of', 'systemdeck'); ?> <span
+                                class="sd-notes-total-pages">1</span>
                         </span>
-                        <button type="button" class="button button-small" id="sd-notes-next" disabled>&rsaquo;</button>
+                        <button type="button" class="button button-small sd-notes-next" disabled>&rsaquo;</button>
                     </span>
                 </div>
             </div>
 
             <!-- Note Edit/Create Modal -->
-            <div id="sd-note-edit-modal" class="sd-modal-overlay sd-note-view-modal" style="display:none;">
+            <div class="sd-modal-overlay sd-note-view-modal sd-note-edit-modal" style="display:none;">
                 <div class="components-modal__frame components-modal" role="dialog" tabindex="-1">
                     <div class="components-modal__content" role="document">
                         <div class="components-modal__header">
                             <div class="components-modal__header-heading-container">
-                                <h1 id="sd-note-edit-modal-heading" class="components-modal__header-heading">
-                                    <?php _e('Edit Note', 'systemdeck'); ?></h1>
+                                <h1 class="components-modal__header-heading sd-note-edit-modal-heading">
+                                    <?php _e('Edit Note', 'systemdeck'); ?>
+                                </h1>
                             </div>
-                            <span id="sd-note-edit-urgency"></span>
+                            <span class="sd-note-edit-urgency"></span>
                             <button type="button" class="components-button has-icon sd-modal-close"
-                                data-closes="sd-note-edit-modal"
                                 aria-label="<?php esc_attr_e('Close dialog', 'systemdeck'); ?>">
                                 <svg width="24" height="24" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
                                     aria-hidden="true" focusable="false">
@@ -284,54 +510,52 @@ class Notes extends BaseWidget
                             </button>
                         </div>
                         <div class="sd-modal-body">
-                            <div id="sd-note-form-container">
-                                <input type="hidden" id="sd-note-id" value="">
-                                <input type="hidden" id="sd-note-excerpt" value="">
-                                <input type="hidden" id="sd-note-context" value="">
+                            <div class="sd-note-form-container">
+                                <input type="hidden" class="sd-note-id" value="">
+                                <input type="hidden" class="sd-note-excerpt" value="">
+                                <input type="hidden" class="sd-note-context" value="">
 
                                 <div class="sd-notes-form-header">
                                     <div class="sd-notes-tools-left">
-                                        <a href="#" id="sd-note-visit-link" target="_blank" class="button-link sd-visit-link"
+                                        <a href="#" target="_blank" class="button-link sd-visit-link sd-note-visit-link"
                                             title="<?php esc_attr_e('Visit original URL', 'systemdeck'); ?>">
                                             <span class="dashicons dashicons-external"></span>
                                             <?php _e('Visit', 'systemdeck'); ?>
                                         </a>
-                                        <button type="button" class="button-link delete" id="sd-note-delete">
+                                        <button type="button" class="button-link delete sd-note-delete">
                                             <?php _e('Delete', 'systemdeck'); ?>
                                         </button>
                                     </div>
                                     <div class="sd-notes-tools-right">
                                         <label title="<?php esc_attr_e('Capture current page URL with note', 'systemdeck'); ?>">
-                                            <input type="checkbox" id="sd-note-capture" value="1">
+                                            <input type="checkbox" class="sd-note-capture" value="1">
                                             <?php _e('Capture URL', 'systemdeck'); ?>
                                         </label>
                                         <label title="<?php esc_attr_e('Enable code editor mode', 'systemdeck'); ?>">
-                                            <input type="checkbox" id="sd-note-is-code" value="1">
+                                            <input type="checkbox" class="sd-note-is-code" value="1">
                                             <?php _e('Is Code', 'systemdeck'); ?>
                                         </label>
                                     </div>
                                 </div>
 
-                                <div class="input-text-wrap" id="sd-note-title-wrap">
-                                    <label for="sd-note-title"
-                                        class="screen-reader-text"><?php _e('Title', 'systemdeck'); ?></label>
-                                    <input type="text" id="sd-note-title" class="widefat"
+                                <div class="input-text-wrap sd-note-title-wrap">
+                                    <label class="screen-reader-text"><?php _e('Title', 'systemdeck'); ?></label>
+                                    <input type="text" class="widefat sd-note-title"
                                         placeholder="<?php esc_attr_e('Title', 'systemdeck'); ?>" autocomplete="off">
                                 </div>
-                                <div class="textarea-wrap" id="sd-note-content-wrapper">
-                                    <label for="sd-note-content"
-                                        class="screen-reader-text"><?php _e('Content', 'systemdeck'); ?></label>
-                                    <textarea id="sd-note-content" class="widefat"
+                                <div class="textarea-wrap sd-note-content-wrapper">
+                                    <label class="screen-reader-text"><?php _e('Content', 'systemdeck'); ?></label>
+                                    <textarea class="widefat sd-note-content"
                                         placeholder="<?php esc_attr_e('Type your note here...', 'systemdeck'); ?>"
                                         rows="8"></textarea>
                                 </div>
 
-                                <div id="sd-note-code-wrapper">
+                                <div class="sd-note-code-wrapper">
                                     <div class="description sd-code-label">
                                         <?php _e('SOURCE CODE', 'systemdeck'); ?>
                                     </div>
                                     <div class="textarea-wrap sd-code-container">
-                                        <textarea id="sd-note-code-content" dir="ltr" class="wp-editor-area widefat" rows="15"
+                                        <textarea dir="ltr" class="wp-editor-area widefat sd-note-code-content" rows="15"
                                             cols="70"></textarea>
                                     </div>
                                 </div>
@@ -340,11 +564,10 @@ class Notes extends BaseWidget
                                     <div class="sd-note-sticky-controls">
                                         <label
                                             title="<?php esc_attr_e('Pin this note to the workspace board', 'systemdeck'); ?>">
-                                            <input type="checkbox" id="sd-note-is-projected" value="1">
+                                            <input type="checkbox" class="sd-note-is-projected" value="1">
                                             <?php _e('Pin Note', 'systemdeck'); ?>
                                         </label>
-
-                                        <div id="sd-note-sticky-level-wrap" class="sd-sticky-levels">
+                                        <div class="sd-sticky-levels sd-note-sticky-level-wrap">
                                             <label><input type="radio" name="sd_note_level" value="urgent">
                                                 <?php _e('Urgent', 'systemdeck'); ?></label>
                                             <label><input type="radio" name="sd_note_level" value="high">
@@ -358,7 +581,7 @@ class Notes extends BaseWidget
 
                                     <p class="submit">
                                         <span class="spinner"></span>
-                                        <button type="button" class="button button-primary" id="sd-note-save">
+                                        <button type="button" class="button button-primary sd-note-save">
                                             <?php _e('Save Note', 'systemdeck'); ?>
                                         </button>
                                     </p>
@@ -370,22 +593,21 @@ class Notes extends BaseWidget
             </div>
 
             <!-- Note Read-Only Modal -->
-            <div id="sd-note-read-modal" class="sd-modal-overlay sd-note-view-modal" style="display:none;">
+            <div class="sd-modal-overlay sd-note-view-modal sd-note-read-modal" style="display:none;">
                 <div class="components-modal__frame components-modal" role="dialog" tabindex="-1">
                     <div class="components-modal__content" role="document">
                         <div class="components-modal__header">
                             <div class="components-modal__header-heading-container">
-                                <h1 id="sd-note-read-title" class="components-modal__header-heading"></h1>
+                                <h1 class="components-modal__header-heading sd-note-read-title"></h1>
                                 <div class="sd-note-author-date">
-                                    <?php _e('By', 'systemdeck'); ?> <span id="sd-note-read-author"></span> &bull; <span
-                                        id="sd-note-read-date"></span>
+                                    <?php _e('By', 'systemdeck'); ?> <span class="sd-note-read-author"></span> &bull; <span
+                                        class="sd-note-read-date"></span>
                                 </div>
                             </div>
 
                             <div class="sd-modal-header-actions">
-                                <span id="sd-note-read-urgency"></span>
+                                <span class="sd-note-read-urgency"></span>
                                 <button type="button" class="components-button has-icon sd-modal-close"
-                                    data-closes="sd-note-read-modal"
                                     aria-label="<?php esc_attr_e('Close dialog', 'systemdeck'); ?>">
                                     <svg width="24" height="24" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
                                         aria-hidden="true" focusable="false">
@@ -398,10 +620,9 @@ class Notes extends BaseWidget
                         </div>
 
                         <div class="sd-modal-body">
-                            <div id="sd-note-read-content" class="sd-note-content-render"></div>
-
-                            <div id="sd-note-read-url-bar">
-                                <a id="sd-note-read-visit-url" href="#" target="_blank" rel="noopener">
+                            <div class="sd-note-content-render sd-note-read-content"></div>
+                            <div class="sd-note-read-url-bar">
+                                <a class="sd-note-read-visit-url" href="#" target="_blank" rel="noopener">
                                     <span
                                         class="dashicons dashicons-external"></span><?php _e('Visit captured URL', 'systemdeck'); ?>
                                 </a>
@@ -409,19 +630,19 @@ class Notes extends BaseWidget
 
                             <div class="sd-note-comments-section">
                                 <h4 class="sd-comments-heading"><?php _e('Discussion', 'systemdeck'); ?></h4>
-                                <div id="sd-note-comments-list"></div>
+                                <div class="sd-note-comments-list"></div>
 
-                                <div class="sd-note-comment-form" id="sd-note-comment-form-container">
+                                <div class="sd-note-comment-form sd-note-comment-form-container">
                                     <div class="textarea-wrap">
-                                        <label for="sd-note-new-comment"
+                                        <label
                                             class="screen-reader-text"><?php _e('Write a comment...', 'systemdeck'); ?></label>
-                                        <textarea id="sd-note-new-comment" class="widefat" rows="4"
+                                        <textarea class="widefat sd-note-new-comment" rows="4"
                                             placeholder="<?php esc_attr_e('Write a comment...', 'systemdeck'); ?>"></textarea>
                                     </div>
-                                    <input type="hidden" id="sd-note-parent-comment" value="0">
+                                    <input type="hidden" class="sd-note-parent-comment" value="0">
                                     <p class="submit">
-                                        <button id="sd-note-save-comment"
-                                            class="button button-primary"><?php _e('Post Comment', 'systemdeck'); ?></button>
+                                        <button
+                                            class="button button-primary sd-note-save-comment"><?php _e('Post Comment', 'systemdeck'); ?></button>
                                     </p>
                                 </div>
                             </div>
@@ -430,7 +651,7 @@ class Notes extends BaseWidget
                 </div>
             </div>
         </div>
-<?php
+        <?php
     }
 
     public static function ajax_get_notes($request): array
@@ -449,20 +670,40 @@ class Notes extends BaseWidget
             'author' => $user_id,
             'meta_query' => [
                 'relation' => 'OR',
-                [
+                'sticky_clause' => [
                     'key' => '_sd_note_is_sticky',
                     'compare' => 'EXISTS',
+                    'type' => 'NUMERIC',
                 ],
-                [
+                'no_sticky_clause' => [
                     'key' => '_sd_note_is_sticky',
                     'compare' => 'NOT EXISTS',
                 ],
             ],
             'orderby' => [
-                'meta_value_num' => 'DESC',
-                'date'           => 'DESC',
+                'sticky_clause' => 'DESC',
+                'date' => 'DESC',
             ],
         ];
+
+        if (!empty($workspace_id)) {
+            $args['meta_query'] = [
+                'relation' => 'AND',
+                $args['meta_query'],
+                [
+                    'relation' => 'OR',
+                    [
+                        'key' => '_sd_note_workspace_id',
+                        'value' => $workspace_id,
+                        'compare' => '='
+                    ],
+                    [
+                        'key' => '_sd_note_workspace_id',
+                        'compare' => 'NOT EXISTS'
+                    ]
+                ]
+            ];
+        }
 
         if (!empty($context_url)) {
             $args['meta_query'] = [
@@ -507,13 +748,11 @@ class Notes extends BaseWidget
                 'full_title' => $title,
                 'content' => get_the_content(),
                 'excerpt' => get_the_excerpt(),
-                // Internal sort keys — stripped before JSON response
-                '_sort_ts' => (int) get_the_time('U'),
-                '_is_sticky' => (int) get_post_meta($id, '_sd_note_is_sticky', true),
+
                 // Public client field
                 'is_sticky' => get_post_meta($id, '_sd_note_is_sticky', true) === '1',
-                'date' => get_the_time('Y/m/d \a\t g:i a'),
-                'modified' => get_the_modified_date('Y/m/d \a\t g:i a'),
+                'date' => get_the_time('m/d/Y'),
+                'modified' => get_the_modified_date('m/d/Y'),
                 'is_modified' => (get_the_time('U') !== get_the_modified_time('U')),
                 'is_pinned' => (bool) get_post_meta($id, '_sd_is_pinned', true),
                 'is_code' => (bool) get_post_meta($id, '_sd_note_is_code', true),
@@ -532,21 +771,6 @@ class Notes extends BaseWidget
         $max_pages = $query->max_num_pages;
         $total = $query->found_posts;
         wp_reset_postdata();
-
-        // PHP sort — guaranteed sticky-on-top, not dependent on DB join behaviour.
-        // Rule: sticky=1 before sticky=0/unset; within each group: newest date-added first.
-        usort($notes, static function (array $a, array $b): int {
-            if ($a['_is_sticky'] !== $b['_is_sticky']) {
-                return $b['_is_sticky'] - $a['_is_sticky']; // 1 before 0
-            }
-            return $b['_sort_ts'] - $a['_sort_ts']; // newer first within same group
-        });
-
-        // Strip internal sort keys before sending to client
-        $notes = array_map(static function (array $n): array {
-            unset($n['_sort_ts'], $n['_is_sticky']);
-            return $n;
-        }, $notes);
 
         return [
             'notes' => $notes,
@@ -601,8 +825,8 @@ class Notes extends BaseWidget
             $result = wp_insert_post($post_data);
         }
 
-        if (is_wp_error($result)) {
-            throw new \Exception($result->get_error_message());
+        if (!$result || is_wp_error($result)) {
+            throw new \Exception(is_wp_error($result) ? $result->get_error_message() : __('Failed to save note', 'systemdeck'));
         }
 
         update_post_meta($result, '_sd_note_is_code', !empty($request['is_code']) ? 1 : 0);
@@ -666,7 +890,7 @@ class Notes extends BaseWidget
             'label' => $title,
             'title' => $title,
             'icon' => 'dashicons-paperclip',
-            'grid_span' => '1x1',
+            'grid_span' => '2x1',
             'size' => '2x1',
             'renderer' => 'dom',
             'design_template' => 'default',
@@ -733,18 +957,19 @@ class Notes extends BaseWidget
         ];
     }
 
-    public static function ajax_pin_note($request): array
+    public static function ajax_toggle_note_sticky($request): array
     {
-        $id = intval($request['id'] ?? 0);
+        $id = intval($request['note_id'] ?? 0);
         \SystemDeck\Core\Services\ObjectAccessGate::require_author($id, self::CPT, get_current_user_id());
 
-        $current = get_post_meta($id, '_sd_is_pinned', true);
-        if ($current) {
-            delete_post_meta($id, '_sd_is_pinned');
-        } else {
-            update_post_meta($id, '_sd_is_pinned', 1);
-        }
-        return ['status' => 'success'];
+        $current = get_post_meta($id, '_sd_note_is_sticky', true);
+        $next = ($current === '1') ? 0 : 1;
+        update_post_meta($id, '_sd_note_is_sticky', (string)$next);
+
+        return [
+            'id' => $id,
+            'is_sticky' => $next === 1
+        ];
     }
 
     public static function ajax_delete_note($request): array
@@ -828,85 +1053,6 @@ class Notes extends BaseWidget
         }
     }
 
-    public static function ajax_get_all_notes($request): array
-    {
-        $user_id = get_current_user_id();
-
-        // Cache workspace titles for the context display
-        static $workspace_titles = null;
-        if ($workspace_titles === null) {
-            $workspace_titles = [];
-            $canvases = get_posts([
-                'post_type' => 'systemdeck_canvas',
-                'posts_per_page' => -1,
-                'post_status' => 'any'
-            ]);
-            foreach ($canvases as $canvas) {
-                $ws_id = get_post_meta($canvas->ID, '_sd_workspace_id', true);
-                if ($ws_id) {
-                    $workspace_titles[$ws_id] = $canvas->post_title;
-                }
-            }
-        }
-
-        $args = [
-            'post_type' => self::CPT,
-            'post_status' => ['publish', 'private'],
-            'posts_per_page' => -1,
-            'author' => $user_id,
-            'meta_query' => [
-                'relation' => 'OR',
-                'pinned_clause' => [
-                    'key' => '_sd_is_pinned',
-                    'compare' => 'EXISTS'
-                ],
-                'not_pinned_clause' => [
-                    'key' => '_sd_is_pinned',
-                    'compare' => 'NOT EXISTS'
-                ]
-            ],
-            'orderby' => [
-                'pinned_clause' => 'DESC',
-                'post_modified' => 'DESC'
-            ]
-        ];
-
-        $query = new \WP_Query($args);
-
-        $notes = [];
-        while ($query->have_posts()) {
-            $query->the_post();
-            $id = get_the_ID();
-            $ws_id = get_post_meta($id, '_sd_note_workspace_id', true);
-
-            $title = get_the_title() ?: __('(Untitled)', 'systemdeck');
-            if (mb_strlen($title) > 16) {
-                $title = mb_substr($title, 0, 13) . '...';
-            }
-
-            $notes[] = [
-                'is_author' => true,
-                'id' => $id,
-                'title' => $title,
-                'content' => get_the_content(),
-                'excerpt' => get_the_excerpt(),
-                'date' => get_the_modified_date('M j'),
-                'is_pinned' => (bool) get_post_meta($id, '_sd_is_pinned', true),
-                'is_code' => (bool) get_post_meta($id, '_sd_note_is_code', true),
-                'code_content' => get_post_meta($id, '_sd_note_code_content', true),
-                'context' => get_post_meta($id, '_sd_note_context', true),
-                'author_id' => (int) get_the_author_meta('ID'),
-                'author_name' => get_the_author(),
-                'scope' => self::normalize_scope(get_post_meta($id, '_sd_note_scope', true) ?: 'private'),
-                'sticky_level' => get_post_meta($id, '_sd_note_sticky_level', true) ?: 'low',
-                'workspace_id' => $ws_id,
-                'workspace_title' => $workspace_titles[$ws_id] ?? '',
-                'origin_workspace_name' => get_post_meta($id, '_sd_note_origin_workspace_name', true) ?: ''
-            ];
-        }
-        wp_reset_postdata();
-        return ['notes' => $notes];
-    }
 
     public static function ajax_get_note_comments($request): array
     {
@@ -939,6 +1085,29 @@ class Notes extends BaseWidget
 
         return ['status' => 'success', 'comment_id' => $comment_id];
     }
+    public static function ajax_save_note_tasks($request): array
+    {
+        $id = intval($request['id'] ?? 0);
+        $content = $request['content'] ?? '';
+
+        if (!$id) {
+            throw new \Exception(__('Invalid note ID', 'systemdeck'));
+        }
+
+        \SystemDeck\Core\Services\ObjectAccessGate::require_author($id, self::CPT, get_current_user_id());
+
+        $result = wp_update_post([
+            'ID' => $id,
+            'post_content' => $content
+        ]);
+
+        if (is_wp_error($result) || !$result) {
+            throw new \Exception(__('Failed to save tasks', 'systemdeck'));
+        }
+
+        return ['status' => 'success'];
+    }
+
     public static function handle_workspace_deletion($post_id): void
     {
         $post = get_post($post_id);
@@ -971,9 +1140,5 @@ class Notes extends BaseWidget
 
         // Clean up any remaining note projections via ProjectionService.
         \SystemDeck\Core\Services\ProjectionService::purge_workspace($workspace_id, 'note.%');
-        \SystemDeck\Core\Services\ProjectionService::purge_workspace((string) $post_id, 'note.%');
     }
 }
-
-add_action('init', [Notes::class, 'register_cpt']);
-add_action('before_delete_post', [Notes::class, 'handle_workspace_deletion']);

@@ -1,4 +1,15 @@
 <?php
+/**
+ * SystemDeck - Color
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Color.php
+ * @license GPL-2.0-or-later
+ *
+ * Color Token and Palette Management
+ */
 
 declare(strict_types=1);
 

@@ -1,4 +1,15 @@
 <?php
+/**
+ * SystemDeck - PinRegistry
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Services/PinRegistry.php
+ * @license GPL-2.0-or-later
+ *
+ * Pin Type Registry (Metadata & Capability Management)
+ */
 declare(strict_types=1);
 
 namespace SystemDeck\Core\Services;
@@ -595,6 +606,11 @@ final class PinRegistry
 
             foreach ($provided as $definition) {
                 if (is_array($definition)) {
+                    if (!isset($definition['meta']) || !is_array($definition['meta'])) {
+                        $definition['meta'] = [];
+                    }
+                    $definition['meta']['runtime_class'] = $class;
+                    $definition['meta']['runtime_provider_type'] = 'widget';
                     $definitions[] = $definition;
                 }
             }

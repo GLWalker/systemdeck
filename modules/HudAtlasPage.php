@@ -1,6 +1,14 @@
 <?php
 /**
- * SystemDeck HUD Atlas admin page.
+ * SystemDeck - HudAtlasPage
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/modules/HudAtlasPage.php
+ * @license GPL-2.0-or-later
+ *
+ * Main HUD Atlas administration and scene management
  */
 
 declare(strict_types=1);

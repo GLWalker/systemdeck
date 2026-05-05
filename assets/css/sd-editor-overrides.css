@@ -1,8 +1,13 @@
 /**
- * SystemDeck Editor Overrides
+ * SystemDeck - sd-editor-overrides.css
  *
- * Editor-only styles for the SystemDeck canvas-grid and widget placeholder
- * blocks. This file is intentionally scoped to SystemDeck block classes.
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/assets/css/sd-editor-overrides.css
+ * @license GPL-2.0-or-later
+ *
+ * Gutenberg Editor Specific Style Overrides
  */
 
 /* ==========================================================================

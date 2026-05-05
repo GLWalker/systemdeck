@@ -236,38 +236,44 @@ function MetricPinRendererSurface({ renderer, pin, metric, title, workspaceId })
 
 	useEffect(() => {
 		const rootEl = rootRef.current
-		const mountApi = window.SystemDeckPixiMount
-		const registry = window.SystemDeckMetricPinRenderers || {}
-		const factory = registry?.[renderer]
-		if (!rootEl || !isPixiMetricRenderer(renderer)) {
-			return undefined
-		}
-		if (!mountApi?.hasPixi?.() || typeof factory !== "function") {
-			return undefined
-		}
+		if (!rootEl) return
 
-		instanceRef.current = mountApi.mount(rootEl, factory, {
-			pin,
-			metric,
-			title,
-		})
+		// Dispatch canonical mount event
+		document.dispatchEvent(
+			new CustomEvent("systemdeck:pin:mount", {
+				detail: {
+					pinId: pin.id,
+					instanceId: pin.id,
+					workspaceId,
+					element: rootEl,
+					renderer,
+					pin,
+					metric,
+					title,
+				},
+			}),
+		)
 
 		return () => {
-			if (instanceRef.current) {
+			// Destruction is handled via the instance stored on the element
+			if (rootEl._sd_pixi_instance) {
+				const mountApi = window.SystemDeckPixiMount
 				try {
-					mountApi.destroy(instanceRef.current)
-				} catch (_error) {}
-				instanceRef.current = null
+					mountApi?.destroy(rootEl._sd_pixi_instance)
+				} catch (_err) {}
+				rootEl._sd_pixi_instance = null
 			}
+			rootEl.dataset.sdMounted = "false"
 		}
 	}, [renderer, workspaceId])
 
 	useEffect(() => {
-		if (!instanceRef.current || typeof instanceRef.current.update !== "function") {
+		const instance = rootRef.current?._sd_pixi_instance
+		if (!instance || typeof instance.update !== "function") {
 			return
 		}
 
-		instanceRef.current.update({
+		instance.update({
 			pin,
 			metric,
 			title,
@@ -275,16 +281,17 @@ function MetricPinRendererSurface({ renderer, pin, metric, title, workspaceId })
 	}, [pin, metric, title])
 
 	useEffect(() => {
-		if (!instanceRef.current || typeof instanceRef.current.resize !== "function") {
+		const instance = rootRef.current?._sd_pixi_instance
+		if (!instance || typeof instance.resize !== "function") {
 			return
 		}
 
 		let frameOne = 0
 		let frameTwo = 0
 		frameOne = window.requestAnimationFrame(() => {
-			instanceRef.current?.resize?.()
+			instance?.resize?.()
 			frameTwo = window.requestAnimationFrame(() => {
-				instanceRef.current?.resize?.()
+				instance?.resize?.()
 			})
 		})
 
@@ -1328,9 +1335,8 @@ export default function WorkspaceCanvas() {
 									const hasCustomMetricRenderer =
 										isMetricPin && isPixiMetricRenderer(pin.renderer)
 									const isBaseRuntimePin =
-										!isMetricPin &&
-										!isNote &&
-										!isVault &&
+										isNote ||
+										isVault ||
 										["core_open_pin_manager"].includes(
 											String(pin.settings?.pin_definition_id || pin.id || ""),
 										)
@@ -1343,18 +1349,25 @@ export default function WorkspaceCanvas() {
 									const urgencyColor = urgencyColors[stickyLevel] || urgencyColors.low
 									const contrastColor = stickyLevel === "urgent" ? "#fff" : "#000"
 
+									// Permission Logic
+									const pinAuthorId = Number(pin.settings?.author_id || 0)
+									const isAuthor = pinAuthorId === 0 || pinAuthorId === currentUserId
+									const isWsOwner = activeWorkspaceOwnerId === currentUserId
+									const canRemovePin = canManageOptions || isWsOwner || isAuthor
+
 									if (isBaseRuntimePin) {
 										return (
 											<div
 												key={pin.id}
-												className={`sd-pinned-item sd-runtime-pin-host ${removingPinIds[pin.id] ? "is-removing" : ""} ${
+												className={`sd-grid-pin ${removingPinIds[pin.id] ? "is-removing" : ""} ${
 													draggingPinId === pin.id ? "is-dragging" : ""
 												} ${pinDropTargetId === pin.id && draggingPinId !== pin.id ? "is-drop-target" : ""}`}
 												style={{
 													gridColumn: `span ${Math.max(1, Math.min(pinGridCols, Number(pin.w || 1)))}`,
 													gridRow: `span ${Math.max(1, Math.min(3, Number(pin.h || 1)))}`,
 													padding: 0,
-													overflow: "hidden",
+													position: "relative",
+													overflow: "hidden"
 												}}
 												role='listitem'
 												tabIndex={0}
@@ -1365,39 +1378,48 @@ export default function WorkspaceCanvas() {
 												onDragOver={handlePinDragOver}
 												onDrop={(event) => handlePinDrop(event, pin.id)}
 												onKeyDown={(event) => handlePinHandleKeyDown(event, pin.id)}>
-												<PinRenderer
-													pinId={String(pin.id || "")}
-													instanceId={String(pin.id || "")}
-													workspaceId={activeId}
-												/>
-												{(() => {
-													const pinAuthorId = Number(pin.settings?.author_id || 0)
-													const isAuthor = pinAuthorId === 0 || pinAuthorId === currentUserId
-													const isWsOwner = activeWorkspaceOwnerId === currentUserId
-													return canManageOptions || isWsOwner || isAuthor
-												})() && (
-													<button
-														type='button'
-														className='sd-pin-toggle'
-														onClick={(e) => {
-															e.stopPropagation()
-															removePin(pin.id)
-														}}
-														aria-label={__("Remove pin", "systemdeck") + " " + pinTitle}
-														title={__("Remove pin", "systemdeck")}>
-														<span className='dashicons dashicons-no-alt' aria-hidden='true' />
-													</button>
-												)}
+												<article
+													id={`sd-pin-${pin.id}`}
+													className={`postbox sd-pin ${(isNote || isVault) ? `is-${stickyLevel}` : ""}`}
+													role='region'
+													aria-labelledby={`sd-pin-title-${pin.id}`}
+													style={{ 
+														width: "100%", 
+														height: "100%", 
+														margin: 0,
+														overflow: "hidden"
+													}}
+												>
+													<div className="inside">
+														<PinRenderer
+															pinId={String(pin.id || "")}
+															instanceId={String(pin.id || "")}
+															workspaceId={activeId}
+														/>
+													</div>
+													{canRemovePin && (
+														<button
+															type="button"
+															className="sd-pin-toggle"
+															aria-label={`${__("Remove pin", "systemdeck")} ${pinTitle}`}
+															title={__("Remove pin", "systemdeck")}
+															onClick={(e) => {
+																e.stopPropagation()
+																removePin(pin.id)
+															}}
+														>
+															<span className="dashicons dashicons-no-alt" aria-hidden="true" />
+														</button>
+													)}
+												</article>
 											</div>
 										)
 									}
 
 									return (
-										<article
+										<div
 											key={pin.id}
-											className={`sd-pinned-item ${isNote ? "is-note" : ""} ${isMetricPin ? "is-telemetry" : ""} ${hasCustomMetricRenderer ? "is-pixi-metric" : ""} sd-pin-template--${designTemplate} ${removingPinIds[pin.id] ? "is-removing" : ""} ${
-												isMetricPin ? `sd-pin-status--${pinAnalysis.status}` : ""
-											} ${
+											className={`sd-grid-pin ${isNote ? "is-note" : ""} ${isMetricPin ? "is-telemetry" : ""} ${hasCustomMetricRenderer ? "is-pixi-metric" : ""} ${removingPinIds[pin.id] ? "is-removing" : ""} ${
 												draggingPinId === pin.id ? "is-dragging" : ""
 											} ${pinDropTargetId === pin.id && draggingPinId !== pin.id ? "is-drop-target" : ""}`}
 											data-status={isMetricPin ? pinAnalysis.status : undefined}
@@ -1408,16 +1430,9 @@ export default function WorkspaceCanvas() {
 											style={{
 												gridColumn: `span ${Math.max(1, Math.min(pinGridCols, Number(pin.w || 1)))}`,
 												gridRow: `span ${Math.max(1, Math.min(3, Number(pin.h || 1)))}`,
-												padding: hasCustomMetricRenderer ? 0 : undefined,
-												overflow: hasCustomMetricRenderer ? "hidden" : undefined,
-												...(isNote
-													? {
-															backgroundColor: urgencyColor,
-															color: contrastColor,
-															border: "none",
-															boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-														}
-													: {}),
+												padding: 0,
+												position: "relative",
+												overflow: "hidden"
 											}}
 											role='listitem'
 											tabIndex={0}
@@ -1441,9 +1456,9 @@ export default function WorkspaceCanvas() {
 														document.dispatchEvent(new CustomEvent("systemdeck:open-vault-file", {
 															detail: {
 																fileId,
-															mode: "read",
-														},
-													}))
+																mode: "read",
+															},
+														}))
 													} else if (triggerPlatformPinAction(pin)) {
 														return
 													}
@@ -1472,56 +1487,62 @@ export default function WorkspaceCanvas() {
 												}
 											}}
 											aria-label={`${pinTitle}: ${pinDisplayValue}`}>
-											{hasCustomMetricRenderer ? (
-												<MetricPinRendererSurface
-													renderer={pin.renderer}
-													pin={pin}
-													metric={metricRegistry?.[metricKey] || null}
-													title={pinTitle}
-													workspaceId={activeId}
-												/>
-											) : (
-												<>
-													<div className='sd-pinned-label' style={isNote ? { color: contrastColor, opacity: 0.9 } : {}}>
-														<span
-															className={`dashicons ${pin.data?.icon || pin.settings?.icon || (isNote ? "dashicons-paperclip" : "dashicons-admin-generic")}`}
-															aria-hidden='true'
-															style={isNote ? { color: contrastColor } : {}}
+											<article
+												id={`sd-pin-${pin.id}`}
+												className={`postbox sd-pin ${hasCustomMetricRenderer ? "sd-pixi-pin" : ""}`}
+												role='region'
+												aria-labelledby={`sd-pin-title-${pin.id}`}
+												style={{ 
+													width: "100%", 
+													height: "100%", 
+													margin: 0,
+													overflow: "hidden"
+												}}
+											>
+												<div className="inside">
+													{hasCustomMetricRenderer ? (
+														<MetricPinRendererSurface
+															renderer={pin.renderer}
+															pin={pin}
+															metric={metricRegistry?.[metricKey] || null}
+															title={pinTitle}
+															workspaceId={activeId}
 														/>
-														{pinTitle}
-													</div>
-													<div className='sd-pinned-value' aria-live='polite' style={isNote ? { color: contrastColor } : {}}>
-														{isNote ? "" : pinDisplayValue}
-													</div>
-												</>
-											)}
-											{(() => {
-						const pinAuthorId = Number(pin.settings?.author_id || 0)
-						// Legacy pins with no author_id: treat as owned by the user who can see them
-						// (will be assigned on next save). Only lock if author_id is explicitly set
-						// to a DIFFERENT user.
-						const isAuthor = pinAuthorId === 0 || pinAuthorId === currentUserId
-						const isWsOwner = activeWorkspaceOwnerId === currentUserId
-						return (canManageOptions || isWsOwner || isAuthor)
-					})() && (
-												<button
-													type='button'
-													className='sd-pin-toggle'
-													style={isNote ? { 
-														backgroundColor: "rgba(255,255,255,0.2)", 
-														color: contrastColor,
-														borderColor: "rgba(255,255,255,0.3)"
-													} : {}}
-													onClick={(e) => {
-														e.stopPropagation()
-														removePin(pin.id)
-													}}
-													aria-label={__("Remove pin", "systemdeck") + " " + pinTitle}
-													title={__("Remove pin", "systemdeck")}>
-													<span className='dashicons dashicons-no-alt' aria-hidden='true' />
-												</button>
-											)}
-										</article>
+													) : (
+														<div className="sd-media-wrap">
+															<div className="sd-media-figure">
+																<span
+																	className={`sd-pin-icon dashicons ${pin.data?.icon || pin.settings?.icon || (isNote ? "dashicons-paperclip" : "dashicons-admin-generic")}`}
+																	aria-hidden='true'
+																/>
+															</div>
+															<div className="sd-media-content">
+																<div className='sd-pin-label' id={`sd-pin-title-${pin.id}`}>
+																	{pinTitle}
+																</div>
+																<div className='sd-pin-value' aria-live='polite'>
+																	{isNote ? "" : pinDisplayValue}
+																</div>
+															</div>
+														</div>
+													)}
+												</div>
+												{canRemovePin && (
+													<button
+														type="button"
+														className="sd-pin-toggle"
+														aria-label={`${__("Remove pin", "systemdeck")} ${pinTitle}`}
+														title={__("Remove pin", "systemdeck")}
+														onClick={(e) => {
+															e.stopPropagation()
+															removePin(pin.id)
+														}}
+													>
+														<span className="dashicons dashicons-no-alt" aria-hidden="true" />
+													</button>
+												)}
+											</article>
+										</div>
 									)
 								})}
 							</div>

@@ -1,7 +1,14 @@
 <?php
 /**
- * SystemDeck Block Inspector Module
- * Backend logic for the Inspector Tool.
+ * SystemDeck - BlockInspector
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/modules/Inspectors/BlockInspector.php
+ * @license GPL-2.0-or-later
+ *
+ * Live inspector for Gutenberg blocks and metadata
  */
 declare(strict_types=1);
 

@@ -1,11 +1,14 @@
 <?php
 /**
- * SystemDeck Registry (Runtime Reader)
+ * SystemDeck - Registry
  *
- * PURE READ-ONLY SERVICE
- * - Reads from RegistryService Snapshot
- * - Hydrates Workspaces
- * - No Scanning Allowed
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Registry.php
+ * @license GPL-2.0-or-later
+ *
+ * Legacy Component Registry Interface
  */
 declare(strict_types=1);
 
@@ -140,7 +143,7 @@ class Registry
             'layout' => $saved_layout,
             'widgets' => is_array($found_data['widgets'] ?? null) ? array_values($found_data['widgets']) : [],
             'is_app_workspace' => !empty($found_data['is_app_workspace']),
-            'app_id' => sanitize_key((string) ($found_data['app_id'] ?? '')),
+            'app_id' => \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($found_data['app_id'] ?? '')),
         ];
     }
 
@@ -196,7 +199,7 @@ class Registry
         $registry_enablement = is_array($registry_enablement) ? $registry_enablement : [];
 
         $is_app_workspace = !empty($workspace['is_app_workspace']);
-        $workspace_app_id = sanitize_key((string) ($workspace['app_id'] ?? ''));
+        $workspace_app_id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($workspace['app_id'] ?? ''));
         $allowlist_lookup = [];
         if ($is_app_workspace && $workspace_app_id !== '' && class_exists('\\SystemDeck\\Core\\AppRuntime')) {
             $allowlist = \SystemDeck\Core\AppRuntime::get_allowlist_widget_ids($workspace_app_id);
@@ -208,7 +211,7 @@ class Registry
         $hydrated_widgets = [];
 
         foreach ($definitions as $wid => $def) {
-            $widget_app_id = sanitize_key((string) ($def['app_id'] ?? ''));
+            $widget_app_id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($def['app_id'] ?? ''));
             $visibility_policy = self::normalize_visibility_policy((string) ($def['visibility_policy'] ?? 'global'));
 
             // Is enabled in registry?
@@ -247,7 +250,7 @@ class Registry
                 'origin' => $def['origin'],
                 'provider_type' => sanitize_key((string) ($def['provider_type'] ?? '')),
                 'provider_name' => sanitize_text_field((string) ($def['provider_name'] ?? '')),
-                'source_id' => sanitize_text_field((string) ($def['source_id'] ?? '')),
+                'source_id' => \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($def['source_id'] ?? '')),
                 'is_active' => $is_active,
                 'is_enabled' => $is_enabled,
                 'is_picker_visible' => $is_picker_visible,

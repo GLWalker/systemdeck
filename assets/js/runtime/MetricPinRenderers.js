@@ -1,3 +1,15 @@
+/**
+ * SystemDeck - MetricPinRenderers.js
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/assets/js/runtime/MetricPinRenderers.js
+ * @license GPL-2.0-or-later
+ *
+ * Specialized Renderers for Metric-based Pins
+ */
+
 ;(function () {
 	"use strict"
 

@@ -1,3 +1,15 @@
+/**
+ * SystemDeck - sd-canvas-grid-block.css
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/assets/css/sd-canvas-grid-block.css
+ * @license GPL-2.0-or-later
+ *
+ * Canvas Grid Gutenberg Block Styling
+ */
+
 .sd-canvas-grid-host {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));

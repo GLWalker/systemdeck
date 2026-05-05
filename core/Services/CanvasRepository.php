@@ -1,7 +1,14 @@
 <?php
 /**
- * SystemDeck Canvas Repository
- * V3 Alpha Step 1: CPT registration only.
+ * SystemDeck - CanvasRepository
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Services/CanvasRepository.php
+ * @license GPL-2.0-or-later
+ *
+ * Canvas Repository Service (Database & CPT Interface)
  */
 declare(strict_types=1);
 
@@ -441,7 +448,7 @@ final class CanvasRepository
             $legacy_show_top_level = !empty($workspaces[$workspace_id]['show_top_level_menu']);
             $legacy_menu_icon = sanitize_html_class((string) ($workspaces[$workspace_id]['menu_icon'] ?? ''));
             $legacy_is_app = !empty($workspaces[$workspace_id]['is_app_workspace']) || !empty($workspaces[$workspace_id]['app_id']);
-            $legacy_app_id = sanitize_key((string) ($workspaces[$workspace_id]['app_id'] ?? ''));
+            $legacy_app_id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($workspaces[$workspace_id]['app_id'] ?? ''));
 
             $workspaces[$workspace_id]['show_top_level_menu'] = $show_top_level_menu_meta_exists
                 ? (bool) get_post_meta($post->ID, self::META_SHOW_TOP_LEVEL_MENU, true)
@@ -454,7 +461,7 @@ final class CanvasRepository
                 ? (bool) get_post_meta($post->ID, self::META_IS_APP_WORKSPACE, true)
                 : $legacy_is_app;
             $workspaces[$workspace_id]['app_id'] = $app_id_meta_exists
-                ? sanitize_key((string) get_post_meta($post->ID, self::META_APP_ID, true))
+                ? \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) get_post_meta($post->ID, self::META_APP_ID, true))
                 : $legacy_app_id;
 
             // CPT post status is authoritative for visibility; avoid stale user-meta archive flags.
@@ -648,7 +655,7 @@ final class CanvasRepository
             return false;
         }
 
-        $normalized_app_id = sanitize_key($app_id);
+        $normalized_app_id = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id($app_id);
         $ok_app = update_post_meta($canvas_id, self::META_IS_APP_WORKSPACE, $is_app_workspace ? '1' : '0');
         $ok_id = update_post_meta($canvas_id, self::META_APP_ID, $normalized_app_id);
         return (bool) ($ok_app || $ok_id);
@@ -991,9 +998,9 @@ HTML;
                 continue;
             }
 
-            $seed = sanitize_key((string) ($attrs['sdItemId'] ?? $attrs['anchor'] ?? ''));
+            $seed = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($attrs['sdItemId'] ?? $attrs['anchor'] ?? ''));
             if ($seed === '') {
-                $seed = sanitize_key(str_replace('/', '_', $name) . '_' . $next_path);
+                $seed = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id(str_replace('/', '_', $name) . '_' . $next_path);
             }
             if ($seed === '') {
                 continue;

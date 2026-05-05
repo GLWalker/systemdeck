@@ -1,3 +1,15 @@
+/**
+ * SystemDeck - pixi-scene.js
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/admin-pages/hud-atlas/pixi-scene.js
+ * @license GPL-2.0-or-later
+ *
+ * HUD Atlas Rendering Scene
+ */
+
 ;(function () {
 	"use strict"
 

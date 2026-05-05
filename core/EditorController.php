@@ -1,7 +1,14 @@
 <?php
 /**
- * SystemDeck Editor Controller
- * Manages the "Editor Mode" (FSE/Block Editor) logic and sidebar registration.
+ * SystemDeck - EditorController
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/EditorController.php
+ * @license GPL-2.0-or-later
+ *
+ * Gutenberg Editor Integration and Overrides
  */
 declare(strict_types=1);
 

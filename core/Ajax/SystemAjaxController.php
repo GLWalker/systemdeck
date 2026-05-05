@@ -1,4 +1,15 @@
 <?php
+/**
+ * SystemDeck - SystemAjaxController
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Ajax/SystemAjaxController.php
+ * @license GPL-2.0-or-later
+ *
+ * AJAX Controller for core System operations
+ */
 declare(strict_types=1);
 
 namespace SystemDeck\Core\Ajax;

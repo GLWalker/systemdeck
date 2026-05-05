@@ -1,4 +1,15 @@
 <?php
+/**
+ * SystemDeck - widget.php
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/widgets/time-monitor/widget.php
+ * @license GPL-2.0-or-later
+ *
+ * Time Monitor Widget (Performance & Lifecycle Tracking)
+ */
 declare(strict_types=1);
 
 /**

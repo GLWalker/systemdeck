@@ -1,3 +1,15 @@
+/**
+ * SystemDeck - app.js
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/admin-pages/hud-atlas/app.js
+ * @license GPL-2.0-or-later
+ *
+ * HUD Atlas Main Application
+ */
+
 ;(function ($) {
 	"use strict"
 

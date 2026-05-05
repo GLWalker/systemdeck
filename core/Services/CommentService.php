@@ -1,14 +1,14 @@
 <?php
 /**
- * CommentService — Shared comment tree builder and inserter for SystemDeck widgets.
+ * SystemDeck - CommentService
  *
- * Extracted from Notes::ajax_get_note_comments() and Vault::ajax_get_file_comments()
- * which contained identical implementations. This service provides:
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Services/CommentService.php
+ * @license GPL-2.0-or-later
  *
- * 1. get_comment_tree()  — Shallow-threaded comment tree for any CPT post
- * 2. add_comment()       — Access-gated comment insertion
- *
- * @package SystemDeck\Core\Services
+ * Comment Management Service (Security & Rendering)
  */
 
 namespace SystemDeck\Core\Services;
@@ -44,7 +44,7 @@ final class CommentService
             $formatted = [
                 'id'        => $comment->comment_ID,
                 'author'    => $comment->comment_author,
-                'content'   => wp_kses_post($comment->comment_content),
+                'content'   => wpautop(wp_kses_post($comment->comment_content)),
                 'date'      => human_time_diff(strtotime($comment->comment_date), current_time('timestamp')) . ' ' . __('ago', 'systemdeck'),
                 'avatar'    => get_avatar_url($comment->user_id, ['size' => 32]),
                 'parent_id' => (int) $comment->comment_parent,

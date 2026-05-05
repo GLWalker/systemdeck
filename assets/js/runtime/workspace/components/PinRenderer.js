@@ -27,7 +27,7 @@ export default function PinRenderer({ pinId, workspaceId = "", instanceId = "" }
 		setResolvedId("")
 		setRenderer("dom")
 		if (hostRef.current) {
-			hostRef.current.dataset.sdMounted = "0"
+			hostRef.current.dataset.sdMounted = "false"
 		}
 	}, [normalizedPinId, workspaceId, instanceId])
 
@@ -138,7 +138,7 @@ export default function PinRenderer({ pinId, workspaceId = "", instanceId = "" }
 			return
 		}
 
-		if (root.dataset.sdMounted === "1") {
+		if (root.dataset.sdMounted === "true") {
 			return
 		}
 

@@ -1,4 +1,15 @@
 <?php
+/**
+ * SystemDeck - Router
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Router.php
+ * @license GPL-2.0-or-later
+ *
+ * Internal URL and Request Routing
+ */
 
 declare(strict_types=1);
 

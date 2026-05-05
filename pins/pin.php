@@ -1,7 +1,20 @@
 <?php
+/**
+ * SystemDeck - pin.php
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/pins/pin.php
+ * @license GPL-2.0-or-later
+ *
+ * Core Pin Registration and Rendering Authority
+ */
 declare(strict_types=1);
 
 namespace SystemDeck\Pins;
+
+use SystemDeck\Core\Services\PinRegistry;
 
 if (!defined('ABSPATH')) {
     exit;
@@ -73,6 +86,10 @@ final class BasePinRuntime
             return self::render_open_pin_manager($context);
         }
 
+        if (str_starts_with($pin_id, 'metric_')) {
+            return self::render_generic_metric($pin_id, $context);
+        }
+
         return '';
     }
 
@@ -82,28 +99,59 @@ final class BasePinRuntime
     private static function render_open_pin_manager(array $context): string
     {
         $instance_id = sanitize_html_class((string) ($context['instance_id'] ?? ''));
-        $workspace_id = sanitize_key((string) ($context['workspace_id'] ?? ''));
 
         ob_start();
         ?>
-        <article
-            class="postbox sd-pin"
-            tabindex="0"
-            data-pin-id="core_open_pin_manager"
-            data-pin-instance-id="<?php echo esc_attr($instance_id); ?>"
-            data-pin-workspace-id="<?php echo esc_attr($workspace_id); ?>"
-            data-pin-action="open_pin_manager"
-            data-pin-root="1"
-        >
-            <div class="inside">
-                <div class="sd-pin-content default">
-                    <div class="sd-pin-meta">
-                        <span class="sd-pin-label"><?php echo esc_html__('Pin Manager', 'systemdeck'); ?></span>
-                        <span class="sd-pin-value"><?php echo esc_html__('Open Screen Options', 'systemdeck'); ?></span>
+                <div class="sd-media-wrap">
+                    <div class="sd-media-figure">
+                        <span class="sd-pin-icon dashicons dashicons-screenoptions"></span>
+                    </div>
+                    <div class="sd-media-content">
+                        <div class="sd-pin-label" id="sd-pin-title-<?php echo esc_attr($instance_id); ?>">
+                            <?php echo esc_html__('System', 'systemdeck'); ?>
+                        </div>
+                        <h4 class="sd-pin-title"><?php echo esc_html__('Pin Manager', 'systemdeck'); ?></h4>
+                        <div class="sd-pin-meta">
+                            <span class="sd-pin-description"><?php echo esc_html__('Manage Workspace Pins', 'systemdeck'); ?></span>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </article>
+        <?php
+
+        return (string) ob_get_clean();
+    }
+
+    /**
+     * @param array<string,mixed> $context
+     */
+    private static function render_generic_metric(string $pin_id, array $context): string
+    {
+        $definition = PinRegistry::get_definition($pin_id);
+        if (!$definition) {
+            return '';
+        }
+
+        $instance_id = sanitize_html_class((string) ($context['instance_id'] ?? $pin_id));
+        $label = $definition['label'] ?? 'Metric';
+        $icon = $definition['icon'] ?? 'dashicons-admin-generic';
+        $category = ucfirst($definition['category'] ?? 'System');
+
+        ob_start();
+        ?>
+                <div class="sd-media-wrap">
+                    <div class="sd-media-figure">
+                        <span class="sd-pin-icon dashicons <?php echo esc_attr($icon); ?>"></span>
+                    </div>
+                    <div class="sd-media-content">
+                        <div class="sd-pin-label" id="sd-pin-title-<?php echo esc_attr($instance_id); ?>">
+                            <?php echo esc_html($category); ?>
+                        </div>
+                        <h4 class="sd-pin-title"><?php echo esc_html($label); ?></h4>
+                        <div class="sd-pin-value" aria-live="polite">
+                            <!-- JS will populate this -->
+                        </div>
+                    </div>
+                </div>
         <?php
 
         return (string) ob_get_clean();

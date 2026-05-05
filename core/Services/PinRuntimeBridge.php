@@ -1,4 +1,15 @@
 <?php
+/**
+ * SystemDeck - PinRuntimeBridge
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/core/Services/PinRuntimeBridge.php
+ * @license GPL-2.0-or-later
+ *
+ * Pin Runtime Interface (Asset & State Injection)
+ */
 declare(strict_types=1);
 
 namespace SystemDeck\Core\Services;
@@ -21,6 +32,15 @@ final class PinRuntimeBridge
     {
         $requested_id = self::sanitize_pin_id($pin_id);
         $definition = $requested_id !== '' ? PinRegistry::get_definition($requested_id) : null;
+
+        // Handle prefixed projections (note.123, vault.456) where the specific ID isn't registered
+        if ($definition === null && $requested_id !== '') {
+            if (str_starts_with($requested_id, 'note.')) {
+                $definition = PinRegistry::get_definition('pinned_note');
+            } elseif (str_starts_with($requested_id, 'vault.')) {
+                $definition = PinRegistry::get_definition('pinned_file');
+            }
+        }
 
         return [
             'requested_id' => $requested_id,
@@ -60,8 +80,12 @@ final class PinRuntimeBridge
         $runtime_class = self::resolve_runtime_class($resolved);
 
         $asset_handles = ['js' => [], 'css' => []];
-        if ($runtime_class !== '' && class_exists($runtime_class) && method_exists($runtime_class, 'asset_handles')) {
-            $asset_handles = (array) $runtime_class::asset_handles((string) $resolved['resolved_id']);
+        if ($runtime_class !== '' && class_exists($runtime_class)) {
+            if (method_exists($runtime_class, 'pin_asset_handles')) {
+                $asset_handles = (array) $runtime_class::pin_asset_handles((string) $resolved['requested_id']);
+            } elseif (method_exists($runtime_class, 'asset_handles')) {
+                $asset_handles = (array) $runtime_class::asset_handles((string) $resolved['resolved_id']);
+            }
         } elseif (class_exists('\\SystemDeck\\Pins\\BasePinRuntime') && method_exists('\\SystemDeck\\Pins\\BasePinRuntime', 'asset_handles')) {
             $asset_handles = (array) \SystemDeck\Pins\BasePinRuntime::asset_handles((string) $resolved['resolved_id']);
         }
@@ -74,8 +98,12 @@ final class PinRuntimeBridge
             : [];
 
         $html = '';
-        if ($runtime_class !== '' && class_exists($runtime_class) && method_exists($runtime_class, 'render')) {
-            $html = (string) $runtime_class::render((string) $resolved['resolved_id'], $context);
+        if ($runtime_class !== '' && class_exists($runtime_class)) {
+            if (method_exists($runtime_class, 'pin_render')) {
+                $html = (string) $runtime_class::pin_render((string) $resolved['requested_id'], $context);
+            } elseif (method_exists($runtime_class, 'render')) {
+                $html = (string) $runtime_class::render((string) $resolved['resolved_id'], $context);
+            }
         } elseif (class_exists('\\SystemDeck\\Pins\\BasePinRuntime') && method_exists('\\SystemDeck\\Pins\\BasePinRuntime', 'render')) {
             $html = (string) \SystemDeck\Pins\BasePinRuntime::render((string) $resolved['resolved_id'], $context);
         }
@@ -101,14 +129,12 @@ final class PinRuntimeBridge
         ];
     }
 
-    public static function sanitize_pin_id(string $pin_id): string
+    public static function sanitize_pin_id($pin_id): string
     {
-        $pin_id = trim($pin_id);
-        if ($pin_id === '') {
-            return '';
-        }
-
-        return (string) preg_replace('/[^a-zA-Z0-9._-]/', '', $pin_id);
+        $id = is_scalar($pin_id) ? (string) $pin_id : '';
+        $id = wp_unslash($id);
+        $id = strtolower(trim($id));
+        return (string) preg_replace('/[^a-z0-9._-]/', '', $id);
     }
 
     /**
@@ -127,6 +153,14 @@ final class PinRuntimeBridge
         $id = (string) ($resolved['resolved_id'] ?? '');
         if ($id !== '' && isset($index[$id])) {
             return $index[$id];
+        }
+
+        // Handle prefixed projections (note.123, vault.456)
+        if (str_starts_with($id, 'note.')) {
+            return isset($index['pinned_note']) ? $index['pinned_note'] : '\\SystemDeck\\Widgets\\Notes';
+        }
+        if (str_starts_with($id, 'vault.')) {
+            return isset($index['pinned_file']) ? $index['pinned_file'] : '\\SystemDeck\\Widgets\\Vault';
         }
 
         return '';

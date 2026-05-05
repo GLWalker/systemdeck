@@ -1,3 +1,15 @@
+/**
+ * SystemDeck - widget-asset-loader.js
+ *
+ * @package SystemDeck
+ * @since 1.1.0
+ * @author G.L. Walker
+ * @file wp-content/plugins/systemdeck/assets/js/runtime/widget-asset-loader.js
+ * @license GPL-2.0-or-later
+ *
+ * Dynamic Widget Asset Loading Engine
+ */
+
 ;(function () {
 	"use strict"
 
