@@ -129,7 +129,8 @@
 		},
 
 		renderMiniPlayerSurface() {
-			return `<section class="sd-player-card sd-player-now-card">
+			const tpl = document.createElement("template")
+			tpl.innerHTML = `<section class="sd-player-card sd-player-now-card">
 				<header class="sd-player-card-title">NOW PLAYING</header>
 				<div class="sd-player-now-card-content">
 					<div class="sd-player-artwork" data-role="artwork"><div class="sd-player-artwork-placeholder"><span class="dashicons dashicons-format-audio"></span></div></div>
@@ -156,61 +157,71 @@
 					</div>
 				</div>
 			</section>`
+			return tpl.content.firstElementChild
 		},
 
 		syncMiniPlayerSurface(surfaceRoot, state) {
 			if (!surfaceRoot || !state) return
 			const ui = this.cacheUI(surfaceRoot)
-			this.setStatus(ui, state.status || "idle")
+			const duration = Number(state.duration || 0)
+			const currentTime = Number(state.currentTime || 0)
+			const progress =
+				Number.isFinite(Number(state.progress))
+					? clamp(state.progress, 0, 1)
+					: duration > 0
+						? clamp(currentTime / duration, 0, 1)
+						: 0
+			const normalizedStatus = String(state.status || "stopped").toLowerCase()
+			const normalizedTitle = state.title || "No source loaded."
+			const normalizedArtwork = state.artwork || ""
+			const isSeeking = surfaceRoot.dataset.sdMiniSeeking === "1"
+
+			this.setStatus(ui, normalizedStatus)
 			if (ui.title) {
-				ui.title.textContent = state.title || state.metadata?.title || (state.status === "loading" ? "Loading..." : "No source loaded.")
+				ui.title.textContent = normalizedTitle
 			}
 			if (ui.artwork) {
-				const artworkUrl =
-					state.metadata?.artwork ||
-					state.metadata?.artworkUrl ||
-					state.metadata?.thumbnail ||
-					state.metadata?.cover ||
-					""
-				if (artworkUrl) {
-					ui.artwork.innerHTML = `<img src="${this.escapeHtml(artworkUrl)}" alt="">`
-				} else if (!ui.artwork.querySelector(".sd-player-artwork-placeholder")) {
-					ui.artwork.innerHTML = `<div class="sd-player-artwork-placeholder"><span class="dashicons dashicons-format-audio"></span></div>`
+				const existingImage = ui.artwork.querySelector("img")
+				if (normalizedArtwork) {
+					ui.artwork.innerHTML = `<img src="${this.escapeHtml(normalizedArtwork)}" alt="">`
+				} else {
+					const existingImg = existingImage
+					if (existingImg) {
+						existingImg.removeAttribute("src")
+						existingImg.remove()
+					}
+					if (!ui.artwork.querySelector(".sd-player-artwork-placeholder")) {
+						ui.artwork.innerHTML = `<div class="sd-player-artwork-placeholder"><span class="dashicons dashicons-format-audio"></span></div>`
+					}
 				}
 			}
 			if (ui.visualizer) {
-				ui.visualizer.classList.toggle("is-playing", state.status === "playing")
+				ui.visualizer.classList.toggle("is-playing", normalizedStatus === "playing")
 			}
-			const duration = Number(state.duration || 0)
-			const currentTime = Number(state.currentTime || 0)
 			if (ui.time) ui.time.textContent = formatTime(currentTime)
 			if (ui.duration) ui.duration.textContent = formatTime(duration)
 			if (ui.visualizer) {
 				// TODO: replace progress visualizer with Tone analyser-driven bars once playback state is fully stable.
 				const bars = ui.visualizer.querySelectorAll(".sd-player-bars span")
 				if (bars.length) {
-					const ratio =
-						duration > 0 ? Math.max(0, Math.min(1, currentTime / duration)) : 0
-					const activeCount = Math.round(ratio * bars.length)
+					const activeCount = Math.round(progress * bars.length)
 					bars.forEach((bar, index) => {
 						bar.classList.toggle("is-active", index < activeCount)
 					})
 				}
 			}
 			if (ui.timeline) {
-				const isDragging = ui.timeline.dataset.dragging === "true"
 				ui.timeline.min = 0
 				ui.timeline.max = 1
 				ui.timeline.step = 0.001
 				if (duration > 0) {
 					ui.timeline.disabled = false
-					if (!isDragging) {
-						ui.timeline.value = String(clamp(currentTime / duration, 0, 1))
+					if (!isSeeking) {
+						ui.timeline.value = String(progress)
 					}
 				} else {
-					const isSystemDeck = state.mode === "systemdeck"
-					ui.timeline.disabled = isSystemDeck
-					if (!isDragging) ui.timeline.value = "0"
+					ui.timeline.disabled = false
+					if (!isSeeking) ui.timeline.value = "0"
 				}
 			}
 		},
@@ -219,65 +230,106 @@
 			if (!surfaceRoot) return
 			if (surfaceRoot.dataset.sdMiniBound === "1") return
 			surfaceRoot.dataset.sdMiniBound = "1"
-			const root = surfaceRoot.closest(".sd-player-root")
-			if (!root) return
-			const entry = this.widgets.get(root)
-			if (!entry?.ui) return
-			const ui = entry.ui
+			const ui = this.cacheUI(surfaceRoot)
 
 			ui.play?.addEventListener("click", async () => {
-				const state = window.SystemDeckPlayback?.getState()
+				const state = window.SystemDeckPlayback?.getState?.()
 				if (!state || state.status === "idle") {
 					alert("Load a track first")
 					return
 				}
-				await window.SystemDeckAudio?.resume?.()
-				window.SystemDeckPlayback?.resume()
+				window.SystemDeckPlayback?.resume?.()
 			})
 			;(ui.playSelectedButtons || []).forEach((btn) => {
-				btn.addEventListener("click", async () => {
-					await window.SystemDeckAudio?.resume?.()
-					this.playSelected(ui)
+				btn.addEventListener("click", () => {
+					const playbackState = window.SystemDeckPlayback?.getState?.() || {}
+					const status = String(playbackState?.status || "").toLowerCase()
+					if (status === "paused") {
+						window.SystemDeckPlayback?.resume?.()
+						return
+					}
+					if (typeof surfaceRoot._sdPlayerPlaySelected === "function") {
+						surfaceRoot._sdPlayerPlaySelected()
+						return
+					}
+					window.SystemDeckPlayback?.resume?.()
 				})
 			})
-			ui.pause?.addEventListener("click", () => window.SystemDeckPlayback?.pause())
-			ui.stop?.addEventListener("click", () => window.SystemDeckPlayback?.stop())
-			ui.prev?.addEventListener("click", async () => {
-				await window.SystemDeckAudio?.resume?.()
-				window.SystemDeckPlayback?.previous()
-			})
-			ui.next?.addEventListener("click", async () => {
-				await window.SystemDeckAudio?.resume?.()
-				window.SystemDeckPlayback?.next()
-			})
+			ui.pause?.addEventListener("click", () => window.SystemDeckPlayback?.pause?.())
+			ui.stop?.addEventListener("click", () => window.SystemDeckPlayback?.stop?.())
+			ui.prev?.addEventListener("click", () => window.SystemDeckPlayback?.previous?.())
+			ui.next?.addEventListener("click", () => window.SystemDeckPlayback?.next?.())
 			ui.volume?.addEventListener("input", (e) => {
-				window.SystemDeckPlayback?.setVolume(e.target.value)
+				window.SystemDeckPlayback?.setVolume?.(e.target.value)
 			})
 			const seekToRatio = (ratio) => {
-				const state = this.states.get(ui.timeline)
+				const state = window.SystemDeckPlayback?.getState?.() || {}
 				const duration = Number(state?.duration || 0)
+				const target = duration > 0 ? ratio * duration : 0
 				if (duration > 0 && window.SystemDeckPlayback) {
-					const target = ratio * duration
-					window.SystemDeckPlayback.seek(target)
+					window.SystemDeckPlayback.seek?.(target)
 				}
 			}
-			ui.timeline?.addEventListener("input", (e) => {
-				ui.timeline.dataset.dragging = "true"
-				const ratio = parseFloat(e.target.value)
+			const releaseSeek = () => {
+				surfaceRoot.dataset.sdMiniSeeking = "0"
+				delete ui.timeline?.dataset.dragging
+			}
+			const seekFromSlider = () => {
+				const ratio = Number(ui.timeline?.value || 0)
 				seekToRatio(ratio)
+			}
+			ui.timeline?.addEventListener("input", (e) => {
+				surfaceRoot.dataset.sdMiniSeeking = "1"
+				ui.timeline.dataset.dragging = "true"
 			})
 			ui.timeline?.addEventListener("change", (e) => {
-				const ratio = parseFloat(e.target.value)
-				seekToRatio(ratio)
-				delete ui.timeline.dataset.dragging
+				seekFromSlider()
+				releaseSeek()
 			})
+			ui.timeline?.addEventListener("pointerdown", (e) => {
+				surfaceRoot.dataset.sdMiniSeeking = "1"
+			})
+			ui.timeline?.addEventListener("pointerup", () => {
+				releaseSeek()
+			})
+			ui.timeline?.addEventListener("pointercancel", releaseSeek)
+			ui.timeline?.addEventListener("mouseup", releaseSeek)
+			ui.timeline?.addEventListener("touchend", releaseSeek)
+			ui.timeline?.addEventListener("keyup", releaseSeek)
+			ui.timeline?.addEventListener("blur", releaseSeek)
 		},
 
 		updateUI(ui, state) {
 			if (!state) return
 
 			const surfaceRoot = ui.title?.closest(".sd-player-now-card")
-			this.syncMiniPlayerSurface(surfaceRoot, state)
+			const miniState = {
+				title:
+					state.nowPlaying?.title ||
+					state.title ||
+					state.nowPlaying?.metadata?.title ||
+					state.metadata?.title ||
+					(state.status === "loading" ? "Loading..." : "No source loaded."),
+				status: String(state.status || "stopped").toLowerCase(),
+				currentTime: Number(state.currentTime || 0),
+				duration: Number(state.duration || 0),
+				progress:
+					Number(state.duration || 0) > 0
+						? clamp(Number(state.currentTime || 0) / Number(state.duration || 0), 0, 1)
+						: 0,
+				artwork:
+					state.artwork ||
+					state.nowPlaying?.metadata?.artwork ||
+					state.nowPlaying?.metadata?.artworkUrl ||
+					state.nowPlaying?.metadata?.thumbnail ||
+					state.nowPlaying?.metadata?.cover ||
+					state.metadata?.artwork ||
+					state.metadata?.artworkUrl ||
+					state.metadata?.thumbnail ||
+					state.metadata?.cover ||
+					null,
+			}
+			this.syncMiniPlayerSurface(surfaceRoot, miniState)
 
 			if (ui.metaTrack) {
 				ui.metaTrack.textContent = state.title || state.metadata?.title || "-"
@@ -322,7 +374,7 @@
 			root.insertAdjacentHTML(
 				"afterbegin",
 				`<div class="sd-player-shell sd-player-v2">
-					${this.renderMiniPlayerSurface()}
+					<div data-mini-surface-slot></div>
 					<section class="sd-player-card sd-player-controls-card">
 						<header class="sd-player-card-title">PLAYER CONTROLS</header>
 						<div class="sd-player-controls-grid-v2">
@@ -347,6 +399,10 @@
 					<div class="sd-player-error" data-role="error" hidden></div>
 				</div>`,
 			)
+			const shell = q(root, ".sd-player-shell.sd-player-v2")
+			const slot = q(shell, "[data-mini-surface-slot]")
+			const mini = this.renderMiniPlayerSurface()
+			slot?.replaceWith(mini)
 		},
 
 		syncEQUI(ui, eqState = {}) {
@@ -645,7 +701,11 @@
 			if (root.dataset.sdPlayerMounted === "1") return
 			root.dataset.sdPlayerMounted = "1"
 
-			this.bindMiniPlayerSurface(q(root, ".sd-player-now-card"))
+			const miniSurface = q(root, ".sd-player-now-card")
+			if (miniSurface) {
+				miniSurface._sdPlayerPlaySelected = () => this.playSelected(ui)
+			}
+			this.bindMiniPlayerSurface(miniSurface)
 			
 			ui.playlist?.addEventListener("change", async () => {
 				await window.SystemDeckAudio?.resume?.()
@@ -869,6 +929,10 @@
 
 		init() {
 			this.globalEventsBound = false
+			if (this.mountInterval) {
+				clearInterval(this.mountInterval)
+				this.mountInterval = null
+			}
 			this.refreshMountedWidgets()
 
 			// Continuous scanner to survive canvas re-renders, throttled to 3s

@@ -36,6 +36,8 @@
 
 			// Polling for synthetic engine timing
 			this.pollInterval = null
+			this._lastEmittedSignature = ""
+			this._lastEmittedAt = 0
 		}
 
 		/**
@@ -761,13 +763,36 @@
 		 * Toggle pause/play
 		 */
 		pause() {
+			this.stopPolling()
 			if (this.audioEl) {
 				this.audioEl.pause()
 			}
 			if (window.SystemDeckAudio) {
 				window.SystemDeckAudio.pause?.()
 			}
-			this.emitState("paused")
+			const snapshot = this.getState()
+			this.emitState("paused", {
+				title:
+					snapshot?.nowPlaying?.title ||
+					snapshot?.title ||
+					this.state?.title ||
+					"No source loaded.",
+				currentTime: Number(
+					snapshot?.nowPlaying?.currentTime ??
+						snapshot?.currentTime ??
+						0,
+				),
+				duration: Number(
+					snapshot?.nowPlaying?.duration ??
+						snapshot?.duration ??
+						0,
+				),
+				metadata: {
+					...(snapshot?.nowPlaying?.metadata ||
+						snapshot?.metadata ||
+						{}),
+				},
+			})
 		}
 
 		/**
@@ -777,7 +802,39 @@
 			// If we have an active native element, just play it
 			if (this.audioEl) {
 				await this.audioEl.play()
+				this.startPolling()
 				this.emitState("playing")
+				return
+			}
+
+			const snapshot = this.getState()
+			const status = String(snapshot?.status || "").toLowerCase()
+			if (status === "paused" && this.mode === "systemdeck" && window.SystemDeckAudio) {
+				await window.SystemDeckAudio.resume?.()
+				await window.SystemDeckAudio.play?.()
+				this.startPolling()
+				this.emitState("playing", {
+					title:
+						snapshot?.nowPlaying?.title ||
+						snapshot?.title ||
+						this.state?.title ||
+						"No source loaded.",
+					currentTime: Number(
+						snapshot?.nowPlaying?.currentTime ??
+							snapshot?.currentTime ??
+							0,
+					),
+					duration: Number(
+						snapshot?.nowPlaying?.duration ??
+							snapshot?.duration ??
+							0,
+					),
+					metadata: {
+						...(snapshot?.nowPlaying?.metadata ||
+							snapshot?.metadata ||
+							{}),
+					},
+				})
 				return
 			}
 
@@ -793,6 +850,7 @@
 				await window.SystemDeckAudio.resume?.()
 				window.SystemDeckAudio.play?.()
 			}
+			this.startPolling()
 			this.emitState("playing")
 		}
 
@@ -884,6 +942,27 @@
 			}
 
 			const state = this.getState()
+			state.status = String(status || state.status || "idle")
+			const signature = JSON.stringify({
+				status: state.status,
+				mode: state.mode,
+				currentIndex: state.currentIndex,
+				title:
+					state.nowPlaying?.title ||
+					state.title ||
+					"",
+				currentTime: Number(state.currentTime || 0).toFixed(2),
+				duration: Number(state.duration || 0).toFixed(2),
+			})
+			const now = Date.now()
+			if (
+				signature === this._lastEmittedSignature &&
+				now - this._lastEmittedAt < 120
+			) {
+				return
+			}
+			this._lastEmittedSignature = signature
+			this._lastEmittedAt = now
 			document.dispatchEvent(new CustomEvent("systemdeck:playback-state", {
 				detail: state
 			}))

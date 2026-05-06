@@ -136,17 +136,29 @@ class MediaAjaxController
                 $mime = get_post_mime_type($post->ID);
                 $title = $post->post_title ?: 'Untitled Media Track';
                 $is_midi = strpos((string)$mime, 'midi') !== false;
+                $artwork = '';
+                $thumb_id = get_post_thumbnail_id($post->ID);
+                if ($thumb_id) {
+                    $artwork = (string) wp_get_attachment_image_url((int) $thumb_id, 'medium');
+                }
+                if (!$artwork) {
+                    $artwork = (string) wp_get_attachment_image_url($post->ID, 'medium');
+                }
 
                 $item = [
                     'id'       => $post->ID,
                     'title'    => $title,
                     'source'   => $url,
                     'url'      => $url,
+                    'artwork'  => $artwork ?: null,
                     'type'     => $is_midi ? 'midi' : 'file',
                     'mime'     => $mime,
                     'origin'   => 'media',
                     'metadata' => [
-                        'id' => $post->ID
+                        'id' => $post->ID,
+                        'artwork' => $artwork ?: null,
+                        'artworkUrl' => $artwork ?: null,
+                        'thumbnail' => $artwork ?: null,
                     ]
                 ];
                 $playlist['items'][] = $item;

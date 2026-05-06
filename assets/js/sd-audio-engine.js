@@ -1391,6 +1391,7 @@ window.SystemDeckAudio = (() => {
 			this.fileDuration = 0
 			this.fileIsPlaying = false
 			this.fileStopReason = "idle"
+			this.fileSeekResumePending = false
 			this.fileVolume = 1
 			this.fileProgressTimer = null
 			this.nativeMediaSources = new WeakMap()
@@ -1647,8 +1648,36 @@ window.SystemDeckAudio = (() => {
 			const nextMode = this.normalizeMode(
 				String(patch.mode || this.playbackState.mode || "track"),
 			)
-			const nextNowPlaying =
+			const existingNowPlaying =
 				patch.nowPlaying || this.playbackState.nowPlaying || {}
+			const nextNowPlaying = { ...existingNowPlaying }
+			const nowMeta = { ...(nextNowPlaying.metadata || {}) }
+			const isMidiMeta = String(
+				nowMeta.mediaType || nowMeta.mime || "",
+			)
+				.toLowerCase()
+				.includes("midi")
+			if (!patch.nowPlaying) {
+				if (nextMode === "file") {
+					nextNowPlaying.currentTime = Number(
+						this.fileIsPlaying
+							? this.getFileCurrentTime()
+							: this.filePausedAt || 0,
+					)
+					nextNowPlaying.duration = Number(
+						nextNowPlaying.duration || this.fileDuration || 0,
+					)
+				} else if (isMidiMeta || this.midiLoaded) {
+					nextNowPlaying.currentTime = Number(
+						this.midiActive
+							? this.getMidiCurrentTime()
+							: this.midiPausedAt || 0,
+					)
+					nextNowPlaying.duration = Number(
+						nextNowPlaying.duration || this.midiDuration || 0,
+					)
+				}
+			}
 			const nowPlayingType =
 				nextNowPlaying.type || (nextMode === "file" ? "file" : "track")
 			this.playbackState = {
@@ -4009,7 +4038,20 @@ window.SystemDeckAudio = (() => {
 							})
 							return
 						}
-						if (reason === "seek" || reason === "stop") {
+						if (reason === "seek" && this.fileSeekResumePending) {
+							this.fileSeekResumePending = false
+							this.playFile()
+							return
+						}
+						if (reason === "seek") {
+							this.emitPlaybackState("file:seek", {
+								mode: "file",
+								status: "paused",
+								nowPlaying: this.buildNowPlaying(meta, src),
+							})
+							return
+						}
+						if (reason === "stop") {
 							this.emitPlaybackState("file:stopped", {
 								mode: "file",
 								status: "stopped",
@@ -4197,15 +4239,23 @@ window.SystemDeckAudio = (() => {
 			const wasPlaying = this.fileIsPlaying
 			this.filePausedAt = target
 			if (wasPlaying) {
+				this.fileSeekResumePending = true
 				this.fileStopReason = "seek"
 				this.filePlayer.stop()
 				this.fileIsPlaying = false
-				this.playFile()
 			} else {
+				this.fileSeekResumePending = false
 				this.emitPlaybackState("file:seek", {
 					mode: "file",
 					status: "paused",
-					currentTime: target,
+					nowPlaying: this.buildNowPlaying(
+						{
+							...(this.fileMeta || {}),
+							currentTime: target,
+							duration: this.fileDuration || 0,
+						},
+						this.fileSource,
+					),
 				})
 			}
 			return true
