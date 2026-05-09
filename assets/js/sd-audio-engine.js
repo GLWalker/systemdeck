@@ -1394,6 +1394,8 @@ window.SystemDeckAudio = (() => {
 			this.fileSeekResumePending = false
 			this.fileVolume = 1
 			this.fileProgressTimer = null
+			this.visualizerAnalyser = null
+			this.visualizerData = null
 			this.nativeMediaSources = new WeakMap()
 			this.nativeBridgeWarned = false
 			this.nativeBridgeDiagLogged = false
@@ -1630,6 +1632,28 @@ window.SystemDeckAudio = (() => {
 				fxVolume: this.fxVolume,
 				mixLevels: { ...this.mixLevels },
 				currentTrack: this.currentTrack,
+			}
+		}
+
+		getVisualizerFrame(count = 48) {
+			const bars = Math.max(8, Math.min(64, Number(count) || 48))
+			if (!this.visualizerAnalyser || !this.visualizerData) {
+				return Array.from({ length: bars }, () => 0)
+			}
+			try {
+				this.visualizerAnalyser.getByteFrequencyData(this.visualizerData)
+				const step = Math.max(
+					1,
+					Math.floor(this.visualizerData.length / bars),
+				)
+				const values = new Array(bars).fill(0)
+				for (let i = 0; i < bars; i++) {
+					const raw = this.visualizerData[i * step] || 0
+					values[i] = Math.max(0, Math.min(1, raw / 255))
+				}
+				return values
+			} catch (_err) {
+				return Array.from({ length: bars }, () => 0)
 			}
 		}
 
@@ -2262,18 +2286,47 @@ window.SystemDeckAudio = (() => {
 					Q: 0.7,
 				}),
 			)
-			const eqHighpass = this.trackDisposable(
-				new Tone.Filter({ type: "highpass", frequency: 30, Q: 0.7 }),
+			const eq32 = this.trackDisposable(
+				new Tone.Filter({
+					type: "peaking",
+					frequency: 32,
+					Q: 1.4,
+					gain: 0,
+				}),
 			)
-			const eqLowMid = this.trackDisposable(
+			const eq64 = this.trackDisposable(
+				new Tone.Filter({
+					type: "peaking",
+					frequency: 64,
+					Q: 1.4,
+					gain: 0,
+				}),
+			)
+			const eq125 = this.trackDisposable(
+				new Tone.Filter({
+					type: "peaking",
+					frequency: 125,
+					Q: 1.2,
+					gain: 0,
+				}),
+			)
+			const eq250 = this.trackDisposable(
 				new Tone.Filter({
 					type: "peaking",
 					frequency: 250,
+					Q: 1.2,
+					gain: 0,
+				}),
+			)
+			const eq500 = this.trackDisposable(
+				new Tone.Filter({
+					type: "peaking",
+					frequency: 500,
 					Q: 1,
 					gain: 0,
 				}),
 			)
-			const eqMid = this.trackDisposable(
+			const eq1k = this.trackDisposable(
 				new Tone.Filter({
 					type: "peaking",
 					frequency: 1000,
@@ -2281,7 +2334,15 @@ window.SystemDeckAudio = (() => {
 					gain: 0,
 				}),
 			)
-			const eqHighMid = this.trackDisposable(
+			const eq2k = this.trackDisposable(
+				new Tone.Filter({
+					type: "peaking",
+					frequency: 2000,
+					Q: 1,
+					gain: 0,
+				}),
+			)
+			const eq4k = this.trackDisposable(
 				new Tone.Filter({
 					type: "peaking",
 					frequency: 4000,
@@ -2289,11 +2350,19 @@ window.SystemDeckAudio = (() => {
 					gain: 0,
 				}),
 			)
-			const eqHighShelf = this.trackDisposable(
+			const eq8k = this.trackDisposable(
 				new Tone.Filter({
-					type: "highshelf",
-					frequency: 10000,
-					Q: 0.7,
+					type: "peaking",
+					frequency: 8000,
+					Q: 0.9,
+					gain: 0,
+				}),
+			)
+			const eq16k = this.trackDisposable(
+				new Tone.Filter({
+					type: "peaking",
+					frequency: 16000,
+					Q: 0.8,
 					gain: 0,
 				}),
 			)
@@ -2315,23 +2384,42 @@ window.SystemDeckAudio = (() => {
 			this.musicBus.connect(this.masterBus)
 			this.midiBus.connect(this.masterBus)
 			this.masterBus.connect(this.bassBoostFilter)
-			this.bassBoostFilter.connect(eqHighpass)
-			eqHighpass.connect(eqLowMid)
-			eqLowMid.connect(eqMid)
-			eqMid.connect(eqHighMid)
-			eqHighMid.connect(eqHighShelf)
-			eqHighShelf.connect(this.master)
+			this.bassBoostFilter.connect(eq32)
+			eq32.connect(eq64)
+			eq64.connect(eq125)
+			eq125.connect(eq250)
+			eq250.connect(eq500)
+			eq500.connect(eq1k)
+			eq1k.connect(eq2k)
+			eq2k.connect(eq4k)
+			eq4k.connect(eq8k)
+			eq8k.connect(eq16k)
+			eq16k.connect(this.master)
 			this.fxGain.connect(this.fxBus)
 			this.fxBus.connect(this.limiter)
 			this.master.connect(this.compressor)
+			if (this.audioContext?.createAnalyser) {
+				this.visualizerAnalyser = this.audioContext.createAnalyser()
+				this.visualizerAnalyser.fftSize = 1024
+				this.visualizerAnalyser.smoothingTimeConstant = 0.82
+				this.visualizerData = new Uint8Array(
+					this.visualizerAnalyser.frequencyBinCount,
+				)
+				this.master.connect(this.visualizerAnalyser)
+			}
 			this.compressor.connect(this.limiter)
 			this.limiter.toDestination()
 			this.eqNodes = {
-				low: this.bassBoostFilter,
-				mid1: eqLowMid,
-				mid2: eqMid,
-				mid3: eqHighMid,
-				high: eqHighShelf,
+				"32": eq32,
+				"64": eq64,
+				"125": eq125,
+				"250": eq250,
+				"500": eq500,
+				"1k": eq1k,
+				"2k": eq2k,
+				"4k": eq4k,
+				"8k": eq8k,
+				"16k": eq16k,
 			}
 
 			this.initToneInstruments()
@@ -2756,20 +2844,53 @@ window.SystemDeckAudio = (() => {
 		setEQ(config = {}) {
 			if (!this.eqNodes) return
 			const clamp = (v) => Math.max(-24, Math.min(12, Number(v) || 0))
-			if (config.low !== undefined && this.eqNodes.low?.gain) {
-				this.eqNodes.low.gain.value = clamp(config.low)
+			const setBand = (bandKey, value) => {
+				if (value === undefined) return
+				const node = this.eqNodes?.[bandKey]
+				if (!node?.gain) return
+				node.gain.value = clamp(value)
 			}
-			if (config.mid1 !== undefined && this.eqNodes.mid1?.gain) {
-				this.eqNodes.mid1.gain.value = clamp(config.mid1)
+			// True 10-band inputs
+			setBand("32", config["32"])
+			setBand("64", config["64"])
+			setBand("125", config["125"])
+			setBand("250", config["250"])
+			setBand("500", config["500"])
+			setBand("1k", config["1k"] ?? config["1K"])
+			setBand("2k", config["2k"] ?? config["2K"])
+			setBand("4k", config["4k"] ?? config["4K"])
+			setBand("8k", config["8k"] ?? config["8K"])
+			setBand("16k", config["16k"] ?? config["16K"])
+			// Backward-compatible grouped inputs
+			if (config.low !== undefined || config.bass !== undefined) {
+				const value =
+					config.low !== undefined ? config.low : config.bass
+				setBand("32", value)
+				setBand("64", value)
 			}
-			if (config.mid2 !== undefined && this.eqNodes.mid2?.gain) {
-				this.eqNodes.mid2.gain.value = clamp(config.mid2)
+			if (config.mid1 !== undefined || config.lowMid !== undefined) {
+				const value =
+					config.mid1 !== undefined ? config.mid1 : config.lowMid
+				setBand("125", value)
+				setBand("250", value)
 			}
-			if (config.mid3 !== undefined && this.eqNodes.mid3?.gain) {
-				this.eqNodes.mid3.gain.value = clamp(config.mid3)
+			if (config.mid2 !== undefined || config.mid !== undefined) {
+				const value =
+					config.mid2 !== undefined ? config.mid2 : config.mid
+				setBand("500", value)
+				setBand("1k", value)
 			}
-			if (config.high !== undefined && this.eqNodes.high?.gain) {
-				this.eqNodes.high.gain.value = clamp(config.high)
+			if (config.mid3 !== undefined || config.highMid !== undefined) {
+				const value =
+					config.mid3 !== undefined ? config.mid3 : config.highMid
+				setBand("2k", value)
+				setBand("4k", value)
+			}
+			if (config.high !== undefined || config.treble !== undefined) {
+				const value =
+					config.high !== undefined ? config.high : config.treble
+				setBand("8k", value)
+				setBand("16k", value)
 			}
 			this.eqPreset = String(config.preset || this.eqPreset || "Custom")
 			this.emitPlaybackState("mix:eq")
@@ -2779,13 +2900,18 @@ window.SystemDeckAudio = (() => {
 		setBandGain(band, value) {
 			const key = String(band || "")
 			const map = {
-				bass: "low",
-				lowMid: "mid1",
-				mid: "mid2",
-				highMid: "mid3",
-				treble: "high",
+				bass: "32",
+				lowMid: "250",
+				mid: "1k",
+				highMid: "4k",
+				treble: "16k",
+				"1K": "1k",
+				"2K": "2k",
+				"4K": "4k",
+				"8K": "8k",
+				"16K": "16k",
 			}
-			const internal = map[key] || key
+			const internal = String(map[key] || key).toLowerCase()
 			this.eqPreset = "Custom"
 			this.setEQ({ [internal]: value, preset: "Custom" })
 		}
@@ -2793,33 +2919,47 @@ window.SystemDeckAudio = (() => {
 		setBandFrequency(band, freq) {
 			const key = String(band || "")
 			const map = {
-				bass: "low",
-				lowMid: "mid1",
-				mid: "mid2",
-				highMid: "mid3",
-				treble: "high",
+				bass: "32",
+				lowMid: "250",
+				mid: "1k",
+				highMid: "4k",
+				treble: "16k",
+				"1K": "1k",
+				"2K": "2k",
+				"4K": "4k",
+				"8K": "8k",
+				"16K": "16k",
 			}
-			const node = this.eqNodes?.[map[key] || key]
+			const node = this.eqNodes?.[String(map[key] || key).toLowerCase()]
 			if (!node?.frequency) return
 			const next = Number(freq)
 			if (!Number.isFinite(next)) return
 			node.frequency.value = Math.max(20, Math.min(20000, next))
+			this.eqPreset = "Custom"
+			this.emitEQState("band-frequency")
 		}
 
 		setBandQ(band, q) {
 			const key = String(band || "")
 			const map = {
-				bass: "low",
-				lowMid: "mid1",
-				mid: "mid2",
-				highMid: "mid3",
-				treble: "high",
+				bass: "32",
+				lowMid: "250",
+				mid: "1k",
+				highMid: "4k",
+				treble: "16k",
+				"1K": "1k",
+				"2K": "2k",
+				"4K": "4k",
+				"8K": "8k",
+				"16K": "16k",
 			}
-			const node = this.eqNodes?.[map[key] || key]
+			const node = this.eqNodes?.[String(map[key] || key).toLowerCase()]
 			if (!node?.Q) return
 			const next = Number(q)
 			if (!Number.isFinite(next)) return
 			node.Q.value = Math.max(0.1, Math.min(24, next))
+			this.eqPreset = "Custom"
+			this.emitEQState("band-q")
 		}
 
 		setMasterGain(value) {
@@ -2832,14 +2972,33 @@ window.SystemDeckAudio = (() => {
 
 		getEQState() {
 			const bands = {
-				bass: Number(this.eqNodes?.low?.gain?.value || 0),
-				lowMid: Number(this.eqNodes?.mid1?.gain?.value || 0),
-				mid: Number(this.eqNodes?.mid2?.gain?.value || 0),
-				highMid: Number(this.eqNodes?.mid3?.gain?.value || 0),
-				treble: Number(this.eqNodes?.high?.gain?.value || 0),
+				"32": Number(this.eqNodes?.["32"]?.gain?.value || 0),
+				"64": Number(this.eqNodes?.["64"]?.gain?.value || 0),
+				"125": Number(this.eqNodes?.["125"]?.gain?.value || 0),
+				"250": Number(this.eqNodes?.["250"]?.gain?.value || 0),
+				"500": Number(this.eqNodes?.["500"]?.gain?.value || 0),
+				"1k": Number(this.eqNodes?.["1k"]?.gain?.value || 0),
+				"2k": Number(this.eqNodes?.["2k"]?.gain?.value || 0),
+				"4k": Number(this.eqNodes?.["4k"]?.gain?.value || 0),
+				"8k": Number(this.eqNodes?.["8k"]?.gain?.value || 0),
+				"16k": Number(this.eqNodes?.["16k"]?.gain?.value || 0),
+			}
+			const advanced = {
+				"32": { frequency: Number(this.eqNodes?.["32"]?.frequency?.value || 32), q: Number(this.eqNodes?.["32"]?.Q?.value || 1.4) },
+				"64": { frequency: Number(this.eqNodes?.["64"]?.frequency?.value || 64), q: Number(this.eqNodes?.["64"]?.Q?.value || 1.4) },
+				"125": { frequency: Number(this.eqNodes?.["125"]?.frequency?.value || 125), q: Number(this.eqNodes?.["125"]?.Q?.value || 1.2) },
+				"250": { frequency: Number(this.eqNodes?.["250"]?.frequency?.value || 250), q: Number(this.eqNodes?.["250"]?.Q?.value || 1.2) },
+				"500": { frequency: Number(this.eqNodes?.["500"]?.frequency?.value || 500), q: Number(this.eqNodes?.["500"]?.Q?.value || 1) },
+				"1k": { frequency: Number(this.eqNodes?.["1k"]?.frequency?.value || 1000), q: Number(this.eqNodes?.["1k"]?.Q?.value || 1) },
+				"2k": { frequency: Number(this.eqNodes?.["2k"]?.frequency?.value || 2000), q: Number(this.eqNodes?.["2k"]?.Q?.value || 1) },
+				"4k": { frequency: Number(this.eqNodes?.["4k"]?.frequency?.value || 4000), q: Number(this.eqNodes?.["4k"]?.Q?.value || 1) },
+				"8k": { frequency: Number(this.eqNodes?.["8k"]?.frequency?.value || 8000), q: Number(this.eqNodes?.["8k"]?.Q?.value || 0.9) },
+				"16k": { frequency: Number(this.eqNodes?.["16k"]?.frequency?.value || 16000), q: Number(this.eqNodes?.["16k"]?.Q?.value || 0.8) },
 			}
 			return {
+				preamp: Number(this.masterBus?.gain?.value || 1),
 				bands,
+				advanced,
 				bassBoost: !!this.bassBoostEnabled,
 				masterGain: Number(this.masterBus?.gain?.value || 1),
 				preset: String(this.eqPreset || "Flat"),
@@ -2848,13 +3007,21 @@ window.SystemDeckAudio = (() => {
 
 		applyEQ(preset = {}) {
 			const eqPreset = preset && typeof preset === "object" ? preset : {}
-			const bands = eqPreset.bands && typeof eqPreset.bands === "object" ? eqPreset.bands : {}
+			const bands =
+				eqPreset.bands && typeof eqPreset.bands === "object"
+					? eqPreset.bands
+					: {}
 			this.setEQ({
-				low: bands.bass,
-				mid1: bands.lowMid,
-				mid2: bands.mid,
-				mid3: bands.highMid,
-				high: bands.treble,
+				"32": bands["32"],
+				"64": bands["64"],
+				"125": bands["125"],
+				"250": bands["250"],
+				"500": bands["500"],
+				"1k": bands["1k"] ?? bands["1K"],
+				"2k": bands["2k"] ?? bands["2K"],
+				"4k": bands["4k"] ?? bands["4K"],
+				"8k": bands["8k"] ?? bands["8K"],
+				"16k": bands["16k"] ?? bands["16K"],
 				preset: eqPreset.name || eqPreset.preset || "Custom",
 			})
 			if (Object.prototype.hasOwnProperty.call(eqPreset, "bassBoost")) {
@@ -4008,6 +4175,7 @@ window.SystemDeckAudio = (() => {
 					: String(meta.source || "")
 
 			this.stopMusic(false)
+			this.stopMidiPlayback(false, false)
 			this.stopFile(false, false)
 			this.fileSource = src
 			this.fileMeta = { ...meta }
@@ -4885,9 +5053,6 @@ window.SystemDeckAudio = (() => {
 		}
 
 		async play() {
-			if (this.midiDerivative) {
-				return await this.playMidi()
-			}
 			if (
 				this.getMode() === "file" ||
 				this.filePlayer ||
@@ -4902,17 +5067,20 @@ window.SystemDeckAudio = (() => {
 				}
 				return await this.playFile()
 			}
+			if (this.midiDerivative) {
+				return await this.playMidi()
+			}
 			await this.resume()
 			this.startMusic()
 			return true
 		}
 
 		pause() {
-			if (this.midiDerivative) {
-				return this.pauseMidi()
-			}
 			if (this.getMode() === "file" || this.filePlayer) {
 				return this.pauseFile()
+			}
+			if (this.midiDerivative) {
+				return this.pauseMidi()
 			}
 			this.stopMusic(false)
 			this.emitPlaybackState("music:paused", {
@@ -4994,11 +5162,11 @@ window.SystemDeckAudio = (() => {
 		}
 
 		seek(seconds) {
-			if (this.midiDerivative) {
-				return this.seekMidi(seconds)
-			}
 			if (this.getMode() === "file" || this.filePlayer) {
 				return this.seekFile(seconds)
+			}
+			if (this.midiDerivative) {
+				return this.seekMidi(seconds)
 			}
 			return false
 		}

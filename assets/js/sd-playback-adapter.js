@@ -38,6 +38,8 @@
 			this.pollInterval = null
 			this._lastEmittedSignature = ""
 			this._lastEmittedAt = 0
+			this._midiLoadToken = 0
+			this._activeRoute = "none"
 		}
 
 		/**
@@ -400,6 +402,7 @@
 
 			// 3. Built-in Detection (Synthetic Engine)
 			if (track.type === "builtin" || track.origin === "builtin" || metadata.engine === "systemdeck") {
+				this._activeRoute = "builtin"
 				if (window.SYSTEMDECK_DEBUG_AUDIO) {
 					console.log("[BUILTIN ROUTE]", {
 						index: idx,
@@ -416,10 +419,30 @@
 
 			// 4. MIDI Detection (Synthetic Engine)
 			if (track.type === "midi" || metadata.mime === "audio/midi") {
-				return this.playSystemDeckMidi(track)
+				this._activeRoute = "midi"
+				this.mode = "systemdeck"
+				const durationHint = Number(
+					metadata?.duration ||
+						metadata?.midiDerivative?.playback?.duration ||
+						0,
+				)
+				this.emitState("loading", {
+					title: metadata.title,
+					currentTime: 0,
+					duration: Number.isFinite(durationHint) ? durationHint : 0,
+					metadata: {
+						...metadata,
+						mediaType: "midi",
+						mime: metadata.mime || "audio/midi",
+					},
+				})
+				this.emitPlaylistState()
+				const token = ++this._midiLoadToken
+				return this.playSystemDeckMidi(track, token)
 			}
 
 			this.stopSystemDeckOnly()
+			this._activeRoute = "file"
 			const source = this.resolveTrackSource(track)
 
 			if (!source || source === "[object Object]") {
@@ -439,7 +462,7 @@
 			}
 		}
 
-		async playSystemDeckMidi(item) {
+		async playSystemDeckMidi(item, loadToken) {
 			const metadata = { ...(item.metadata || {}), title: item.title }
 			// MIDI Priority: Derivative Object > Derivative URL > Original
 			const forceRaw = window.SYSTEMDECK_DEBUG_AUDIO && (window.location.hash === "#force-raw-midi" || window.SYSTEMDECK_FORCE_RAW_MIDI === true)
@@ -470,8 +493,7 @@
 			try {
 				this.stopNativeOnly()
 				await window.SystemDeckAudio.resume?.()
-
-				this.emitState("loading", { title: item.title })
+				if (Number(loadToken) !== Number(this._midiLoadToken)) return false
 
 				// If midiSource is an object, it's already a derivative
 				let isDerivative = typeof midiSource === "object" && midiSource !== null
@@ -508,7 +530,30 @@
 						},
 					)
 					if (loaded) {
+						if (Number(loadToken) !== Number(this._midiLoadToken))
+							return false
 						this.mode = "systemdeck"
+						this._activeRoute = "midi"
+						this.startPolling()
+						const engineState = window.SystemDeckAudio.getState?.() || {}
+						const now = engineState.nowPlaying || {}
+						const duration = Number(now.duration || this.state.duration || 0)
+						const currentTime = Number(now.currentTime || 0)
+						const status = String(engineState.status || "playing").toLowerCase()
+						this.emitState(
+							status === "paused" ? "paused" : "playing",
+							{
+								title: metadata.title || item.title || now.title || "MIDI Track",
+								currentTime,
+								duration: Number.isFinite(duration) ? duration : 0,
+								metadata: {
+									...metadata,
+									...(now.metadata || {}),
+									mediaType: "midi",
+									mime: metadata.mime || "audio/midi",
+								},
+							},
+						)
 						this.emitPlaylistState()
 					}
 					return loaded
@@ -525,12 +570,34 @@
 				)
 
 				if (success) {
+					if (Number(loadToken) !== Number(this._midiLoadToken))
+						return false
 					this.mode = "systemdeck"
+					this._activeRoute = "midi"
+					this.startPolling()
+					const engineState = window.SystemDeckAudio.getState?.() || {}
+					const now = engineState.nowPlaying || {}
+					const duration = Number(now.duration || this.state.duration || 0)
+					const currentTime = Number(now.currentTime || 0)
+					const status = String(engineState.status || "playing").toLowerCase()
+					this.emitState(status === "paused" ? "paused" : "playing", {
+						title: metadata.title || item.title || now.title || "MIDI Track",
+						currentTime,
+						duration: Number.isFinite(duration) ? duration : 0,
+						metadata: {
+							...metadata,
+							...(now.metadata || {}),
+							mediaType: "midi",
+							mime: metadata.mime || "audio/midi",
+						},
+					})
 					this.emitPlaylistState()
 				}
 
 				return success
 			} catch (e) {
+				if (Number(loadToken) !== Number(this._midiLoadToken))
+					return false
 				console.error("[SystemDeckPlayback] MIDI error", e)
 				this.emitState("error", { error: e.message, title: item.title })
 				return false
@@ -538,6 +605,7 @@
 		}
 
 		async playSystemDeckBuiltin(item) {
+			const token = ++this._midiLoadToken
 			const metadata = { ...(item.metadata || {}), title: item.title }
 			const songId =
 				metadata.songId ||
@@ -557,6 +625,7 @@
 			try {
 				this.stopNativeOnly()
 				await window.SystemDeckAudio.resume?.()
+				if (Number(token) !== Number(this._midiLoadToken)) return false
 
 				if (window.SystemDeckAudio.loadBuiltin) {
 					await window.SystemDeckAudio.loadBuiltin(songId, { autoplay: true })
@@ -569,6 +638,8 @@
 				}
 
 				this.mode = "systemdeck"
+				this._activeRoute = "builtin"
+				this.startPolling()
 				this.emitState("playing", {
 					title: item.title,
 					type: "builtin",
@@ -617,8 +688,10 @@
 		 */
 		async playNative(url, meta, targetId) {
 			try {
+				this._midiLoadToken++
 				this.resetPlayback()
 				this.mode = "systemdeck"
+				this._activeRoute = "file"
 				this.emitState("loading", { title: meta.title || "Loading..." })
 				this.audioEl = null
 				this._activeNativeElement = null
@@ -858,6 +931,8 @@
 		 * Stop all playback and clean up resources
 		 */
 		stop() {
+			this._midiLoadToken++
+			this._activeRoute = "none"
 			const preservedIndex = this.currentIndex
 			this.cleanup()
 			this.currentIndex = preservedIndex // Preserve for resume
@@ -868,6 +943,8 @@
 		 * Stop all audio including global FX/Synths
 		 */
 		stopAll() {
+			this._midiLoadToken++
+			this._activeRoute = "none"
 			const preservedIndex = this.currentIndex
 			this.cleanupAll()
 			this.currentIndex = preservedIndex

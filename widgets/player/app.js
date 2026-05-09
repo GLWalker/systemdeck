@@ -11,13 +11,12 @@
  */
 
 ;(function ($) {
-	"use strict";
+	"use strict"
 
+	if (window.SystemDeckPlayerBooted) return
+	window.SystemDeckPlayerBooted = true
 
-	if (window.SystemDeckPlayerBooted) return;
-	window.SystemDeckPlayerBooted = true;
-
-	console.log("[SystemDeckPlayer] app.js loaded");
+	console.log("[SystemDeckPlayer] app.js loaded")
 
 	const q = (root, selector) => root.querySelector(selector)
 	const clamp = (value, min, max) =>
@@ -29,30 +28,32 @@
 		return `${min}:${sec.toString().padStart(2, "0")}`
 	}
 	const EQ_PRESETS = {
-		Flat: {
-			name: "Flat",
-			bands: { bass: 0, lowMid: 0, mid: 0, highMid: 0, treble: 0 },
-		},
-		"Bass Boost": {
-			name: "Bass Boost",
-			bands: { bass: 6, lowMid: 3, mid: 0, highMid: 0, treble: 0 },
-		},
-		Warm: {
-			name: "Warm",
-			bands: { bass: 3, lowMid: 0, mid: 2, highMid: 0, treble: -2 },
-		},
-		Bright: {
-			name: "Bright",
-			bands: { bass: 0, lowMid: 0, mid: 0, highMid: 3, treble: 5 },
-		},
-		Vocal: {
-			name: "Vocal",
-			bands: { bass: -2, lowMid: 0, mid: 4, highMid: 2, treble: 0 },
-		},
-		Retro: {
-			name: "Retro",
-			bands: { bass: 2, lowMid: 0, mid: 0, highMid: 0, treble: -3 },
-		},
+		Flat: { name: "Flat", bands: { 32: 0, 64: 0, 125: 0, 250: 0, 500: 0, "1k": 0, "2k": 0, "4k": 0, "8k": 0, "16k": 0 } },
+		"Bass Boost": { name: "Bass Boost", bands: { 32: 8, 64: 6, 125: 4, 250: 2, 500: 1, "1k": 0, "2k": -1, "4k": -2, "8k": -2, "16k": -1 } },
+		"Bass Reducer": { name: "Bass Reducer", bands: { 32: -8, 64: -6, 125: -4, 250: -2, 500: -1, "1k": 0, "2k": 1, "4k": 2, "8k": 2, "16k": 1 } },
+		Vocal: { name: "Vocal", bands: { 32: -4, 64: -3, 125: -2, 250: 0, 500: 2, "1k": 4, "2k": 5, "4k": 4, "8k": 2, "16k": 0 } },
+		"Spoken Word": { name: "Spoken Word", bands: { 32: -8, 64: -6, 125: -4, 250: -2, 500: 2, "1k": 4, "2k": 5, "4k": 4, "8k": 2, "16k": 0 } },
+		Acoustic: { name: "Acoustic", bands: { 32: -1, 64: 0, 125: 1, 250: 2, 500: 2, "1k": 1, "2k": 2, "4k": 2, "8k": 1, "16k": 0 } },
+		Classical: { name: "Classical", bands: { 32: 0, 64: 0, 125: 1, 250: 2, 500: 1, "1k": 0, "2k": 1, "4k": 2, "8k": 3, "16k": 2 } },
+		Piano: { name: "Piano", bands: { 32: -2, 64: -1, 125: 0, 250: 1, 500: 2, "1k": 3, "2k": 2, "4k": 1, "8k": 0, "16k": -1 } },
+		Jazz: { name: "Jazz", bands: { 32: 2, 64: 1, 125: 1, 250: 0, 500: 1, "1k": 1, "2k": 2, "4k": 2, "8k": 1, "16k": 0 } },
+		Blues: { name: "Blues", bands: { 32: 2, 64: 1, 125: 0, 250: 1, 500: 1, "1k": 2, "2k": 1, "4k": 0, "8k": -1, "16k": -1 } },
+		Rock: { name: "Rock", bands: { 32: 3, 64: 2, 125: 1, 250: 0, 500: -1, "1k": 1, "2k": 3, "4k": 4, "8k": 3, "16k": 2 } },
+		"Hard Rock": { name: "Hard Rock", bands: { 32: 4, 64: 3, 125: 2, 250: 0, 500: -2, "1k": 1, "2k": 4, "4k": 5, "8k": 4, "16k": 2 } },
+		Metal: { name: "Metal", bands: { 32: 5, 64: 4, 125: 2, 250: -1, 500: -2, "1k": 0, "2k": 4, "4k": 5, "8k": 4, "16k": 2 } },
+		Electronic: { name: "Electronic", bands: { 32: 4, 64: 3, 125: 1, 250: 0, 500: -1, "1k": 1, "2k": 2, "4k": 3, "8k": 4, "16k": 3 } },
+		EDM: { name: "EDM", bands: { 32: 6, 64: 5, 125: 3, 250: 1, 500: -1, "1k": 0, "2k": 2, "4k": 4, "8k": 5, "16k": 4 } },
+		"Hip Hop": { name: "Hip Hop", bands: { 32: 7, 64: 6, 125: 4, 250: 2, 500: 0, "1k": -1, "2k": 0, "4k": 1, "8k": 2, "16k": 2 } },
+		Dance: { name: "Dance", bands: { 32: 5, 64: 4, 125: 2, 250: 1, 500: 0, "1k": 1, "2k": 2, "4k": 3, "8k": 4, "16k": 3 } },
+		Pop: { name: "Pop", bands: { 32: 1, 64: 2, 125: 1, 250: 0, 500: 1, "1k": 2, "2k": 3, "4k": 3, "8k": 2, "16k": 1 } },
+		"R&B": { name: "R&B", bands: { 32: 4, 64: 3, 125: 2, 250: 1, 500: 0, "1k": 1, "2k": 2, "4k": 2, "8k": 1, "16k": 0 } },
+		Retro: { name: "Retro", bands: { 32: 3, 64: 2, 125: 1, 250: 0, 500: -1, "1k": -2, "2k": -3, "4k": -3, "8k": -2, "16k": -1 } },
+		Warm: { name: "Warm", bands: { 32: 2, 64: 3, 125: 2, 250: 1, 500: 1, "1k": 0, "2k": -1, "4k": -2, "8k": -2, "16k": -1 } },
+		Bright: { name: "Bright", bands: { 32: -2, 64: -2, 125: -1, 250: 0, 500: 1, "1k": 2, "2k": 3, "4k": 4, "8k": 5, "16k": 4 } },
+		Loudness: { name: "Loudness", bands: { 32: 4, 64: 3, 125: 2, 250: 1, 500: 0, "1k": 0, "2k": 1, "4k": 2, "8k": 3, "16k": 4 } },
+		"Late Night": { name: "Late Night", bands: { 32: -2, 64: -1, 125: 0, 250: 1, 500: 2, "1k": 2, "2k": 1, "4k": 0, "8k": -1, "16k": -2 } },
+		"Car Stereo": { name: "Car Stereo", bands: { 32: 5, 64: 4, 125: 2, 250: 0, 500: -1, "1k": 0, "2k": 2, "4k": 3, "8k": 4, "16k": 3 } },
+		"Small Speakers": { name: "Small Speakers", bands: { 32: -8, 64: -6, 125: -3, 250: 0, 500: 2, "1k": 3, "2k": 4, "4k": 4, "8k": 3, "16k": 2 } },
 	}
 
 	const PlayerUI = {
@@ -65,15 +66,23 @@
 				play: q(root, '[data-action="play"]'),
 				playSelected: q(root, '[data-action="play-selected"]'),
 				loadSelected: q(root, '[data-action="load-selected"]'),
-				playSelectedButtons: Array.from(root.querySelectorAll('[data-action="play-selected"]')),
+				playSelectedButtons: Array.from(
+					root.querySelectorAll('[data-action="play-selected"]'),
+				),
 				pause: q(root, '[data-action="pause"]'),
 				stop: q(root, '[data-action="stop"]'),
 				prev: q(root, '[data-action="prev"]'),
 				next: q(root, '[data-action="next"]'),
 				uploadBtn: q(root, '[data-action="upload-vault"]'),
 
-				volume: q(root, '[data-control="volume"], [data-role="volume"]'),
-				bass: q(root, '[data-control="bass"], [data-role="bass-boost"], [data-role-secondary="bass-boost"]'),
+				volume: q(
+					root,
+					'[data-control="volume"], [data-role="volume"]',
+				),
+				bass: q(
+					root,
+					'[data-control="bass"], [data-role="bass-boost"], [data-role-secondary="bass-boost"]',
+				),
 				mixBass: q(root, '[data-role="mix-bass"]'),
 				mixSynth: q(root, '[data-role="mix-synth"]'),
 				mixDrums: q(root, '[data-role="mix-drums"]'),
@@ -84,25 +93,34 @@
 				eqHighMid: q(root, '[data-role="eq-high-mid"]'),
 				eqTreble: q(root, '[data-role="eq-treble"]'),
 				eqMasterGain: q(root, '[data-role="eq-master-gain"]'),
-				eqMasterGainAll: Array.from(root.querySelectorAll('[data-role="eq-master-gain"]')),
-				eqMasterValueAll: Array.from(root.querySelectorAll('[data-role="eq-master-value"]')),
+				eqMasterGainAll: Array.from(
+					root.querySelectorAll('[data-role="eq-master-gain"]'),
+				),
+				eqMasterValueAll: Array.from(
+					root.querySelectorAll('[data-role="eq-master-value"]'),
+				),
 				eqAdvancedBand: q(root, '[data-role="eq-advanced-band"]'),
 				eqAdvancedFreq: q(root, '[data-role="eq-advanced-frequency"]'),
 				eqAdvancedQ: q(root, '[data-role="eq-advanced-q"]'),
 				eqEnabled: q(root, '[data-role="eq-enabled"]'),
-				eqBassBoostVisual: q(root, '[data-role="eq-bass-boost-visual"]'),
-				eqBands10: Array.from(root.querySelectorAll('[data-role="eq-band"]')),
-				playlistList: q(root, '[data-role="playlist-list"]'),
+				eqBassBoostVisual: q(
+					root,
+					'[data-role="eq-bass-boost-visual"]',
+				),
+				eqBands10: Array.from(
+					root.querySelectorAll('[data-role="eq-band"]'),
+				),
 				metaTrack: q(root, '[data-role="meta-track"]'),
 				metaCodec: q(root, '[data-role="meta-codec"]'),
 				metaType: q(root, '[data-role="meta-type"]'),
 				artwork: q(root, '[data-role="artwork"]'),
 				visualizer: q(root, '[data-role="visualizer"]'),
-				playlistTotal: q(root, '[data-role="playlist-total"]'),
+				visualizerBars: q(root, ".sd-player-visualizer-bars"),
 
 				timeline: q(root, "[data-timeline], [data-role='seek']"),
 				time: q(root, "[data-time]"),
 				duration: q(root, "[data-duration]"),
+				nowCodec: q(root, '[data-role="now-codec"]'),
 
 				status: q(root, "[data-status], [data-role='status']"),
 				title: q(root, "[data-title], [data-role='now-playing']"),
@@ -128,36 +146,109 @@
 			ui.status.textContent = String(status || "").toUpperCase()
 		},
 
-		renderMiniPlayerSurface() {
+		renderMiniPlayerSurface(options = {}) {
+			const config = {
+				showTrackSelect: options.showTrackSelect !== false,
+				showUpload: options.showUpload !== false,
+				showBassBoost: options.showBassBoost !== false,
+				compact: !!options.compact,
+			}
 			const tpl = document.createElement("template")
-			tpl.innerHTML = `<section class="sd-player-card sd-player-now-card">
-				<header class="sd-player-card-title">NOW PLAYING</header>
+			tpl.innerHTML = `<section class="sd-player-card sd-player-now-card${
+				config.compact ? " sd-mini-compact" : ""
+			}">
 				<div class="sd-player-now-card-content">
 					<div class="sd-player-artwork" data-role="artwork"><div class="sd-player-artwork-placeholder"><span class="dashicons dashicons-format-audio"></span></div></div>
 					<div class="sd-player-now-main">
 						<div class="sd-player-now-header">
 							<div>
 								<div class="sd-player-track-title" data-role="now-playing">No source loaded.</div>
-								<div class="sd-status-badge is-low" data-role="status">IDLE</div>
+								<div class="sd-player-now-meta-line"><div class="sd-status-badge is-low" data-role="status">IDLE</div><span class="sd-player-codec" data-role="now-codec" hidden></span></div>
 							</div>
 							<div class="sd-player-track-time"><span data-time>0:00</span><span>/</span><span data-duration>0:00</span></div>
 						</div>
-						<div class="sd-player-visualizer" data-role="visualizer"><div class="sd-player-bars">${"<span></span>".repeat(52)}</div></div>
+						<div class="sd-player-visualizer" data-role="visualizer"><div class="sd-player-visualizer-bars"></div></div>
 					</div>
 				</div>
 				<div class="sd-player-seek-row"><input type="range" min="0" max="1" step="0.001" value="0" data-role="seek" data-timeline></div>
 				<div class="sd-player-bottom-controls">
-					<div class="sd-player-volume"><span class="dashicons dashicons-controls-volumeon sd-button-icon"></span><input type="range" min="0" max="1" step="0.01" value="0.45" data-role="volume" data-control="volume"></div>
-					<div class="sd-player-transport">
-						<button type="button" class="button" data-action="prev"><span class="dashicons dashicons-controls-skipback sd-button-icon"></span><span>Prev</span></button>
-						<button type="button" class="button button-primary" data-action="play-selected"><span class="dashicons dashicons-controls-play sd-button-icon"></span><span>Play</span></button>
-						<button type="button" class="button" data-action="pause"><span class="dashicons dashicons-controls-pause sd-button-icon"></span><span>Pause</span></button>
-						<button type="button" class="button" data-action="stop"><span class="dashicons dashicons-no sd-button-icon"></span><span>Stop</span></button>
-						<button type="button" class="button" data-action="next"><span>Next</span><span class="dashicons dashicons-controls-forward sd-button-icon sd-button-icon-right"></span></button>
+					<div class="sd-player-volume-stack">
+						<div class="sd-player-volume"><button type="button" class="sd-player-volume-toggle" data-role="volume-toggle" aria-label="Mute" title="Mute"><span class="dashicons dashicons-controls-volumeon sd-button-icon" data-role="volume-icon"></span></button><input type="range" min="0" max="1" step="0.01" value="0.45" data-role="volume" data-control="volume"></div>
+						${
+							config.showBassBoost
+								? `<label class="sd-player-check sd-player-bass-inline"><input type="checkbox" data-role="eq-bass-boost-visual" data-role-secondary="bass-boost"><span>Bass Boost</span></label>`
+								: ""
+						}
+					</div>
+					<div class="sd-player-controls-right">
+						<div class="sd-player-transport">
+							<button type="button" class="button button-small" data-action="prev" aria-label="Previous" title="Previous"><span class="dashicons dashicons-controls-back sd-button-icon"></span><span class="screen-reader-text">Previous</span></button>
+							<button type="button" class="button button-small button-primary" data-action="play-selected" data-role="transport-main" aria-label="Play" title="Play"><span class="dashicons dashicons-controls-play sd-button-icon"></span><span class="screen-reader-text">Play</span></button>
+							<button type="button" class="button button-small" data-action="pause" aria-label="Pause" title="Pause"><span class="dashicons dashicons-controls-pause sd-button-icon"></span><span class="screen-reader-text">Pause</span></button>
+							<button type="button" class="button button-small" data-action="next" aria-label="Next" title="Next"><span class="dashicons dashicons-controls-forward sd-button-icon"></span><span class="screen-reader-text">Next</span></button>
+						</div>
 					</div>
 				</div>
+				${
+					config.showTrackSelect
+						? `<div class="sd-player-track-row"><div class="sd-player-preset-inline"><label><span class="screen-reader-text">EQ Presets</span><select data-role="eq-preset"><option>Flat</option><option>Bass Boost</option><option>Bass Reducer</option><option>Vocal</option><option>Spoken Word</option><option>Acoustic</option><option>Classical</option><option>Piano</option><option>Jazz</option><option>Blues</option><option>Rock</option><option>Hard Rock</option><option>Metal</option><option>Electronic</option><option>EDM</option><option>Hip Hop</option><option>Dance</option><option>Pop</option><option>R&B</option><option>Retro</option><option>Warm</option><option>Bright</option><option>Loudness</option><option>Late Night</option><option>Car Stereo</option><option>Small Speakers</option><option>Custom</option></select></label></div><div class="sd-player-load-block sd-player-load-inline"><label><span class="screen-reader-text">Track</span><select data-role="playlist" class="sd-player-playlist-select"><option value="">-- Select Track --</option></select></label><div class="sd-player-load-actions">${
+								config.showUpload
+									? `<button type="button" class="button" data-action="upload-vault">Upload</button>`
+									: ""
+						  }</div><input type="file" data-role="file-input" hidden></div></div>`
+						: ""
+				}
 			</section>`
 			return tpl.content.firstElementChild
+		},
+
+		createVisualizerBars(container, count = 48) {
+			if (!container) return []
+			const barCount = Math.max(16, Math.min(64, Number(count) || 48))
+			container.innerHTML = ""
+			const bars = []
+			for (let i = 0; i < barCount; i++) {
+				const bar = document.createElement("div")
+				bar.className = "sd-player-bar"
+				container.appendChild(bar)
+				bars.push(bar)
+			}
+			return bars
+		},
+
+		startVisualizerLoop(surfaceRoot) {
+			if (!surfaceRoot || surfaceRoot._sdVisualizerLoop) return
+			const barsContainer = surfaceRoot.querySelector(
+				".sd-player-visualizer-bars",
+			)
+			if (!barsContainer) return
+			const compact = surfaceRoot.classList.contains("sd-mini-compact")
+			const targetCount = compact ? 32 : 48
+			const bars = this.createVisualizerBars(barsContainer, targetCount)
+			if (!bars.length) return
+			let rafId = null
+			const render = () => {
+				const state = window.SystemDeckPlayback?.getState?.() || {}
+				const status = String(state.status || "idle").toLowerCase()
+				const frame = window.SystemDeckAudio?.getVisualizerFrame?.(
+					bars.length,
+				) || new Array(bars.length).fill(0)
+				bars.forEach((bar, i) => {
+					const n = Math.max(0, Math.min(1, Number(frame[i] || 0)))
+					const h = Math.max(8, Math.round(8 + n * 30))
+					bar.style.height = `${h}px`
+					bar.classList.toggle(
+						"is-active",
+						status === "playing" || status === "loading",
+					)
+				})
+				rafId = window.requestAnimationFrame(render)
+			}
+			rafId = window.requestAnimationFrame(render)
+			surfaceRoot._sdVisualizerLoop = () => {
+				if (rafId) window.cancelAnimationFrame(rafId)
+				rafId = null
+			}
 		},
 
 		syncMiniPlayerSurface(surfaceRoot, state) {
@@ -165,13 +256,14 @@
 			const ui = this.cacheUI(surfaceRoot)
 			const duration = Number(state.duration || 0)
 			const currentTime = Number(state.currentTime || 0)
-			const progress =
-				Number.isFinite(Number(state.progress))
-					? clamp(state.progress, 0, 1)
-					: duration > 0
-						? clamp(currentTime / duration, 0, 1)
-						: 0
-			const normalizedStatus = String(state.status || "stopped").toLowerCase()
+			const progress = Number.isFinite(Number(state.progress))
+				? clamp(state.progress, 0, 1)
+				: duration > 0
+				? clamp(currentTime / duration, 0, 1)
+				: 0
+			const normalizedStatus = String(
+				state.status || "stopped",
+			).toLowerCase()
 			const normalizedTitle = state.title || "No source loaded."
 			const normalizedArtwork = state.artwork || ""
 			const isSeeking = surfaceRoot.dataset.sdMiniSeeking === "1"
@@ -183,32 +275,83 @@
 			if (ui.artwork) {
 				const existingImage = ui.artwork.querySelector("img")
 				if (normalizedArtwork) {
-					ui.artwork.innerHTML = `<img src="${this.escapeHtml(normalizedArtwork)}" alt="">`
+					ui.artwork.innerHTML = `<img src="${this.escapeHtml(
+						normalizedArtwork,
+					)}" alt="">`
 				} else {
 					const existingImg = existingImage
 					if (existingImg) {
 						existingImg.removeAttribute("src")
 						existingImg.remove()
 					}
-					if (!ui.artwork.querySelector(".sd-player-artwork-placeholder")) {
+					if (
+						!ui.artwork.querySelector(
+							".sd-player-artwork-placeholder",
+						)
+					) {
 						ui.artwork.innerHTML = `<div class="sd-player-artwork-placeholder"><span class="dashicons dashicons-format-audio"></span></div>`
 					}
 				}
 			}
-			if (ui.visualizer) {
-				ui.visualizer.classList.toggle("is-playing", normalizedStatus === "playing")
-			}
+			if (ui.visualizer)
+				ui.visualizer.classList.toggle(
+					"is-playing",
+					normalizedStatus === "playing" ||
+						normalizedStatus === "loading",
+				)
 			if (ui.time) ui.time.textContent = formatTime(currentTime)
 			if (ui.duration) ui.duration.textContent = formatTime(duration)
-			if (ui.visualizer) {
-				// TODO: replace progress visualizer with Tone analyser-driven bars once playback state is fully stable.
-				const bars = ui.visualizer.querySelectorAll(".sd-player-bars span")
-				if (bars.length) {
-					const activeCount = Math.round(progress * bars.length)
-					bars.forEach((bar, index) => {
-						bar.classList.toggle("is-active", index < activeCount)
-					})
+			const codecMime = String(state.metadata?.mime || "").trim()
+			const codecRate = String(
+				state.metadata?.bitrate || state.metadata?.bit_rate || "",
+			).trim()
+			if (ui.nowCodec) {
+				const codecText = [codecMime, codecRate].filter(Boolean).join(" / ")
+				if (codecText) {
+					ui.nowCodec.textContent = codecText.toUpperCase()
+					ui.nowCodec.hidden = false
+				} else {
+					ui.nowCodec.textContent = ""
+					ui.nowCodec.hidden = true
 				}
+			}
+			const transportMain = surfaceRoot.querySelector(
+				'[data-role="transport-main"]',
+			)
+			if (transportMain) {
+				const actionLabel =
+					normalizedStatus === "playing" ||
+					normalizedStatus === "loading"
+						? "Stop"
+						: "Play"
+				transportMain.setAttribute("aria-label", actionLabel)
+				transportMain.setAttribute("title", actionLabel)
+			}
+			const volumeInput = surfaceRoot.querySelector(
+				'[data-control="volume"], [data-role="volume"]',
+			)
+			const volumeIcon = surfaceRoot.querySelector(
+				'[data-role="volume-icon"]',
+			)
+			const volumeToggle = surfaceRoot.querySelector(
+				'[data-role="volume-toggle"]',
+			)
+			if (volumeIcon && volumeToggle) {
+				const level = Number(volumeInput?.value || 0)
+				const muted = level <= 0.0001
+				volumeIcon.classList.toggle(
+					"dashicons-controls-volumeoff",
+					muted,
+				)
+				volumeIcon.classList.toggle(
+					"dashicons-controls-volumeon",
+					!muted,
+				)
+				volumeToggle.setAttribute(
+					"aria-label",
+					muted ? "Unmute" : "Mute",
+				)
+				volumeToggle.setAttribute("title", muted ? "Unmute" : "Mute")
 			}
 			if (ui.timeline) {
 				ui.timeline.min = 0
@@ -231,6 +374,23 @@
 			if (surfaceRoot.dataset.sdMiniBound === "1") return
 			surfaceRoot.dataset.sdMiniBound = "1"
 			const ui = this.cacheUI(surfaceRoot)
+			const pauseBtn = surfaceRoot.querySelector('[data-action="pause"]')
+			const stopBtn = surfaceRoot.querySelector('[data-action="stop"]')
+			const prevBtn = surfaceRoot.querySelector('[data-action="prev"]')
+			const nextBtn = surfaceRoot.querySelector('[data-action="next"]')
+			const volumeInput = surfaceRoot.querySelector(
+				'[data-control="volume"], [data-role="volume"]',
+			)
+			const volumeToggle = surfaceRoot.querySelector(
+				'[data-role="volume-toggle"]',
+			)
+			const timelineInput = surfaceRoot.querySelector(
+				"[data-timeline], [data-role='seek']",
+			)
+			const playSelectedBtns = Array.from(
+				surfaceRoot.querySelectorAll('[data-action="play-selected"]'),
+			)
+			this.startVisualizerLoop(surfaceRoot)
 
 			ui.play?.addEventListener("click", async () => {
 				const state = window.SystemDeckPlayback?.getState?.()
@@ -240,28 +400,78 @@
 				}
 				window.SystemDeckPlayback?.resume?.()
 			})
-			;(ui.playSelectedButtons || []).forEach((btn) => {
+			playSelectedBtns.forEach((btn) => {
+				if (btn.dataset.sdMiniBound === "1") return
+				btn.dataset.sdMiniBound = "1"
 				btn.addEventListener("click", () => {
-					const playbackState = window.SystemDeckPlayback?.getState?.() || {}
-					const status = String(playbackState?.status || "").toLowerCase()
+					const playbackState =
+						window.SystemDeckPlayback?.getState?.() || {}
+					const status = String(
+						playbackState?.status || "",
+					).toLowerCase()
+					if (btn.dataset.role === "transport-main") {
+						if (status === "playing" || status === "loading") {
+							window.SystemDeckPlayback?.stop?.()
+							return
+						}
+					}
 					if (status === "paused") {
 						window.SystemDeckPlayback?.resume?.()
 						return
 					}
-					if (typeof surfaceRoot._sdPlayerPlaySelected === "function") {
+					if (
+						typeof surfaceRoot._sdPlayerPlaySelected === "function"
+					) {
 						surfaceRoot._sdPlayerPlaySelected()
 						return
 					}
 					window.SystemDeckPlayback?.resume?.()
 				})
 			})
-			ui.pause?.addEventListener("click", () => window.SystemDeckPlayback?.pause?.())
-			ui.stop?.addEventListener("click", () => window.SystemDeckPlayback?.stop?.())
-			ui.prev?.addEventListener("click", () => window.SystemDeckPlayback?.previous?.())
-			ui.next?.addEventListener("click", () => window.SystemDeckPlayback?.next?.())
-			ui.volume?.addEventListener("input", (e) => {
+			if (pauseBtn && pauseBtn.dataset.sdMiniBound !== "1") {
+				pauseBtn.dataset.sdMiniBound = "1"
+				pauseBtn.addEventListener("click", () =>
+					window.SystemDeckPlayback?.pause?.(),
+				)
+			}
+			if (stopBtn && stopBtn.dataset.sdMiniBound !== "1") {
+				stopBtn.dataset.sdMiniBound = "1"
+				stopBtn.addEventListener("click", () =>
+					window.SystemDeckPlayback?.stop?.(),
+				)
+			}
+			if (prevBtn && prevBtn.dataset.sdMiniBound !== "1") {
+				prevBtn.dataset.sdMiniBound = "1"
+				prevBtn.addEventListener("click", () =>
+					window.SystemDeckPlayback?.previous?.(),
+				)
+			}
+			if (nextBtn && nextBtn.dataset.sdMiniBound !== "1") {
+				nextBtn.dataset.sdMiniBound = "1"
+				nextBtn.addEventListener("click", () =>
+					window.SystemDeckPlayback?.next?.(),
+				)
+			}
+			volumeInput?.addEventListener("input", (e) => {
 				window.SystemDeckPlayback?.setVolume?.(e.target.value)
 			})
+			if (volumeToggle && volumeInput) {
+				volumeToggle.addEventListener("click", () => {
+					const current = Number(volumeInput.value || 0)
+					const previous = Number(
+						volumeInput.dataset.previousVolume || "0.45",
+					)
+					if (current > 0.0001) {
+						volumeInput.dataset.previousVolume = String(current)
+						volumeInput.value = "0"
+						window.SystemDeckPlayback?.setVolume?.(0)
+					} else {
+						const nextLevel = previous > 0.0001 ? previous : 0.45
+						volumeInput.value = String(nextLevel)
+						window.SystemDeckPlayback?.setVolume?.(nextLevel)
+					}
+				})
+			}
 			const seekToRatio = (ratio) => {
 				const state = window.SystemDeckPlayback?.getState?.() || {}
 				const duration = Number(state?.duration || 0)
@@ -272,31 +482,31 @@
 			}
 			const releaseSeek = () => {
 				surfaceRoot.dataset.sdMiniSeeking = "0"
-				delete ui.timeline?.dataset.dragging
+				delete timelineInput?.dataset.dragging
 			}
 			const seekFromSlider = () => {
-				const ratio = Number(ui.timeline?.value || 0)
+				const ratio = Number(timelineInput?.value || 0)
 				seekToRatio(ratio)
 			}
-			ui.timeline?.addEventListener("input", (e) => {
+			timelineInput?.addEventListener("input", (e) => {
 				surfaceRoot.dataset.sdMiniSeeking = "1"
-				ui.timeline.dataset.dragging = "true"
+				timelineInput.dataset.dragging = "true"
 			})
-			ui.timeline?.addEventListener("change", (e) => {
+			timelineInput?.addEventListener("change", (e) => {
 				seekFromSlider()
 				releaseSeek()
 			})
-			ui.timeline?.addEventListener("pointerdown", (e) => {
+			timelineInput?.addEventListener("pointerdown", (e) => {
 				surfaceRoot.dataset.sdMiniSeeking = "1"
 			})
-			ui.timeline?.addEventListener("pointerup", () => {
+			timelineInput?.addEventListener("pointerup", () => {
 				releaseSeek()
 			})
-			ui.timeline?.addEventListener("pointercancel", releaseSeek)
-			ui.timeline?.addEventListener("mouseup", releaseSeek)
-			ui.timeline?.addEventListener("touchend", releaseSeek)
-			ui.timeline?.addEventListener("keyup", releaseSeek)
-			ui.timeline?.addEventListener("blur", releaseSeek)
+			timelineInput?.addEventListener("pointercancel", releaseSeek)
+			timelineInput?.addEventListener("mouseup", releaseSeek)
+			timelineInput?.addEventListener("touchend", releaseSeek)
+			timelineInput?.addEventListener("keyup", releaseSeek)
+			timelineInput?.addEventListener("blur", releaseSeek)
 		},
 
 		updateUI(ui, state) {
@@ -309,13 +519,20 @@
 					state.title ||
 					state.nowPlaying?.metadata?.title ||
 					state.metadata?.title ||
-					(state.status === "loading" ? "Loading..." : "No source loaded."),
+					(state.status === "loading"
+						? "Loading..."
+						: "No source loaded."),
 				status: String(state.status || "stopped").toLowerCase(),
 				currentTime: Number(state.currentTime || 0),
 				duration: Number(state.duration || 0),
 				progress:
 					Number(state.duration || 0) > 0
-						? clamp(Number(state.currentTime || 0) / Number(state.duration || 0), 0, 1)
+						? clamp(
+								Number(state.currentTime || 0) /
+									Number(state.duration || 0),
+								0,
+								1,
+						  )
 						: 0,
 				artwork:
 					state.artwork ||
@@ -332,7 +549,8 @@
 			this.syncMiniPlayerSurface(surfaceRoot, miniState)
 
 			if (ui.metaTrack) {
-				ui.metaTrack.textContent = state.title || state.metadata?.title || "-"
+				ui.metaTrack.textContent =
+					state.title || state.metadata?.title || "-"
 			}
 			if (ui.metaCodec) {
 				ui.metaCodec.textContent = state.metadata?.mime || "-"
@@ -347,15 +565,13 @@
 			const hasTrack = state.currentIndex >= 0 && playlist.length > 0
 			const status = state.status || "idle"
 
-			if (ui.playlistTotal) {
-				ui.playlistTotal.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`
-			}
-
 			// 1. Control Button States
 			if (ui.play) ui.play.disabled = !hasTrack
 			if (ui.pause) ui.pause.disabled = status !== "playing"
-			if (ui.stop) ui.stop.disabled = (status === "idle" || status === "stopped") && !hasTrack
-			
+			if (ui.stop)
+				ui.stop.disabled =
+					(status === "idle" || status === "stopped") && !hasTrack
+
 			if (ui.prev) ui.prev.disabled = playlist.length <= 1
 			if (ui.next) ui.next.disabled = playlist.length <= 1
 
@@ -365,7 +581,6 @@
 					btn.disabled = status === "loading"
 				})
 			}
-
 		},
 
 		ensureProEQPanel(root) {
@@ -375,58 +590,74 @@
 				"afterbegin",
 				`<div class="sd-player-shell sd-player-v2">
 					<div data-mini-surface-slot></div>
-					<section class="sd-player-card sd-player-controls-card">
-						<header class="sd-player-card-title">PLAYER CONTROLS</header>
-						<div class="sd-player-controls-grid-v2">
-							<label class="sd-player-control-block"><span>Master Gain</span><input type="range" min="0" max="2" step="0.01" value="1" data-role="eq-master-gain"></label>
-							<label class="sd-player-check"><input type="checkbox" data-role="eq-bass-boost-visual" data-role-secondary="bass-boost"><span>Bass Boost</span></label>
-							<div class="sd-player-load-block"><label><span>Load Playlist</span><select data-role="playlist" class="sd-player-playlist-select"><option value="">-- Select Track --</option></select></label><button type="button" class="button button-primary" data-action="load-selected">Load</button><button type="button" class="button" data-action="upload-vault">Upload</button><input type="file" data-role="file-input" hidden></div>
-						</div>
-						<div class="sd-player-controls-balance"><span>Balance</span><div class="sd-player-balance" aria-hidden="true"><span>L</span><input type="range" min="-1" max="1" step="0.01" value="0" disabled><span>R</span></div></div>
-						<div class="sd-player-adv-meta"><div><span>Track</span><strong data-role="meta-track">-</strong></div><div><span>Codec</span><strong data-role="meta-codec">-</strong></div><div><span>Mode</span><strong data-role="meta-type">-</strong></div></div>
-					</section>
 					<section class="sd-player-card sd-player-eq-card">
 						<header class="sd-player-card-title">EQUALIZER</header>
-						<div class="sd-player-eq-top"><label><input type="checkbox" data-role="eq-enabled" checked><span>EQ On</span></label><label>Preset<select data-role="eq-preset"><option>Flat</option><option>Bass Boost</option><option>Warm</option><option>Bright</option><option>Vocal</option><option>Retro</option><option>Custom</option></select></label><label>Preamp<div class="sd-player-preamp-wrap"><input type="range" min="0" max="2" step="0.01" value="1" data-role="eq-master-gain"><strong data-role="eq-master-value">0.0 dB</strong></div></label></div>
-						<div class="sd-player-eq-board"><div class="sd-player-db-scale"><span>+12 dB</span><span>0 dB</span><span>-12 dB</span></div><div class="sd-player-eq-grid"><div class="sd-player-eq-guide sd-player-eq-guide-top"></div><div class="sd-player-eq-guide sd-player-eq-guide-mid"></div><div class="sd-player-eq-guide sd-player-eq-guide-bottom"></div>${["32","64","125","250","500","1K","2K","4K","8K","16K"].map((hz)=>`<label class="sd-player-eq-band"><input type="range" min="-24" max="12" step="1" value="0" data-role="eq-band" data-freq="${hz}"><span>${hz}</span></label>`).join("")}</div></div>
-						<details class="sd-player-advanced-eq"><summary>Advanced EQ</summary><div class="sd-player-advanced-eq-grid"><label><span>Band</span><select data-role="eq-advanced-band"><option value="bass">Bass</option><option value="lowMid">Low Mid</option><option value="mid">Mid</option><option value="highMid">High Mid</option><option value="treble">Treble</option></select></label><label><span>Frequency</span><input type="range" min="20" max="20000" step="1" value="1000" data-role="eq-advanced-frequency"></label><label><span>Q</span><input type="range" min="0.1" max="24" step="0.1" value="1" data-role="eq-advanced-q"></label></div></details>
-					</section>
-					<section class="sd-player-card sd-player-playlist-card">
-						<header class="sd-player-card-title">PLAYLIST</header>
-						<div class="sd-player-playlist-table" data-role="playlist-list"></div>
-						<div class="sd-player-playlist-actions"><button type="button" class="button" disabled><span class="dashicons dashicons-plus"></span> Add</button><button type="button" class="button" disabled><span class="dashicons dashicons-minus"></span> Remove</button><button type="button" class="button" disabled><span class="dashicons dashicons-list-view"></span> Clear</button><button type="button" class="button" disabled><span class="dashicons dashicons-ellipsis"></span> More</button><button type="button" class="button" disabled><span class="dashicons dashicons-portfolio"></span></button><span class="sd-player-playlist-total" data-role="playlist-total">0:00 / 0:00</span></div>
+						<div class="sd-player-eq-board"><label class="sd-player-eq-band sd-player-eq-band-preamp"><div class="sd-player-eq-lane"><span class="sd-player-eq-rail" aria-hidden="true"></span><input type="range" min="0" max="2" step="0.01" value="1" data-role="eq-master-gain"></div><span>Preamp</span></label><div class="sd-player-db-scale"><span>+12 dB</span><span>0 dB</span><span>-12 dB</span></div><div class="sd-player-eq-grid"><div class="sd-player-eq-guide sd-player-eq-guide-top"></div><div class="sd-player-eq-guide sd-player-eq-guide-mid"></div><div class="sd-player-eq-guide sd-player-eq-guide-bottom"></div>${[
+							"32",
+							"64",
+							"125",
+							"250",
+							"500",
+							"1K",
+							"2K",
+							"4K",
+							"8K",
+							"16K",
+						]
+							.map(
+								(hz) =>
+									`<label class="sd-player-eq-band"><div class="sd-player-eq-lane"><span class="sd-player-eq-rail" aria-hidden="true"></span><input type="range" min="-12" max="12" step="1" value="0" data-role="eq-band" data-freq="${hz}"></div><span>${hz}</span></label>`,
+							)
+							.join("")}</div></div>
+						<details class="sd-player-advanced-eq"><summary>Advanced EQ</summary><div class="sd-player-advanced-eq-grid"><label><span>Band</span><select data-role="eq-advanced-band"><option value="32">32 Hz</option><option value="64">64 Hz</option><option value="125">125 Hz</option><option value="250">250 Hz</option><option value="500">500 Hz</option><option value="1k">1 KHz</option><option value="2k">2 KHz</option><option value="4k">4 KHz</option><option value="8k">8 KHz</option><option value="16k">16 KHz</option></select></label><label><span>Frequency</span><input type="range" min="20" max="20000" step="1" value="1000" data-role="eq-advanced-frequency"></label><label><span>Q</span><input type="range" min="0.1" max="24" step="0.1" value="1" data-role="eq-advanced-q"></label></div></details>
 					</section>
 					<div class="sd-player-error" data-role="error" hidden></div>
 				</div>`,
 			)
 			const shell = q(root, ".sd-player-shell.sd-player-v2")
 			const slot = q(shell, "[data-mini-surface-slot]")
-			const mini = this.renderMiniPlayerSurface()
+			const mini = this.renderMiniPlayerSurface({
+				showTrackSelect: true,
+				showUpload: true,
+				showBassBoost: true,
+				compact: false,
+			})
 			slot?.replaceWith(mini)
 		},
 
 		syncEQUI(ui, eqState = {}) {
 			const bands = eqState.bands || {}
+			const advanced = eqState.advanced || {}
 			const setValue = (el, v) => {
 				if (!el) return
 				el.value = String(Math.round(Number(v) || 0))
 			}
-			setValue(ui.eqBass, bands.bass)
-			setValue(ui.eqLowMid, bands.lowMid)
-			setValue(ui.eqMid, bands.mid)
-			setValue(ui.eqHighMid, bands.highMid)
-			setValue(ui.eqTreble, bands.treble)
+			const band32 = Number(bands["32"] ?? 0)
+			const band64 = Number(bands["64"] ?? 0)
+			const band125 = Number(bands["125"] ?? 0)
+			const band250 = Number(bands["250"] ?? 0)
+			const band500 = Number(bands["500"] ?? 0)
+			const band1k = Number(bands["1k"] ?? bands["1K"] ?? 0)
+			const band2k = Number(bands["2k"] ?? bands["2K"] ?? 0)
+			const band4k = Number(bands["4k"] ?? bands["4K"] ?? 0)
+			const band8k = Number(bands["8k"] ?? bands["8K"] ?? 0)
+			const band16k = Number(bands["16k"] ?? bands["16K"] ?? 0)
+			setValue(ui.eqBass, band32)
+			setValue(ui.eqLowMid, band250)
+			setValue(ui.eqMid, band1k)
+			setValue(ui.eqHighMid, band4k)
+			setValue(ui.eqTreble, band16k)
 			const mapFreq = {
-				"32": bands.bass,
-				"64": bands.bass,
-				"125": bands.lowMid,
-				"250": bands.lowMid,
-				"500": bands.mid,
-				"1K": bands.mid,
-				"2K": bands.highMid,
-				"4K": bands.highMid,
-				"8K": bands.treble,
-				"16K": bands.treble,
+				32: band32,
+				64: band64,
+				125: band125,
+				250: band250,
+				500: band500,
+				"1K": band1k,
+				"2K": band2k,
+				"4K": band4k,
+				"8K": band8k,
+				"16K": band16k,
 			}
 			;(ui.eqBands10 || []).forEach((el) => {
 				const freq = String(el?.dataset?.freq || "")
@@ -434,12 +665,18 @@
 					setValue(el, mapFreq[freq])
 				}
 			})
-			if (ui.eqMasterGainAll?.length && Number.isFinite(Number(eqState.masterGain))) {
+			if (
+				ui.eqMasterGainAll?.length &&
+				Number.isFinite(Number(eqState.masterGain))
+			) {
 				ui.eqMasterGainAll.forEach((el) => {
 					el.value = String(Number(eqState.masterGain))
 				})
 			}
-			if (ui.eqMasterValueAll?.length && Number.isFinite(Number(eqState.masterGain))) {
+			if (
+				ui.eqMasterValueAll?.length &&
+				Number.isFinite(Number(eqState.masterGain))
+			) {
 				const db = (Math.max(0, Number(eqState.masterGain)) - 1) * 12
 				ui.eqMasterValueAll.forEach((el) => {
 					el.textContent = `${db.toFixed(1)} dB`
@@ -448,57 +685,46 @@
 			if (ui.bass && typeof eqState.bassBoost === "boolean") {
 				ui.bass.checked = !!eqState.bassBoost
 			}
-			if (ui.eqBassBoostVisual && typeof eqState.bassBoost === "boolean") {
+			if (
+				ui.eqBassBoostVisual &&
+				typeof eqState.bassBoost === "boolean"
+			) {
 				ui.eqBassBoostVisual.checked = !!eqState.bassBoost
 			}
 			if (ui.eqEnabled) {
-				ui.eqEnabled.checked = String(eqState.preset || "Flat") !== "Flat"
+				ui.eqEnabled.checked =
+					String(eqState.preset || "Flat") !== "Flat"
 			}
 			if (ui.eqPreset) {
 				const preset = String(eqState.preset || "Custom")
 				ui.eqPreset.value = EQ_PRESETS[preset] ? preset : "Custom"
 			}
-		},
-
-		renderPlaylistPane(ui, currentIndex = -1) {
-			if (!ui.playlistList || !ui.playlist) return
-			const options = Array.from(ui.playlist.options || []).filter((opt) => opt.value !== "")
-			if (!options.length) {
-				ui.playlistList.innerHTML = `<div class="sd-player-playlist-empty">No tracks</div>`
-				return
+			const selectedAdvancedBand = String(
+				ui.eqAdvancedBand?.value || "1k",
+			)
+			const advancedBandState =
+				advanced[selectedAdvancedBand] || advanced["1k"] || null
+			if (advancedBandState) {
+				if (ui.eqAdvancedFreq) {
+					ui.eqAdvancedFreq.value = String(
+						Number(advancedBandState.frequency || 1000),
+					)
+				}
+				if (ui.eqAdvancedQ) {
+					ui.eqAdvancedQ.value = String(
+						Number(advancedBandState.q || 1),
+					)
+				}
 			}
-			const playlist = this.playlists.get(ui.playlist) || []
-			const rows = options
-				.map((opt) => {
-					const idx = Number(opt.value)
-					const item = playlist[idx] || {}
-					const cls = idx === Number(currentIndex) ? " is-playing" : ""
-					const durSeconds = Number(item?.metadata?.duration || item?.duration || 0)
-					const duration = durSeconds > 0 ? formatTime(durSeconds) : "--:--"
-					const icon = cls ? '<span class="dashicons dashicons-controls-play"></span>' : ""
-					return `<button type="button" class="sd-player-playlist-row${cls}" data-index="${idx}">
-						<span class="sd-player-playlist-number">${icon}${idx + 1}</span>
-						<span class="sd-player-playlist-title">${this.escapeHtml(opt.textContent || "")}</span>
-						<span class="sd-player-playlist-duration">${duration}</span>
-						<span class="sd-player-playlist-menu">⋮</span>
-					</button>`
-				})
-				.join("")
-			ui.playlistList.innerHTML = `<div class="sd-player-playlist-head">
-				<span class="sd-player-playlist-number">#</span>
-				<span class="sd-player-playlist-title">Title</span>
-				<span class="sd-player-playlist-duration">Duration</span>
-				<span class="sd-player-playlist-menu"></span>
-			</div>${rows}`
 		},
 
 		normalizeTrack(item, group) {
 			const title = String(
 				item?.title ||
-				item?.label ||
-				item?.name ||
-				item?.id ||
-				"Untitled Track"
+					item?.label ||
+					item?.name ||
+					item?.id ||
+					"Untitled Track",
 			)
 
 			const origin = item.origin || group?.toLowerCase() || "media"
@@ -519,8 +745,12 @@
 			try {
 				const response = await $.post(window.ajaxurl, {
 					action: "sd_player_get_playlist",
-					nonce: window.sd_vars?.nonce || window.SystemDeckSecurity?.nonce,
-					workspace_id: ui.playlist.closest("[data-workspace-id]")?.dataset.workspaceId || "default"
+					nonce:
+						window.sd_vars?.nonce ||
+						window.SystemDeckSecurity?.nonce,
+					workspace_id:
+						ui.playlist.closest("[data-workspace-id]")?.dataset
+							.workspaceId || "default",
 				})
 
 				if (response.success) {
@@ -537,7 +767,9 @@
 						}
 
 						playlist = [
-							...builtins.map((i) => this.normalizeTrack(i, "Built-in")),
+							...builtins.map((i) =>
+								this.normalizeTrack(i, "Built-in"),
+							),
 							...(data.vault || []).map((i) =>
 								this.normalizeTrack(i, "Vault"),
 							),
@@ -568,24 +800,26 @@
 		},
 
 		escapeHtml(value) {
-			return $("<div>").text(String(value ?? "")).html()
+			return $("<div>")
+				.text(String(value ?? ""))
+				.html()
 		},
 
 		renderPlaylist(ui) {
 			if (!ui.playlist) return
 			const playlist = this.playlists.get(ui.playlist) || []
-			
+
 			let html = `<option value="">-- Select Track --</option>`
-			
+
 			const groups = {
-				'Built-in': [],
-				'Vault': [],
-				'Media': []
+				"Built-in": [],
+				Vault: [],
+				Media: [],
 			}
 
 			// Maintain original order but group visually
 			playlist.forEach((item, index) => {
-				const group = item.group || 'Media'
+				const group = item.group || "Media"
 				if (groups[group]) {
 					groups[group].push({ item, index })
 				}
@@ -595,23 +829,34 @@
 				if (!items.length) continue
 				html += `<optgroup label="${label}">`
 				items.forEach(({ item, index }) => {
-					const title = this.escapeHtml(item.title || item.label || item.name || item.id || "Untitled Track")
+					const title = this.escapeHtml(
+						item.title ||
+							item.label ||
+							item.name ||
+							item.id ||
+							"Untitled Track",
+					)
 					html += `<option value="${index}">${title}</option>`
 				})
 				html += `</optgroup>`
 			}
 
 			ui.playlist.innerHTML = html
-			this.renderPlaylistPane(ui, Number(ui.playlist.value))
 
 			if (window.SYSTEMDECK_DEBUG_AUDIO) {
 				console.log("[SystemDeckPlayer] rendered options", {
 					select: ui.playlist,
 					optionCount: ui.playlist.options.length,
 					html: ui.playlist.innerHTML,
-					visible: !!(ui.playlist.offsetWidth || ui.playlist.offsetHeight || ui.playlist.getClientRects().length),
-					computedDisplay: window.getComputedStyle(ui.playlist).display,
-					computedVisibility: window.getComputedStyle(ui.playlist).visibility,
+					visible: !!(
+						ui.playlist.offsetWidth ||
+						ui.playlist.offsetHeight ||
+						ui.playlist.getClientRects().length
+					),
+					computedDisplay: window.getComputedStyle(ui.playlist)
+						.display,
+					computedVisibility: window.getComputedStyle(ui.playlist)
+						.visibility,
 				})
 			}
 		},
@@ -645,17 +890,29 @@
 				}
 			} finally {
 				// Unlock after a small debounce
-				setTimeout(() => { this._playLock = false }, 200)
+				setTimeout(() => {
+					this._playLock = false
+				}, 200)
 			}
 		},
 
 		async uploadToVault(ui, file) {
 			const formData = new FormData()
 			formData.append("action", "sd_core_vault_ajax_upload_file")
-			formData.append("_ajax_nonce", window.sd_vars?.nonce || window.SystemDeckSecurity?.nonce || "")
+			formData.append(
+				"_ajax_nonce",
+				window.sd_vars?.nonce || window.SystemDeckSecurity?.nonce || "",
+			)
 			formData.append("vault_file", file)
-			formData.append("workspace_id", ui.playlist.closest("[data-workspace-id]")?.dataset.workspaceId || "default")
-			formData.append("workspace_name", window.sd_vars?.active_workspace_title || "")
+			formData.append(
+				"workspace_id",
+				ui.playlist.closest("[data-workspace-id]")?.dataset
+					.workspaceId || "default",
+			)
+			formData.append(
+				"workspace_name",
+				window.sd_vars?.active_workspace_title || "",
+			)
 			formData.append("is_shared", "0")
 			formData.append("priority", "low")
 
@@ -665,29 +922,39 @@
 					type: "POST",
 					data: formData,
 					processData: false,
-					contentType: false
+					contentType: false,
 				})
 
 				if (response.success && response.data) {
-					console.log("[SystemDeckPlayer] Upload success, refreshing playlist", response.data)
+					console.log(
+						"[SystemDeckPlayer] Upload success, refreshing playlist",
+						response.data,
+					)
 					await this.fetchPlaylist(ui)
-					
+
 					const playlist = this.playlists.get(ui.playlist) || []
 					const newId = String(response.data.id)
-					
+
 					// Find new item by ID or path signature in source
-					const newIndex = playlist.findIndex(i => 
-						String(i.id) === newId || 
-						(i.source && String(i.source).includes(newId))
+					const newIndex = playlist.findIndex(
+						(i) =>
+							String(i.id) === newId ||
+							(i.source && String(i.source).includes(newId)),
 					)
 
 					if (newIndex !== -1) {
 						ui.playlist.value = newIndex
 					} else {
-						console.warn("[SystemDeckPlayer] New item not found in refreshed playlist", { newId, response: response.data })
+						console.warn(
+							"[SystemDeckPlayer] New item not found in refreshed playlist",
+							{ newId, response: response.data },
+						)
 					}
 				} else {
-					alert("Upload failed: " + (response.data?.error || "Unknown error"))
+					alert(
+						"Upload failed: " +
+							(response.data?.error || "Unknown error"),
+					)
 				}
 			} catch (e) {
 				console.error("Upload error", e)
@@ -706,20 +973,34 @@
 				miniSurface._sdPlayerPlaySelected = () => this.playSelected(ui)
 			}
 			this.bindMiniPlayerSurface(miniSurface)
-			
+
 			ui.playlist?.addEventListener("change", async () => {
+				const selectedValue = String(ui.playlist.value ?? "")
+				if (ui.playlist.dataset.sdLastAutoPlay === selectedValue) return
+				ui.playlist.dataset.sdLastAutoPlay = selectedValue
 				await window.SystemDeckAudio?.resume?.()
 				this.playSelected(ui)
 			})
 
-			ui.loadSelected?.addEventListener("click", async () => {
-				await window.SystemDeckAudio?.resume?.()
-				this.playSelected(ui)
-			})
-
+			const onBassBoostChange = (checked) => {
+				const next = !!checked
+				if (ui.bass && ui.bass.checked !== next) ui.bass.checked = next
+				if (
+					ui.eqBassBoostVisual &&
+					ui.eqBassBoostVisual.checked !== next
+				) {
+					ui.eqBassBoostVisual.checked = next
+				}
+				window.SystemDeckPlayback?.setBassBoost(next)
+			}
 			ui.bass?.addEventListener("change", (e) => {
-				window.SystemDeckPlayback?.setBassBoost(e.target.checked)
+				onBassBoostChange(e.target.checked)
 			})
+			if (ui.eqBassBoostVisual && ui.eqBassBoostVisual !== ui.bass) {
+				ui.eqBassBoostVisual.addEventListener("change", (e) => {
+					onBassBoostChange(e.target.checked)
+				})
+			}
 
 			ui.eqPreset?.addEventListener("change", (e) => {
 				const name = String(e.target.value || "Flat")
@@ -727,12 +1008,10 @@
 				const preset = EQ_PRESETS[name]
 				if (!preset) return
 				window.SystemDeckPlayback?.setEQ(preset)
-				this.syncEQUI(ui, {
-					...preset,
-					preset: name,
-					bassBoost: !!ui.bass?.checked,
-					masterGain: Number(ui.eqMasterGain?.value || 1),
-				})
+				const liveState = window.SystemDeckAudio?.getEQState?.()
+				if (liveState) {
+					this.syncEQUI(ui, liveState)
+				}
 			})
 
 			const bindBand = (el, band) => {
@@ -748,16 +1027,16 @@
 			bindBand(ui.eqHighMid, "highMid")
 			bindBand(ui.eqTreble, "treble")
 			const freqBandMap = {
-				"32": "bass",
-				"64": "bass",
-				"125": "lowMid",
-				"250": "lowMid",
-				"500": "mid",
-				"1K": "mid",
-				"2K": "highMid",
-				"4K": "highMid",
-				"8K": "treble",
-				"16K": "treble",
+				32: "32",
+				64: "64",
+				125: "125",
+				250: "250",
+				500: "500",
+				"1K": "1k",
+				"2K": "2k",
+				"4K": "4k",
+				"8K": "8k",
+				"16K": "16k",
 			}
 			;(ui.eqBands10 || []).forEach((el) => {
 				el.addEventListener("input", (e) => {
@@ -780,7 +1059,6 @@
 				}
 				window.SystemDeckPlayback?.setEQ(EQ_PRESETS.Flat)
 			})
-
 			;(ui.eqMasterGainAll || []).forEach((slider) => {
 				slider.addEventListener("input", (e) => {
 					window.SystemDeckPlayback?.setMasterGain?.(
@@ -788,29 +1066,42 @@
 					)
 				})
 			})
-			ui.playlistList?.addEventListener("click", (e) => {
-				const btn = e.target.closest("[data-index]")
-				if (!btn) return
-				const nextIndex = Number(btn.dataset.index || -1)
-				if (!Number.isInteger(nextIndex) || nextIndex < 0) return
-				if (ui.playlist) ui.playlist.value = String(nextIndex)
-				this.playSelected(ui)
-			})
-
 			const resolveAdvancedBand = () =>
-				String(ui.eqAdvancedBand?.value || "mid")
+				String(ui.eqAdvancedBand?.value || "1k")
+			const syncAdvancedControlsForBand = () => {
+				const eqState = window.SystemDeckAudio?.getEQState?.() || {}
+				const advanced = eqState.advanced || {}
+				const bandState =
+					advanced[resolveAdvancedBand()] || advanced["1k"] || null
+				if (!bandState) return
+				if (ui.eqAdvancedFreq) {
+					ui.eqAdvancedFreq.value = String(
+						Number(bandState.frequency || 1000),
+					)
+				}
+				if (ui.eqAdvancedQ) {
+					ui.eqAdvancedQ.value = String(Number(bandState.q || 1))
+				}
+			}
+			ui.eqAdvancedBand?.addEventListener(
+				"change",
+				syncAdvancedControlsForBand,
+			)
 			ui.eqAdvancedFreq?.addEventListener("input", (e) => {
 				window.SystemDeckAudio?.setBandFrequency?.(
 					resolveAdvancedBand(),
 					Number(e.target.value || 1000),
 				)
+				if (ui.eqPreset) ui.eqPreset.value = "Custom"
 			})
 			ui.eqAdvancedQ?.addEventListener("input", (e) => {
 				window.SystemDeckAudio?.setBandQ?.(
 					resolveAdvancedBand(),
 					Number(e.target.value || 1),
 				)
+				if (ui.eqPreset) ui.eqPreset.value = "Custom"
 			})
+			syncAdvancedControlsForBand()
 
 			const updateEQ = () => {
 				const safeDb = (input) => {
@@ -824,7 +1115,7 @@
 					window.SystemDeckPlayback.setEQ(
 						safeDb(ui.mixBass),
 						safeDb(ui.mixSynth),
-						safeDb(ui.mixDrums)
+						safeDb(ui.mixDrums),
 					)
 				}
 			}
@@ -844,7 +1135,7 @@
 			// Global listeners bound only once
 			if (!this.globalEventsBound) {
 				document.addEventListener("systemdeck:playback-state", (e) => {
-					this.widgets.forEach(w => {
+					this.widgets.forEach((w) => {
 						this.states.set(w.ui.timeline, e.detail) // Store state for seek authority
 						this.updateUI(w.ui, e.detail)
 					})
@@ -852,18 +1143,23 @@
 
 				document.addEventListener("systemdeck:playlist-state", (e) => {
 					const { currentIndex, playlist } = e.detail
-					this.widgets.forEach(w => {
-						if (w.ui.playlist && playlist[currentIndex] !== undefined) {
+					this.widgets.forEach((w) => {
+						if (
+							w.ui.playlist &&
+							playlist[currentIndex] !== undefined
+						) {
 							w.ui.playlist.value = currentIndex
-							this.renderPlaylistPane(w.ui, currentIndex)
 						}
 					})
 				})
 
-				window.addEventListener("systemdeck:audio-player-request", (e) => {
-					const { source, meta } = e.detail || {}
-					window.SystemDeckPlayback?.play(source, meta)
-				})
+				window.addEventListener(
+					"systemdeck:audio-player-request",
+					(e) => {
+						const { source, meta } = e.detail || {}
+						window.SystemDeckPlayback?.play(source, meta)
+					},
+				)
 
 				window.addEventListener("systemdeck:eq-state", (e) => {
 					const eqState = e.detail || {}
@@ -883,7 +1179,7 @@
 				const ui = this.cacheUI(root)
 				this.widgets.set(root, { root, ui })
 				this.bindEvents(root, ui)
-				
+
 				if (window.SystemDeckPlayback) {
 					this.updateUI(ui, window.SystemDeckPlayback.getState())
 				}
@@ -914,7 +1210,11 @@
 				const ui = entry.ui
 				const playlist = this.playlists.get(ui.playlist) || []
 				// Only re-render if it's actually reverted to "Loading" but we have data
-				if (ui.playlist && ui.playlist.options.length <= 1 && playlist.length > 0) {
+				if (
+					ui.playlist &&
+					ui.playlist.options.length <= 1 &&
+					playlist.length > 0
+				) {
 					this.renderPlaylist(ui)
 				}
 			}
@@ -939,11 +1239,10 @@
 			this.mountInterval = setInterval(() => {
 				this.refreshMountedWidgets()
 			}, 3000)
-		}
+		},
 	}
 
 	$(function () {
 		PlayerUI.init()
 	})
-
 })(jQuery)

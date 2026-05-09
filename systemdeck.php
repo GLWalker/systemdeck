@@ -3,7 +3,7 @@
 /**
  * Plugin Name: SystemDeck
  * Plugin URI:  https://systemdeck.dev
- * Description: High-performance runtime shell for WordPress. Connects wp-admin to a unified React workspace.
+ * Description: WordPress Creative Operations Layer.
  * Version:     3.3.1
  * Author:      SystemDeck
  * Text Domain: systemdeck
@@ -29,7 +29,6 @@ if (file_exists(SYSTEMDECK_PATH . 'core/Autoloader.php')) {
     require_once SYSTEMDECK_PATH . 'core/Autoloader.php';
     \SystemDeck\Core\Autoloader::register();
 }
-
 
 if (defined('WP_CLI') && WP_CLI && file_exists(SYSTEMDECK_PATH . 'devtools/cli-registry.php')) {
     require_once SYSTEMDECK_PATH . 'devtools/cli-registry.php';
@@ -181,7 +180,6 @@ function systemdeck_register_infrastructure(): void
     if (class_exists('\\SystemDeck\\Core\\CanvasEngine')) {
         \SystemDeck\Core\CanvasEngine::init();
     }
-
 }
 
 function systemdeck_rebuild_snapshot_now(): void
@@ -595,7 +593,6 @@ class SystemDeck_Assets
         add_action('enqueue_block_editor_assets', [self::class, 'register_assets']);
         add_action('wp_enqueue_scripts', [self::class, 'register_assets']);
         add_action('admin_enqueue_scripts', [self::class, 'register_assets']);
-
 
         // Canvas Engine (Runtime)
         if (class_exists('SystemDeck\Core\CanvasEngine')) {
@@ -1097,7 +1094,6 @@ class SystemDeck_Assets
             if (class_exists('\\SystemDeck\\Core\\AppRuntime')) {
                 \SystemDeck\Core\AppRuntime::preload_registered_app_assets($workspaces);
             }
-
         }
     }
 
@@ -1113,7 +1109,7 @@ class SystemDeck_Assets
         }
         $incognito_mode = get_user_meta(get_current_user_id(), 'sd_incognito_mode', true) === 'true';
         $theme_str = 'light';
-        ?>
+?>
 
         <div id="systemdeck" role="dialog" aria-hidden="true"
             class="sd-closed wp-core-ui admin-color-<?php echo esc_attr($admin_color); ?> <?php echo esc_attr($default_dock); ?><?php echo $incognito_mode ? ' incognito' : ''; ?>"
@@ -1210,7 +1206,7 @@ class SystemDeck_Assets
 
             </div>
         </div>
-        <?php
+<?php
 
         return ob_get_clean();
     }
