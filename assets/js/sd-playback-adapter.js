@@ -40,6 +40,44 @@
 			this._lastEmittedAt = 0
 			this._midiLoadToken = 0
 			this._activeRoute = "none"
+			this._lastTrackEndedSignature = ""
+			this._bindTrackEndedBridge()
+		}
+
+		_bindTrackEndedBridge() {
+			document.addEventListener("systemdeck:audio-player-state", (event) => {
+				const detail = event?.detail || {}
+				const reason = String(detail?.reason || "").toLowerCase()
+				if (reason !== "file:ended" && reason !== "midi:ended") return
+				this._emitTrackEnded({
+					source: "engine",
+					reason,
+					mode: this.mode,
+				})
+			})
+		}
+
+		_emitTrackEnded(detail = {}) {
+			const state = this.getState()
+			const signature = [
+				String(detail?.source || "unknown"),
+				String(detail?.reason || ""),
+				String(state?.mode || this.mode || ""),
+				String(state?.currentIndex ?? this.currentIndex ?? -1),
+				String(this.playbackId || 0),
+			].join("|")
+			if (signature === this._lastTrackEndedSignature) return
+			this._lastTrackEndedSignature = signature
+			document.dispatchEvent(
+				new CustomEvent("systemdeck:track-ended", {
+					detail: {
+						...detail,
+						playbackId: this.playbackId,
+						mode: state?.mode || this.mode || null,
+						currentIndex: Number(state?.currentIndex ?? this.currentIndex ?? -1),
+					},
+				}),
+			)
 		}
 
 		/**
@@ -762,7 +800,18 @@
 			
 			audio.addEventListener("ended", () => {
 				if (this.playbackId !== pid) return
-				this.next()
+				this.emitState("stopped", {
+					...meta,
+					currentTime: Number.isFinite(audio.duration) ? audio.duration : 0,
+					duration: Number.isFinite(audio.duration) ? audio.duration : 0,
+					source: url,
+					engine: this.mode
+				})
+				this._emitTrackEnded({
+					source: "native",
+					reason: "native:ended",
+					mode: this.mode,
+				})
 			})
 
 			audio.addEventListener("error", (e) => {

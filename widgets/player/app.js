@@ -60,6 +60,10 @@
 		widgets: new Map(),
 		playlists: new WeakMap(),
 		states: new WeakMap(), // Cache current state per widget for seek authority
+		autoplayEnabled: false,
+		repeatTrackEnabled: false,
+		_lastPlaybackStatus: "idle",
+		_lastHandledTrackEndKey: "",
 
 		cacheUI(root) {
 			return {
@@ -186,6 +190,8 @@
 							<button type="button" class="button button-small button-primary" data-action="play-selected" data-role="transport-main" aria-label="Play" title="Play"><span class="dashicons dashicons-controls-play sd-button-icon"></span><span class="screen-reader-text">Play</span></button>
 							<button type="button" class="button button-small" data-action="pause" aria-label="Pause" title="Pause"><span class="dashicons dashicons-controls-pause sd-button-icon"></span><span class="screen-reader-text">Pause</span></button>
 							<button type="button" class="button button-small" data-action="next" aria-label="Next" title="Next"><span class="dashicons dashicons-controls-forward sd-button-icon"></span><span class="screen-reader-text">Next</span></button>
+							<button type="button" class="button button-small" data-action="autoplay" aria-label="Autoplay" title="Autoplay" aria-pressed="false"><span class="dashicons dashicons-image-rotate sd-button-icon"></span><span class="screen-reader-text">Autoplay</span></button>
+							<button type="button" class="button button-small" data-action="repeat-track" aria-label="Repeat Track" title="Repeat Track" aria-pressed="false"><span class="dashicons dashicons-controls-repeat sd-button-icon"></span><span class="screen-reader-text">Repeat Track</span></button>
 						</div>
 					</div>
 				</div>
@@ -378,6 +384,12 @@
 			const stopBtn = surfaceRoot.querySelector('[data-action="stop"]')
 			const prevBtn = surfaceRoot.querySelector('[data-action="prev"]')
 			const nextBtn = surfaceRoot.querySelector('[data-action="next"]')
+			const autoplayBtn = surfaceRoot.querySelector(
+				'[data-action="autoplay"]',
+			)
+			const repeatTrackBtn = surfaceRoot.querySelector(
+				'[data-action="repeat-track"]',
+			)
 			const volumeInput = surfaceRoot.querySelector(
 				'[data-control="volume"], [data-role="volume"]',
 			)
@@ -452,6 +464,23 @@
 					window.SystemDeckPlayback?.next?.(),
 				)
 			}
+			if (autoplayBtn && autoplayBtn.dataset.sdMiniBound !== "1") {
+				autoplayBtn.dataset.sdMiniBound = "1"
+				autoplayBtn.addEventListener("click", () => {
+					this.autoplayEnabled = !this.autoplayEnabled
+					this.syncTransportModeUI()
+				})
+			}
+			if (
+				repeatTrackBtn &&
+				repeatTrackBtn.dataset.sdMiniBound !== "1"
+			) {
+				repeatTrackBtn.dataset.sdMiniBound = "1"
+				repeatTrackBtn.addEventListener("click", () => {
+					this.repeatTrackEnabled = !this.repeatTrackEnabled
+					this.syncTransportModeUI()
+				})
+			}
 			volumeInput?.addEventListener("input", (e) => {
 				window.SystemDeckPlayback?.setVolume?.(e.target.value)
 			})
@@ -507,6 +536,72 @@
 			timelineInput?.addEventListener("touchend", releaseSeek)
 			timelineInput?.addEventListener("keyup", releaseSeek)
 			timelineInput?.addEventListener("blur", releaseSeek)
+			this.syncTransportModeUI()
+		},
+
+		syncTransportModeUI() {
+			this.widgets.forEach(({ root }) => {
+				const autoplayBtn = root.querySelector(
+					'[data-action="autoplay"]',
+				)
+				const repeatTrackBtn = root.querySelector(
+					'[data-action="repeat-track"]',
+				)
+				if (autoplayBtn) {
+					autoplayBtn.classList.toggle(
+						"is-active",
+						!!this.autoplayEnabled,
+					)
+					autoplayBtn.setAttribute(
+						"aria-pressed",
+						this.autoplayEnabled ? "true" : "false",
+					)
+				}
+				if (repeatTrackBtn) {
+					repeatTrackBtn.classList.toggle(
+						"is-active",
+						!!this.repeatTrackEnabled,
+					)
+					repeatTrackBtn.setAttribute(
+						"aria-pressed",
+						this.repeatTrackEnabled ? "true" : "false",
+					)
+				}
+			})
+		},
+
+		handleTrackEnded(detail = {}) {
+			const state = window.SystemDeckPlayback?.getState?.() || {}
+			const playlist = Array.isArray(state?.playlist) ? state.playlist : []
+			const currentIndex = Number(state?.currentIndex)
+			const endKey = String(
+				detail?.playbackId ??
+					`${detail?.mode || state?.mode || "unknown"}:${currentIndex}`,
+			)
+			if (this._lastHandledTrackEndKey === endKey) return
+			this._lastHandledTrackEndKey = endKey
+
+			if (this.repeatTrackEnabled && currentIndex >= 0 && playlist[currentIndex]) {
+				window.SystemDeckPlayback?.playIndex?.(currentIndex)
+				return
+			}
+
+			if (!this.autoplayEnabled) return
+			if (currentIndex < 0 || !playlist.length) return
+			for (let i = currentIndex + 1; i < playlist.length; i += 1) {
+				const nextItem = playlist[i]
+				if (!nextItem) continue
+				const source = String(
+					nextItem.source ||
+						nextItem.url ||
+						nextItem.stream_url ||
+						nextItem.id ||
+						"",
+				)
+				if (!source) continue
+				window.SystemDeckPlayback?.playIndex?.(i)
+				return
+			}
 		},
 
 		updateUI(ui, state) {
@@ -592,7 +687,7 @@
 					<div data-mini-surface-slot></div>
 					<section class="sd-player-card sd-player-eq-card">
 						<header class="sd-player-card-title">EQUALIZER</header>
-						<div class="sd-player-eq-board"><label class="sd-player-eq-band sd-player-eq-band-preamp"><div class="sd-player-eq-lane"><span class="sd-player-eq-rail" aria-hidden="true"></span><input type="range" min="0" max="2" step="0.01" value="1" data-role="eq-master-gain"></div><span>Preamp</span></label><div class="sd-player-db-scale"><span>+12 dB</span><span>0 dB</span><span>-12 dB</span></div><div class="sd-player-eq-grid"><div class="sd-player-eq-guide sd-player-eq-guide-top"></div><div class="sd-player-eq-guide sd-player-eq-guide-mid"></div><div class="sd-player-eq-guide sd-player-eq-guide-bottom"></div>${[
+						<div class="sd-player-eq-preamp-row"><label><span>Preamp</span><input type="range" min="0" max="2" step="0.01" value="1" data-role="eq-master-gain"></label></div><div class="sd-player-eq-board"><div class="sd-player-db-scale"><span>+12 dB</span><span>0 dB</span><span>-12 dB</span></div><div class="sd-player-eq-scroll"><div class="sd-player-eq-grid"><div class="sd-player-eq-guide sd-player-eq-guide-top"></div><div class="sd-player-eq-guide sd-player-eq-guide-mid"></div><div class="sd-player-eq-guide sd-player-eq-guide-bottom"></div>${[
 							"32",
 							"64",
 							"125",
@@ -608,7 +703,7 @@
 								(hz) =>
 									`<label class="sd-player-eq-band"><div class="sd-player-eq-lane"><span class="sd-player-eq-rail" aria-hidden="true"></span><input type="range" min="-12" max="12" step="1" value="0" data-role="eq-band" data-freq="${hz}"></div><span>${hz}</span></label>`,
 							)
-							.join("")}</div></div>
+							.join("")}</div></div></div>
 						<details class="sd-player-advanced-eq"><summary>Advanced EQ</summary><div class="sd-player-advanced-eq-grid"><label><span>Band</span><select data-role="eq-advanced-band"><option value="32">32 Hz</option><option value="64">64 Hz</option><option value="125">125 Hz</option><option value="250">250 Hz</option><option value="500">500 Hz</option><option value="1k">1 KHz</option><option value="2k">2 KHz</option><option value="4k">4 KHz</option><option value="8k">8 KHz</option><option value="16k">16 KHz</option></select></label><label><span>Frequency</span><input type="range" min="20" max="20000" step="1" value="1000" data-role="eq-advanced-frequency"></label><label><span>Q</span><input type="range" min="0.1" max="24" step="0.1" value="1" data-role="eq-advanced-q"></label></div></details>
 					</section>
 					<div class="sd-player-error" data-role="error" hidden></div>
@@ -944,6 +1039,72 @@
 
 					if (newIndex !== -1) {
 						ui.playlist.value = newIndex
+						const uploadedItem = playlist[newIndex] || {}
+						const sourceUrl = String(
+							uploadedItem.source ||
+								uploadedItem.url ||
+								response.data.stream_url ||
+								response.data.url ||
+								"",
+						)
+						if (sourceUrl) {
+							const detectedMime = String(
+								uploadedItem.mime ||
+									response.data.mime ||
+									file.type ||
+									"",
+							).toLowerCase()
+							const detectedName = String(
+								uploadedItem.title ||
+									uploadedItem.filename ||
+									response.data.title ||
+									file.name ||
+									"",
+							).toLowerCase()
+							const isMidi =
+								detectedMime.includes("midi") ||
+								detectedName.endsWith(".mid") ||
+								detectedName.endsWith(".midi")
+							await window.SystemDeckAudio?.resume?.()
+							document.dispatchEvent(
+								new CustomEvent("systemdeck:vault-play", {
+									detail: {
+										url: sourceUrl,
+										meta: {
+											id: String(
+												uploadedItem.id ||
+													response.data.id ||
+													"",
+											),
+											title:
+												uploadedItem.title ||
+												uploadedItem.filename ||
+												response.data.title ||
+												file.name ||
+												"Uploaded Media",
+											mime:
+												uploadedItem.mime ||
+												response.data.mime ||
+												file.type ||
+												"",
+											origin:
+												uploadedItem.origin ||
+												"vault-media",
+											mediaType: isMidi
+												? "midi"
+												: "file",
+											midiDerivative:
+												uploadedItem.midi_derivative ||
+												response.data
+													.midi_derivative ||
+												null,
+										},
+									},
+								}),
+							)
+						} else {
+							await this.playSelected(ui)
+						}
 					} else {
 						console.warn(
 							"[SystemDeckPlayer] New item not found in refreshed playlist",
@@ -1139,6 +1300,9 @@
 						this.states.set(w.ui.timeline, e.detail) // Store state for seek authority
 						this.updateUI(w.ui, e.detail)
 					})
+				})
+				document.addEventListener("systemdeck:track-ended", (e) => {
+					this.handleTrackEnded(e.detail || {})
 				})
 
 				document.addEventListener("systemdeck:playlist-state", (e) => {
