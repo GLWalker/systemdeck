@@ -190,15 +190,9 @@ class Assets
                 'deps' => ['sd-pins', 'dashicons'],
             ],
             [
-                'handle' => 'sd-legacy-common',
-                'path' => 'assets/css/sd-common.css',
-                // Load order: shell → common → grid → legacy
-                'deps' => ['sd-grid', 'dashicons'],
-            ],
-            [
                 'handle' => 'sd-screen-meta',
                 'path' => 'assets/css/sd-screen-meta.css',
-                'deps' => ['sd-legacy-common', 'dashicons'],
+                'deps' => ['sd-common', 'dashicons'],
             ],
         ];
     }

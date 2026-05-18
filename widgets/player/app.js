@@ -27,6 +27,50 @@
 		const sec = Math.floor(value % 60)
 		return `${min}:${sec.toString().padStart(2, "0")}`
 	}
+	const ensureStylesheet = (href, marker) => {
+		if (!href) return
+		if (document.querySelector(`link[data-sd-style="${marker}"]`)) return
+		const hasHref = Array.from(document.querySelectorAll("link[rel='stylesheet']")).some(
+			(node) => String(node.href || "").indexOf(href) !== -1,
+		)
+		if (hasHref) return
+		const link = document.createElement("link")
+		link.rel = "stylesheet"
+		link.href = href
+		link.dataset.sdStyle = marker
+		document.head.appendChild(link)
+	}
+	const ensureDashiconsFallback = () => {
+		const existingFallback = document.getElementById(
+			"systemdeck-dashicons-fallback",
+		)
+		if (existingFallback) return
+		const hasDashicons = Array.from(
+			document.querySelectorAll("link[rel='stylesheet']"),
+		).some((node) => String(node.href || "").includes("/dashicons"))
+		if (hasDashicons) return
+		const link = document.createElement("link")
+		link.id = "systemdeck-dashicons-fallback"
+		link.rel = "stylesheet"
+		link.href = `${window.location.origin}/wp-includes/css/dashicons.min.css`
+		document.head.appendChild(link)
+	}
+	const ensureModalPlayerAssets = () => {
+		const playerScript = document.querySelector(
+			'script[src*="widgets/player/app.js"]',
+		)
+		const playerScriptSrc = String(playerScript?.src || "")
+		if (playerScriptSrc.includes("/widgets/player/app.js")) {
+			const baseUrl = playerScriptSrc.split("/widgets/player/app.js")[0]
+			if (baseUrl) {
+				ensureStylesheet(
+					`${baseUrl}/widgets/player/style.css`,
+					"sd-player-style-fallback",
+				)
+			}
+		}
+		ensureDashiconsFallback()
+	}
 	const EQ_PRESETS = {
 		Flat: { name: "Flat", bands: { 32: 0, 64: 0, 125: 0, 250: 0, 500: 0, "1k": 0, "2k": 0, "4k": 0, "8k": 0, "16k": 0 } },
 		"Bass Boost": { name: "Bass Boost", bands: { 32: 8, 64: 6, 125: 4, 250: 2, 500: 1, "1k": 0, "2k": -1, "4k": -2, "8k": -2, "16k": -1 } },
@@ -55,16 +99,79 @@
 		"Car Stereo": { name: "Car Stereo", bands: { 32: 5, 64: 4, 125: 2, 250: 0, 500: -1, "1k": 0, "2k": 2, "4k": 3, "8k": 4, "16k": 3 } },
 		"Small Speakers": { name: "Small Speakers", bands: { 32: -8, 64: -6, 125: -3, 250: 0, 500: 2, "1k": 3, "2k": 4, "4k": 4, "8k": 3, "16k": 2 } },
 	}
+	const EQ_DISPLAY_BANDS = ["32", "64", "125", "250", "500", "1K", "2K", "4K", "8K", "16K"]
+	const EQ_STATE_KEYS_BY_FREQ = {
+		32: "32",
+		64: "64",
+		125: "125",
+		250: "250",
+		500: "500",
+		"1K": "1k",
+		"2K": "2k",
+		"4K": "4k",
+		"8K": "8k",
+		"16K": "16k",
+	}
 
 	const PlayerUI = {
 		widgets: new Map(),
 		playlists: new WeakMap(),
 		states: new WeakMap(), // Cache current state per widget for seek authority
-		autoplayEnabled: false,
-		repeatTrackEnabled: false,
+		runtimeState: {
+			currentTrack: null,
+			transportState: "idle",
+			autoplayEnabled: false,
+			repeatTrackEnabled: false,
+			seeking: false,
+			loading: false,
+			hydrated: false,
+			profileReady: false,
+			profileHydrating: false,
+		},
 		_lastPlaybackStatus: "idle",
 		_lastHandledTrackEndKey: "",
+		_profileLoadsInFlight: new Set(),
+		_lastHydratedTrackRuntimeKey: "",
+		_profileHydrationTimer: null,
 
+		updateRuntimeState(patch = {}) {
+			this.runtimeState = {
+				...this.runtimeState,
+				...(patch || {}),
+			}
+			this.runtimeState.autoplayEnabled = !!this.runtimeState.autoplayEnabled
+			this.runtimeState.repeatTrackEnabled =
+				!!this.runtimeState.repeatTrackEnabled
+			this.autoplayEnabled = this.runtimeState.autoplayEnabled
+			this.repeatTrackEnabled = this.runtimeState.repeatTrackEnabled
+			return this.runtimeState
+		},
+
+		ensureTransportIconClasses(surfaceRoot) {
+			if (!surfaceRoot) return
+			const iconByAction = {
+				prev: "dashicons-controls-back",
+				"play-selected": "dashicons-controls-play",
+				pause: "dashicons-controls-pause",
+				next: "dashicons-controls-forward",
+				autoplay: "dashicons-migrate",
+				"repeat-track": "dashicons-controls-repeat",
+			}
+			const allDashicons = Object.values(iconByAction)
+			Object.keys(iconByAction).forEach((action) => {
+				const button = surfaceRoot.querySelector(`[data-action="${action}"]`)
+				const icon = button?.querySelector(".dashicons")
+				if (!icon) return
+				allDashicons.forEach((dashicon) => {
+					if (dashicon !== "dashicons-no") {
+						icon.classList.remove(dashicon)
+					}
+				})
+				icon.classList.add(iconByAction[action], "sd-button-icon")
+			})
+		},
+
+		// Transport / playlist UI selectors for the canonical player surface.
 		cacheUI(root) {
 			return {
 				play: q(root, '[data-action="play"]'),
@@ -78,6 +185,10 @@
 				prev: q(root, '[data-action="prev"]'),
 				next: q(root, '[data-action="next"]'),
 				uploadBtn: q(root, '[data-action="upload-vault"]'),
+				saveEqBtn: q(root, '[data-action="save-eq-song"]'),
+				saveEqStatus: q(root, '[data-role="save-eq-status"]'),
+				eqOpenToggle: q(root, '[data-role="eq-open-toggle"]'),
+				eqSection: q(root, '[data-role="eq-section"]'),
 
 				volume: q(
 					root,
@@ -91,11 +202,6 @@
 				mixSynth: q(root, '[data-role="mix-synth"]'),
 				mixDrums: q(root, '[data-role="mix-drums"]'),
 				eqPreset: q(root, '[data-role="eq-preset"]'),
-				eqBass: q(root, '[data-role="eq-bass"]'),
-				eqLowMid: q(root, '[data-role="eq-low-mid"]'),
-				eqMid: q(root, '[data-role="eq-mid"]'),
-				eqHighMid: q(root, '[data-role="eq-high-mid"]'),
-				eqTreble: q(root, '[data-role="eq-treble"]'),
 				eqMasterGain: q(root, '[data-role="eq-master-gain"]'),
 				eqMasterGainAll: Array.from(
 					root.querySelectorAll('[data-role="eq-master-gain"]'),
@@ -137,16 +243,16 @@
 		setStatus(ui, status) {
 			if (!ui.status) return
 			const map = {
-				idle: "is-low",
-				loading: "is-moderate",
-				playing: "is-high",
-				paused: "is-moderate",
-				stopped: "is-low",
-				error: "is-urgent",
+				idle: "sd-badge-neutral",
+				loading: "sd-badge-info",
+				playing: "sd-badge-success",
+				paused: "sd-badge-neutral",
+				stopped: "sd-badge-neutral",
+				error: "sd-badge-warning",
 			}
 			const key = String(status || "idle").toLowerCase()
-			const level = map[key] || "is-low"
-			ui.status.className = `sd-status-badge ${level}`
+			const level = map[key] || "sd-badge-neutral"
+			ui.status.className = `sd-badge ${level}`
 			ui.status.textContent = String(status || "").toUpperCase()
 		},
 
@@ -162,16 +268,16 @@
 				config.compact ? " sd-mini-compact" : ""
 			}">
 				<div class="sd-player-now-card-content">
-					<div class="sd-player-artwork" data-role="artwork"><div class="sd-player-artwork-placeholder"><span class="dashicons dashicons-format-audio"></span></div></div>
-					<div class="sd-player-now-main">
-						<div class="sd-player-now-header">
-							<div>
-								<div class="sd-player-track-title" data-role="now-playing">No source loaded.</div>
-								<div class="sd-player-now-meta-line"><div class="sd-status-badge is-low" data-role="status">IDLE</div><span class="sd-player-codec" data-role="now-codec" hidden></span></div>
-							</div>
-							<div class="sd-player-track-time"><span data-time>0:00</span><span>/</span><span data-duration>0:00</span></div>
+					<div class="sd-player-now-media sd-player-media-row">
+						<div class="sd-player-artwork sd-player-media-art" data-role="artwork"><div class="sd-player-artwork-placeholder"><span class="dashicons dashicons-format-audio"></span></div></div>
+						<div class="sd-player-visualizer sd-player-media-visualizer" data-role="visualizer"><div class="sd-player-visualizer-bars"></div></div>
+					</div>
+					<div class="sd-player-now-meta-row sd-player-meta-row">
+						<div class="sd-player-now-meta-left sd-player-meta-left">
+							<div class="sd-player-track-title sd-player-meta-title" data-role="now-playing">No source loaded.</div>
+							<div class="sd-player-now-meta-line sd-player-meta-badges"><div class="sd-badge sd-badge-neutral" data-role="status">IDLE</div><span class="sd-badge sd-badge-info sd-player-codec" data-role="now-codec" hidden></span></div>
 						</div>
-						<div class="sd-player-visualizer" data-role="visualizer"><div class="sd-player-visualizer-bars"></div></div>
+						<div class="sd-player-track-time sd-player-meta-time"><span data-time>0:00</span><span>/</span><span data-duration>0:00</span></div>
 					</div>
 				</div>
 				<div class="sd-player-seek-row"><input type="range" min="0" max="1" step="0.001" value="0" data-role="seek" data-timeline></div>
@@ -186,18 +292,18 @@
 					</div>
 					<div class="sd-player-controls-right">
 						<div class="sd-player-transport">
-							<button type="button" class="button button-small" data-action="prev" aria-label="Previous" title="Previous"><span class="dashicons dashicons-controls-back sd-button-icon"></span><span class="screen-reader-text">Previous</span></button>
-							<button type="button" class="button button-small button-primary" data-action="play-selected" data-role="transport-main" aria-label="Play" title="Play"><span class="dashicons dashicons-controls-play sd-button-icon"></span><span class="screen-reader-text">Play</span></button>
-							<button type="button" class="button button-small" data-action="pause" aria-label="Pause" title="Pause"><span class="dashicons dashicons-controls-pause sd-button-icon"></span><span class="screen-reader-text">Pause</span></button>
-							<button type="button" class="button button-small" data-action="next" aria-label="Next" title="Next"><span class="dashicons dashicons-controls-forward sd-button-icon"></span><span class="screen-reader-text">Next</span></button>
-							<button type="button" class="button button-small" data-action="autoplay" aria-label="Autoplay" title="Autoplay" aria-pressed="false"><span class="dashicons dashicons-image-rotate sd-button-icon"></span><span class="screen-reader-text">Autoplay</span></button>
-							<button type="button" class="button button-small" data-action="repeat-track" aria-label="Repeat Track" title="Repeat Track" aria-pressed="false"><span class="dashicons dashicons-controls-repeat sd-button-icon"></span><span class="screen-reader-text">Repeat Track</span></button>
+							<button type="button" class="button button-small sd-transport-btn" data-action="prev" aria-label="Previous" title="Previous"><span class="dashicons dashicons-controls-back sd-button-icon"></span><span class="screen-reader-text">Previous</span></button>
+							<button type="button" class="button button-small button-primary sd-transport-btn" data-action="play-selected" data-role="transport-main" aria-label="Play" title="Play" aria-pressed="false"><span class="dashicons dashicons-controls-play sd-button-icon" data-role="transport-main-icon"></span><span class="screen-reader-text">Play</span></button>
+							<button type="button" class="button button-small sd-transport-btn" data-action="pause" aria-label="Pause" title="Pause"><span class="dashicons dashicons-controls-pause sd-button-icon"></span><span class="screen-reader-text">Pause</span></button>
+							<button type="button" class="button button-small sd-transport-btn" data-action="next" aria-label="Next" title="Next"><span class="dashicons dashicons-controls-forward sd-button-icon"></span><span class="screen-reader-text">Next</span></button>
+							<button type="button" class="button button-small sd-transport-btn sd-transport-btn-mode" data-action="autoplay" aria-label="Autoplay" title="Autoplay" aria-pressed="false"><span class="dashicons dashicons-migrate sd-button-icon"></span><span class="screen-reader-text">Autoplay</span></button>
+							<button type="button" class="button button-small sd-transport-btn sd-transport-btn-mode" data-action="repeat-track" aria-label="Repeat Track" title="Repeat Track" aria-pressed="false"><span class="dashicons dashicons-controls-repeat sd-button-icon"></span><span class="screen-reader-text">Repeat Track</span></button>
 						</div>
 					</div>
 				</div>
 				${
 					config.showTrackSelect
-						? `<div class="sd-player-track-row"><div class="sd-player-preset-inline"><label><span class="screen-reader-text">EQ Presets</span><select data-role="eq-preset"><option>Flat</option><option>Bass Boost</option><option>Bass Reducer</option><option>Vocal</option><option>Spoken Word</option><option>Acoustic</option><option>Classical</option><option>Piano</option><option>Jazz</option><option>Blues</option><option>Rock</option><option>Hard Rock</option><option>Metal</option><option>Electronic</option><option>EDM</option><option>Hip Hop</option><option>Dance</option><option>Pop</option><option>R&B</option><option>Retro</option><option>Warm</option><option>Bright</option><option>Loudness</option><option>Late Night</option><option>Car Stereo</option><option>Small Speakers</option><option>Custom</option></select></label></div><div class="sd-player-load-block sd-player-load-inline"><label><span class="screen-reader-text">Track</span><select data-role="playlist" class="sd-player-playlist-select"><option value="">-- Select Track --</option></select></label><div class="sd-player-load-actions">${
+						? `<div class="sd-player-track-row"><div class="sd-player-preset-inline"><label><span class="screen-reader-text">EQ Presets</span><select data-role="eq-preset"><option>Flat</option><option>Bass Boost</option><option>Bass Reducer</option><option>Vocal</option><option>Spoken Word</option><option>Acoustic</option><option>Classical</option><option>Piano</option><option>Jazz</option><option>Blues</option><option>Rock</option><option>Hard Rock</option><option>Metal</option><option>Electronic</option><option>EDM</option><option>Hip Hop</option><option>Dance</option><option>Pop</option><option>R&B</option><option>Retro</option><option>Warm</option><option>Bright</option><option>Loudness</option><option>Late Night</option><option>Car Stereo</option><option>Small Speakers</option><option>Custom</option></select></label><label class="sd-player-check sd-player-eq-inline"><input type="checkbox" data-role="eq-open-toggle"><span>EQ</span></label></div><div class="sd-player-load-block sd-player-load-inline"><label><span class="screen-reader-text">Track</span><select data-role="playlist" class="sd-player-playlist-select"><option value="">-- Select Track --</option></select></label><div class="sd-player-load-actions">${
 								config.showUpload
 									? `<button type="button" class="button" data-action="upload-vault">Upload</button>`
 									: ""
@@ -257,8 +363,80 @@
 			}
 		},
 
+		getFileTypeLabel(track = {}) {
+			if (!track || typeof track !== "object") return ""
+			const normalizeType = (value) => {
+				const raw = String(value || "").trim().toLowerCase()
+				if (!raw) return ""
+				if (raw === "mid" || raw === "midi") return "MIDI"
+				if (
+					raw === "mp3" ||
+					raw === "wav" ||
+					raw === "flac"
+				) {
+					return raw.toUpperCase()
+				}
+				return ""
+			}
+			const explicitType =
+				normalizeType(track.file_type) ||
+				normalizeType(track.extension) ||
+				normalizeType(track.ext)
+			if (explicitType) return explicitType
+
+			const parseExtension = (value) => {
+				const cleaned = String(value || "")
+					.split("?")[0]
+					.split("#")[0]
+					.trim()
+				if (!cleaned.includes(".")) return ""
+				const ext = cleaned.split(".").pop()
+				return normalizeType(ext)
+			}
+			const candidates = [
+				track.filename,
+				track.name,
+				track.title,
+				track.url,
+				track.src,
+				track.source,
+			]
+			for (let i = 0; i < candidates.length; i += 1) {
+				const label = parseExtension(candidates[i])
+				if (label) return label
+			}
+			return ""
+		},
+
 		syncMiniPlayerSurface(surfaceRoot, state) {
+			const coerceArtworkUrl = (value) => {
+				if (!value) return ""
+				if (typeof value === "string") {
+					const candidate = value.trim()
+					if (!candidate) return ""
+					if (candidate === "[object Object]") return ""
+					if (/^https?:\/\//i.test(candidate)) return candidate
+					if (candidate.startsWith("//")) return candidate
+					if (candidate.startsWith("/")) return candidate
+					return ""
+				}
+				if (typeof value === "object") {
+					return coerceArtworkUrl(
+						value.url ||
+							value.src ||
+							value.full?.url ||
+							value.sizes?.full?.url ||
+							value.sizes?.large?.url ||
+							value.sizes?.medium?.url ||
+							value.sizes?.thumbnail?.url ||
+							"",
+					)
+				}
+				return ""
+			}
+
 			if (!surfaceRoot || !state) return
+			this.ensureTransportIconClasses(surfaceRoot)
 			const ui = this.cacheUI(surfaceRoot)
 			const duration = Number(state.duration || 0)
 			const currentTime = Number(state.currentTime || 0)
@@ -271,7 +449,7 @@
 				state.status || "stopped",
 			).toLowerCase()
 			const normalizedTitle = state.title || "No source loaded."
-			const normalizedArtwork = state.artwork || ""
+			const normalizedArtwork = coerceArtworkUrl(state.artwork)
 			const isSeeking = surfaceRoot.dataset.sdMiniSeeking === "1"
 
 			this.setStatus(ui, normalizedStatus)
@@ -307,14 +485,10 @@
 				)
 			if (ui.time) ui.time.textContent = formatTime(currentTime)
 			if (ui.duration) ui.duration.textContent = formatTime(duration)
-			const codecMime = String(state.metadata?.mime || "").trim()
-			const codecRate = String(
-				state.metadata?.bitrate || state.metadata?.bit_rate || "",
-			).trim()
 			if (ui.nowCodec) {
-				const codecText = [codecMime, codecRate].filter(Boolean).join(" / ")
-				if (codecText) {
-					ui.nowCodec.textContent = codecText.toUpperCase()
+				const fileType = this.getFileTypeLabel(state.track || {})
+				if (fileType) {
+					ui.nowCodec.textContent = fileType
 					ui.nowCodec.hidden = false
 				} else {
 					ui.nowCodec.textContent = ""
@@ -324,6 +498,9 @@
 			const transportMain = surfaceRoot.querySelector(
 				'[data-role="transport-main"]',
 			)
+			const transportMainIcon = surfaceRoot.querySelector(
+				'[data-role="transport-main-icon"]',
+			)
 			if (transportMain) {
 				const actionLabel =
 					normalizedStatus === "playing" ||
@@ -332,6 +509,18 @@
 						: "Play"
 				transportMain.setAttribute("aria-label", actionLabel)
 				transportMain.setAttribute("title", actionLabel)
+				transportMain.setAttribute(
+					"aria-pressed",
+					normalizedStatus === "playing" ? "true" : "false",
+				)
+			}
+			if (transportMainIcon) {
+				const playing = normalizedStatus === "playing"
+				transportMainIcon.classList.toggle(
+					"dashicons-controls-play",
+					!playing,
+				)
+				transportMainIcon.classList.toggle("dashicons-no", playing)
 			}
 			const volumeInput = surfaceRoot.querySelector(
 				'[data-control="volume"], [data-role="volume"]',
@@ -467,7 +656,10 @@
 			if (autoplayBtn && autoplayBtn.dataset.sdMiniBound !== "1") {
 				autoplayBtn.dataset.sdMiniBound = "1"
 				autoplayBtn.addEventListener("click", () => {
-					this.autoplayEnabled = !this.autoplayEnabled
+					const current = !!this.runtimeState?.autoplayEnabled
+					this.updateRuntimeState({
+						autoplayEnabled: !current,
+					})
 					this.syncTransportModeUI()
 				})
 			}
@@ -477,7 +669,10 @@
 			) {
 				repeatTrackBtn.dataset.sdMiniBound = "1"
 				repeatTrackBtn.addEventListener("click", () => {
-					this.repeatTrackEnabled = !this.repeatTrackEnabled
+					const current = !!this.runtimeState?.repeatTrackEnabled
+					this.updateRuntimeState({
+						repeatTrackEnabled: !current,
+					})
 					this.syncTransportModeUI()
 				})
 			}
@@ -512,6 +707,7 @@
 			const releaseSeek = () => {
 				surfaceRoot.dataset.sdMiniSeeking = "0"
 				delete timelineInput?.dataset.dragging
+				this.updateRuntimeState({ seeking: false })
 			}
 			const seekFromSlider = () => {
 				const ratio = Number(timelineInput?.value || 0)
@@ -520,6 +716,7 @@
 			timelineInput?.addEventListener("input", (e) => {
 				surfaceRoot.dataset.sdMiniSeeking = "1"
 				timelineInput.dataset.dragging = "true"
+				this.updateRuntimeState({ seeking: true })
 			})
 			timelineInput?.addEventListener("change", (e) => {
 				seekFromSlider()
@@ -541,67 +738,388 @@
 
 		syncTransportModeUI() {
 			this.widgets.forEach(({ root }) => {
+				const state = window.SystemDeckPlayback?.getState?.() || {}
+				const runtime = this.runtimeState || {}
+				const playlist = Array.isArray(state?.playlist)
+					? state.playlist
+					: []
+				const status = String(state?.status || "idle").toLowerCase()
+				const runtimeTrack = runtime?.currentTrack || null
+				const hasTrack =
+					(state?.currentIndex >= 0 && playlist.length > 0) ||
+					!!runtimeTrack?.source ||
+					!!runtimeTrack?.title ||
+					!!state?.nowPlaying?.source ||
+					!!state?.source ||
+					(status !== "idle" &&
+						String(state?.nowPlaying?.title || "") !==
+							"No source loaded.")
 				const autoplayBtn = root.querySelector(
 					'[data-action="autoplay"]',
 				)
 				const repeatTrackBtn = root.querySelector(
 					'[data-action="repeat-track"]',
 				)
+				const playBtn = root.querySelector('[data-role="transport-main"]')
+				const pauseBtn = root.querySelector('[data-action="pause"]')
+				const prevBtn = root.querySelector('[data-action="prev"]')
+				const nextBtn = root.querySelector('[data-action="next"]')
+				const transport = root.querySelector(".sd-player-transport")
+				const transportButtons = Array.from(
+					root.querySelectorAll(".sd-player-transport .sd-transport-btn"),
+				)
+				transportButtons.forEach((btn) => {
+					const disabled = !hasTrack || status === "loading"
+					btn.classList.toggle("is-disabled", disabled)
+				})
+				if (transport) {
+					transport.classList.toggle("has-track", !!hasTrack)
+					transport.classList.toggle("is-playing", status === "playing")
+					transport.classList.toggle("is-paused", status === "paused")
+				}
+				if (playBtn) {
+					playBtn.classList.toggle("is-active", status === "playing")
+					playBtn.setAttribute(
+						"aria-pressed",
+						status === "playing" ? "true" : "false",
+					)
+				}
+				if (pauseBtn) {
+					pauseBtn.classList.toggle("is-active", status === "paused")
+				}
+				if (prevBtn) {
+					prevBtn.classList.toggle("is-active", false)
+				}
+				if (nextBtn) {
+					nextBtn.classList.toggle("is-active", false)
+				}
 				if (autoplayBtn) {
+					const autoplayEnabled = !!runtime.autoplayEnabled
 					autoplayBtn.classList.toggle(
 						"is-active",
-						!!this.autoplayEnabled,
+						!!hasTrack && autoplayEnabled,
 					)
+					autoplayBtn.classList.toggle("is-disabled", !hasTrack)
 					autoplayBtn.setAttribute(
 						"aria-pressed",
-						this.autoplayEnabled ? "true" : "false",
+						autoplayEnabled ? "true" : "false",
 					)
 				}
 				if (repeatTrackBtn) {
+					const repeatEnabled = !!runtime.repeatTrackEnabled
 					repeatTrackBtn.classList.toggle(
 						"is-active",
-						!!this.repeatTrackEnabled,
+						!!hasTrack && repeatEnabled,
 					)
+					repeatTrackBtn.classList.toggle("is-disabled", !hasTrack)
 					repeatTrackBtn.setAttribute(
 						"aria-pressed",
-						this.repeatTrackEnabled ? "true" : "false",
+						repeatEnabled ? "true" : "false",
 					)
 				}
 			})
 		},
 
+		dispatchTrackPlay(item, index, playlist) {
+			if (!item) return false
+			const source = String(
+				item.source || item.url || item.stream_url || item.src || "",
+			)
+			if (!source) return false
+			if (window.SystemDeckAudioDebug === true) {
+				console.debug("[SystemDeckPlayer:modal]", {
+					stage: "play-dispatch",
+					title: String(item?.title || ""),
+					source,
+					index: Number(index),
+					playlistSize: Array.isArray(playlist) ? playlist.length : 0,
+				})
+			}
+			document.dispatchEvent(
+				new CustomEvent("systemdeck:play-file", {
+					detail: {
+						source,
+						meta: {
+							...(item || {}),
+							...(item?.metadata || {}),
+							source,
+						},
+						index: Number(index),
+						playlist: Array.isArray(playlist) ? playlist : [],
+					},
+				}),
+			)
+			return true
+		},
+
+		// Hydration authority: explicit detail beats runtime, which beats live playback payloads.
+		getAuthoritativeCurrentTrack(detail = {}) {
+			const explicit = window.SystemDeckAudioMemory?.getTrackFromDetail
+				? window.SystemDeckAudioMemory.getTrackFromDetail(detail)
+				: detail || {}
+			const playbackState = window.SystemDeckPlayback?.getState?.() || {}
+			const runtimeTrack = this.runtimeState?.currentTrack || {}
+			const playbackTrack = playbackState.nowPlaying || {}
+			const playbackMeta = playbackTrack.metadata || playbackState.metadata || {}
+			return {
+				...playbackTrack,
+				...playbackMeta,
+				...(runtimeTrack || {}),
+				...(explicit || {}),
+				title:
+					explicit?.title ||
+					playbackTrack.title ||
+					playbackState.title ||
+					runtimeTrack?.title ||
+					"",
+				source:
+					explicit?.source ||
+					explicit?.url ||
+					playbackTrack.source ||
+					playbackState.source ||
+					playbackMeta.source ||
+					runtimeTrack?.source ||
+					"",
+			}
+		},
+
+		async hydrateProfileForCurrentTrack(reason = "unknown", detail = {}) {
+			if (!window.SystemDeckAudioMemory) return
+
+			const hydratedTrack = this.getAuthoritativeCurrentTrack(detail)
+			let loadKey = ""
+
+			try {
+				const trackHash =
+					await window.SystemDeckAudioMemory.deriveTrackHash(hydratedTrack)
+				const playbackPart = String(
+					detail.playbackId ||
+						hydratedTrack.source ||
+						hydratedTrack.url ||
+						hydratedTrack.id ||
+						"na",
+				)
+				loadKey = `${trackHash}:${playbackPart}`
+				if (this._profileLoadsInFlight.has(loadKey)) return
+				this._profileLoadsInFlight.add(loadKey)
+
+				this.updateRuntimeState({
+					hydrated: false,
+					profileReady: false,
+					profileHydrating: true,
+				})
+				if (window.SystemDeckAudioDebug === true) {
+					console.debug("[SystemDeckAudio:profile-hydration]", {
+						stage: "track-ready",
+						reason,
+						detail,
+						track: hydratedTrack,
+						trackHash,
+						loadKey,
+					})
+				}
+
+				document.dispatchEvent(
+					new CustomEvent("systemdeck:profile-loading", {
+						detail: {
+							trackHash,
+							track: hydratedTrack,
+							playbackId: detail.playbackId || null,
+							reason,
+						},
+					}),
+				)
+
+				const response = await window.SystemDeckAudioMemory.loadProfile(trackHash)
+				const profile = window.SystemDeckAudioMemory.extractProfileFromResponse
+					? window.SystemDeckAudioMemory.extractProfileFromResponse(response)
+					: response?.profile && typeof response.profile === "object"
+					? response.profile
+					: null
+				if (window.SystemDeckAudioDebug === true) {
+					console.debug("[SystemDeckAudio:profile-hydration]", {
+						stage: "profile-response",
+						reason,
+						trackHash,
+						response,
+						hasProfile: !!profile,
+					})
+				}
+
+				if (!profile) {
+					this.updateRuntimeState({
+						hydrated: true,
+						profileReady: false,
+						profileHydrating: false,
+					})
+					document.dispatchEvent(
+						new CustomEvent("systemdeck:profile-missing", {
+							detail: {
+								trackHash,
+								track: hydratedTrack,
+								playbackId: detail.playbackId || null,
+								reason,
+							},
+						}),
+					)
+					return
+				}
+
+				if (window.SystemDeckAudioDebug === true) {
+					console.debug("[SystemDeckAudio:profile-hydration]", {
+						stage: "profile-apply-start",
+						trackHash,
+						profile,
+					})
+				}
+				setTimeout(() => {
+					;(async () => {
+						const activeTrack = this.getAuthoritativeCurrentTrack({})
+						const activeHash =
+							await window.SystemDeckAudioMemory.deriveTrackHash(activeTrack)
+						if (activeHash !== trackHash) {
+							if (window.SystemDeckAudioDebug === true) {
+								console.debug("[SystemDeckAudio:profile-hydration]", {
+									stage: "stale-profile-skip",
+									reason,
+									requestedHash: trackHash,
+									activeHash,
+									applied: false,
+								})
+							}
+							this.updateRuntimeState({
+								profileHydrating: false,
+							})
+							return
+						}
+						window.SystemDeckAudioMemory.applyProfile(profile)
+						if (window.SystemDeckAudioDebug === true) {
+							console.debug("[SystemDeckAudio:profile-hydration]", {
+								stage: "profile-applied",
+								reason,
+								requestedHash: trackHash,
+								activeHash,
+								applied: true,
+							})
+						}
+						this.updateRuntimeState({
+							profileHydrating: false,
+						})
+					})()
+				}, 0)
+				this.updateRuntimeState({
+					hydrated: true,
+					profileReady: true,
+				})
+				document.dispatchEvent(
+					new CustomEvent("systemdeck:profile-loaded", {
+						detail: {
+							trackHash,
+							track: hydratedTrack,
+							profile,
+							playbackId: detail.playbackId || null,
+							reason,
+						},
+					}),
+				)
+			} catch (error) {
+				this.updateRuntimeState({
+					hydrated: true,
+					profileReady: false,
+					profileHydrating: false,
+				})
+				document.dispatchEvent(
+					new CustomEvent("systemdeck:profile-error", {
+						detail: {
+							track: hydratedTrack,
+							playbackId: detail.playbackId || null,
+							reason,
+							error: String(error?.message || error || "Profile load failed"),
+						},
+					}),
+				)
+			} finally {
+				if (loadKey) this._profileLoadsInFlight.delete(loadKey)
+			}
+		},
+
+		async handleTrackReadyProfile(detail = {}) {
+			return this.hydrateProfileForCurrentTrack("track-ready", detail)
+		},
+
 		handleTrackEnded(detail = {}) {
 			const state = window.SystemDeckPlayback?.getState?.() || {}
-			const playlist = Array.isArray(state?.playlist) ? state.playlist : []
-			const currentIndex = Number(state?.currentIndex)
+			const runtime = this.runtimeState || {}
+			const playlist = Array.isArray(runtime?.playlist)
+				? runtime.playlist
+				: Array.isArray(state?.playlist)
+				? state.playlist
+				: []
+			const currentIndex = Number(
+				runtime?.currentIndex ?? state?.currentIndex ?? -1,
+			)
 			const endKey = String(
-				detail?.playbackId ??
-					`${detail?.mode || state?.mode || "unknown"}:${currentIndex}`,
+				detail?.endId ??
+					`${detail?.playbackId || "pid"}:${detail?.mode || state?.mode || "unknown"}:${currentIndex}`,
 			)
 			if (this._lastHandledTrackEndKey === endKey) return
 			this._lastHandledTrackEndKey = endKey
+			const liveState = this.runtimeState || {}
+			const repeatEnabled = !!liveState.repeatTrackEnabled
+			const autoplayEnabled = !!liveState.autoplayEnabled
+			const activePlaylist = Array.isArray(liveState.playlist)
+				? liveState.playlist
+				: playlist
+			const activeIndex = Number(
+				liveState.currentIndex ?? currentIndex ?? -1,
+			)
 
-			if (this.repeatTrackEnabled && currentIndex >= 0 && playlist[currentIndex]) {
-				window.SystemDeckPlayback?.playIndex?.(currentIndex)
-				return
-			}
-
-			if (!this.autoplayEnabled) return
-			if (currentIndex < 0 || !playlist.length) return
-			for (let i = currentIndex + 1; i < playlist.length; i += 1) {
-				const nextItem = playlist[i]
-				if (!nextItem) continue
-				const source = String(
-					nextItem.source ||
-						nextItem.url ||
-						nextItem.stream_url ||
-						nextItem.id ||
-						"",
+			if (
+				repeatEnabled &&
+				activeIndex >= 0 &&
+				activePlaylist[activeIndex]
+			) {
+				this.updateRuntimeState({
+					transportState: "loading",
+					loading: true,
+				})
+				this.dispatchTrackPlay(
+					activePlaylist[activeIndex],
+					activeIndex,
+					activePlaylist,
 				)
-				if (!source) continue
-				window.SystemDeckPlayback?.playIndex?.(i)
 				return
 			}
+
+			if (autoplayEnabled && activeIndex >= 0 && activePlaylist.length) {
+				for (let i = activeIndex + 1; i < activePlaylist.length; i += 1) {
+					const nextItem = activePlaylist[i]
+					if (!nextItem) continue
+					const origin = String(nextItem.origin || "").toLowerCase()
+					if (origin && !origin.includes("vault")) continue
+					const hasSource = String(
+						nextItem.source ||
+							nextItem.url ||
+							nextItem.stream_url ||
+							nextItem.src ||
+							"",
+					)
+					if (!hasSource) continue
+					this.updateRuntimeState({
+						transportState: "loading",
+						loading: true,
+					})
+					this.dispatchTrackPlay(nextItem, i, activePlaylist)
+					return
+				}
+			}
+
+			this.updateRuntimeState({
+				transportState: "ended",
+				loading: false,
+				seeking: false,
+			})
+			this.syncTransportModeUI()
 		},
 
 		updateUI(ui, state) {
@@ -630,16 +1148,73 @@
 						  )
 						: 0,
 				artwork:
-					state.artwork ||
-					state.nowPlaying?.metadata?.artwork ||
-					state.nowPlaying?.metadata?.artworkUrl ||
-					state.nowPlaying?.metadata?.thumbnail ||
-					state.nowPlaying?.metadata?.cover ||
-					state.metadata?.artwork ||
-					state.metadata?.artworkUrl ||
-					state.metadata?.thumbnail ||
-					state.metadata?.cover ||
-					null,
+					((candidate) => {
+						if (!candidate) return null
+						if (typeof candidate === "string") {
+							const trimmed = candidate.trim()
+							if (
+								trimmed === "" ||
+								trimmed === "[object Object]"
+							) {
+								return null
+							}
+							if (
+								/^https?:\/\//i.test(trimmed) ||
+								trimmed.startsWith("//") ||
+								trimmed.startsWith("/")
+							) {
+								return trimmed
+							}
+							return null
+						}
+						if (typeof candidate === "object") {
+							const nested =
+								candidate.url ||
+								candidate.src ||
+								candidate.full?.url ||
+								candidate.sizes?.full?.url ||
+								candidate.sizes?.large?.url ||
+								candidate.sizes?.medium?.url ||
+								candidate.sizes?.thumbnail?.url ||
+								""
+							return typeof nested === "string" && nested !== ""
+								? nested
+								: null
+						}
+						return null
+					})(
+						state.artwork ||
+							state.nowPlaying?.metadata?.artwork ||
+							state.nowPlaying?.metadata?.artworkUrl ||
+							state.nowPlaying?.metadata?.thumbnail ||
+							state.nowPlaying?.metadata?.cover ||
+							state.metadata?.artwork ||
+							state.metadata?.artworkUrl ||
+							state.metadata?.thumbnail ||
+							state.metadata?.cover ||
+							null,
+					),
+				metadata:
+					state.nowPlaying?.metadata ||
+					state.metadata ||
+					{},
+				track: {
+					...(state.nowPlaying || {}),
+					...(state.nowPlaying?.metadata || {}),
+					...(state.metadata || {}),
+					title:
+						state.nowPlaying?.title ||
+						state.title ||
+						state.nowPlaying?.metadata?.title ||
+						state.metadata?.title ||
+						"",
+					source:
+						state.nowPlaying?.source ||
+						state.source ||
+						state.nowPlaying?.metadata?.source ||
+						state.metadata?.source ||
+						"",
+				},
 			}
 			this.syncMiniPlayerSurface(surfaceRoot, miniState)
 
@@ -657,18 +1232,62 @@
 			const duration = Number(state.duration || 0)
 			const currentTime = Number(state.currentTime || 0)
 			const playlist = state.playlist || []
-			const hasTrack = state.currentIndex >= 0 && playlist.length > 0
-			const status = state.status || "idle"
+			const status = String(state.status || "idle").toLowerCase()
+			const hasTrack =
+				(state.currentIndex >= 0 && playlist.length > 0) ||
+				!!state.nowPlaying?.source ||
+				!!state.source ||
+				(status !== "idle" &&
+					String(state?.nowPlaying?.title || "") !==
+						"No source loaded.")
+			this.updateRuntimeState({
+				currentTrack: hasTrack
+					? {
+						id: state?.nowPlaying?.id ?? state?.id ?? null,
+						title: miniState.title || "",
+						source:
+							state?.nowPlaying?.source ||
+							state?.source ||
+							"",
+					}
+					: null,
+				transportState: status,
+				loading: status === "loading",
+				playlist,
+				currentIndex: Number(state.currentIndex ?? -1),
+			})
+			const runtimeTrack = this.runtimeState?.currentTrack || null
+			const runtimeTrackKey = runtimeTrack
+				? `${String(runtimeTrack.id || "")}|${String(runtimeTrack.source || "")}|${String(runtimeTrack.title || "")}`
+				: ""
+			if (runtimeTrackKey && runtimeTrackKey !== this._lastHydratedTrackRuntimeKey) {
+				this._lastHydratedTrackRuntimeKey = runtimeTrackKey
+				if (this._profileHydrationTimer) {
+					clearTimeout(this._profileHydrationTimer)
+				}
+				this._profileHydrationTimer = setTimeout(() => {
+					void this.hydrateProfileForCurrentTrack(
+						"runtime-track-change-settled",
+						{
+							currentTrack: runtimeTrack,
+							source: runtimeTrack.source || "",
+							meta: {
+								title: runtimeTrack.title || "",
+							},
+						},
+					)
+				}, 75)
+			}
 
 			// 1. Control Button States
-			if (ui.play) ui.play.disabled = !hasTrack
-			if (ui.pause) ui.pause.disabled = status !== "playing"
-			if (ui.stop)
-				ui.stop.disabled =
-					(status === "idle" || status === "stopped") && !hasTrack
-
-			if (ui.prev) ui.prev.disabled = playlist.length <= 1
-			if (ui.next) ui.next.disabled = playlist.length <= 1
+			if (ui.play) ui.play.disabled = !hasTrack || status === "loading"
+			if (ui.pause) ui.pause.disabled = !hasTrack || status === "loading"
+			if (ui.prev) ui.prev.disabled = !hasTrack || status === "loading"
+			if (ui.next) ui.next.disabled = !hasTrack || status === "loading"
+			const autoplayBtn = ui.timeline?.closest(".sd-player-now-card")?.querySelector('[data-action="autoplay"]')
+			const repeatTrackBtn = ui.timeline?.closest(".sd-player-now-card")?.querySelector('[data-action="repeat-track"]')
+			if (autoplayBtn) autoplayBtn.disabled = !hasTrack || status === "loading"
+			if (repeatTrackBtn) repeatTrackBtn.disabled = !hasTrack || status === "loading"
 
 			// 2. Load Action Locking
 			if (ui.playSelectedButtons?.length) {
@@ -676,8 +1295,10 @@
 					btn.disabled = status === "loading"
 				})
 			}
+			this.syncTransportModeUI()
 		},
 
+		// Canonical EQ surface rendering and synchronization.
 		ensureProEQPanel(root) {
 			if (!root) return
 			root.innerHTML = ""
@@ -685,20 +1306,8 @@
 				"afterbegin",
 				`<div class="sd-player-shell sd-player-v2">
 					<div data-mini-surface-slot></div>
-					<section class="sd-player-card sd-player-eq-card">
-						<header class="sd-player-card-title">EQUALIZER</header>
-						<div class="sd-player-eq-preamp-row"><label><span>Preamp</span><input type="range" min="0" max="2" step="0.01" value="1" data-role="eq-master-gain"></label></div><div class="sd-player-eq-board"><div class="sd-player-db-scale"><span>+12 dB</span><span>0 dB</span><span>-12 dB</span></div><div class="sd-player-eq-scroll"><div class="sd-player-eq-grid"><div class="sd-player-eq-guide sd-player-eq-guide-top"></div><div class="sd-player-eq-guide sd-player-eq-guide-mid"></div><div class="sd-player-eq-guide sd-player-eq-guide-bottom"></div>${[
-							"32",
-							"64",
-							"125",
-							"250",
-							"500",
-							"1K",
-							"2K",
-							"4K",
-							"8K",
-							"16K",
-						]
+					<section class="sd-player-card sd-player-eq-card" data-role="eq-section" hidden>
+						<div class="sd-player-eq-head"><header class="sd-player-card-title">EQUALIZER</header><div class="sd-player-eq-head-actions"><button type="button" class="button" data-action="save-eq-song">Save to Song</button><span class="sd-player-save-eq-status" data-role="save-eq-status" aria-live="polite"></span></div></div><div class="sd-player-eq-preamp-row"><label><span>Preamp</span><input type="range" min="0" max="2" step="0.01" value="1" data-role="eq-master-gain"></label></div><div class="sd-player-eq-board"><div class="sd-player-db-scale"><span>+12 dB</span><span>0 dB</span><span>-12 dB</span></div><div class="sd-player-eq-scroll"><div class="sd-player-eq-grid"><div class="sd-player-eq-guide sd-player-eq-guide-top"></div><div class="sd-player-eq-guide sd-player-eq-guide-mid"></div><div class="sd-player-eq-guide sd-player-eq-guide-bottom"></div>${EQ_DISPLAY_BANDS
 							.map(
 								(hz) =>
 									`<label class="sd-player-eq-band"><div class="sd-player-eq-lane"><span class="sd-player-eq-rail" aria-hidden="true"></span><input type="range" min="-12" max="12" step="1" value="0" data-role="eq-band" data-freq="${hz}"></div><span>${hz}</span></label>`,
@@ -718,6 +1327,207 @@
 				compact: false,
 			})
 			slot?.replaceWith(mini)
+			const eqToggle = q(root, '[data-role="eq-open-toggle"]')
+			const eqSection = q(root, '[data-role="eq-section"]')
+			const keepOpenPref =
+				localStorage.getItem("systemdeck.player.eqOpen") === "1"
+			if (eqToggle) eqToggle.checked = keepOpenPref
+			if (eqSection) eqSection.hidden = !keepOpenPref
+		},
+
+		buildModalSeededPlaybackState(item) {
+			const source = item.source || item.url || ""
+			const title = item.title || "Modal Track"
+			const metadata = {
+				...(item.metadata || {}),
+				title,
+				source,
+			}
+			return {
+				...(window.SystemDeckPlayback?.getState?.() || {}),
+				status: "stopped",
+				title,
+				source,
+				currentTime: 0,
+				duration: Number(item.duration || 0),
+				currentIndex: 0,
+				playlist: [{ ...item, group: "Media" }],
+				nowPlaying: {
+					...(item || {}),
+					title,
+					source,
+					metadata,
+				},
+				metadata,
+			}
+		},
+
+		// Modal hosts remain hosts only; canonical playback stays shared.
+		normalizeModalTrack(detail = {}) {
+			const coerceArtworkUrl = (value) => {
+				if (!value) return ""
+				if (typeof value === "string") return value
+				if (typeof value === "object") {
+					return String(
+						value.url ||
+							value.src ||
+							value.full?.url ||
+							value.sizes?.medium?.url ||
+							value.sizes?.thumbnail?.url ||
+							"",
+					)
+				}
+				return ""
+			}
+
+			const track = detail?.track && typeof detail.track === "object" ? detail.track : {}
+			const url = String(
+				track.source ||
+					track.url ||
+					detail.url ||
+					detail.trackUrl ||
+					"",
+			)
+			const artwork =
+				coerceArtworkUrl(track.artwork) ||
+				coerceArtworkUrl(track.artworkUrl) ||
+				coerceArtworkUrl(track.thumbnail) ||
+				coerceArtworkUrl(track.cover) ||
+				coerceArtworkUrl(track.metadata?.artwork) ||
+				coerceArtworkUrl(track.metadata?.artworkUrl) ||
+				coerceArtworkUrl(track.metadata?.thumbnail) ||
+				coerceArtworkUrl(track.metadata?.cover) ||
+				coerceArtworkUrl(detail.artwork) ||
+				coerceArtworkUrl(detail.artworkUrl) ||
+				coerceArtworkUrl(detail.thumbnail) ||
+				coerceArtworkUrl(detail.cover) ||
+				coerceArtworkUrl(detail.trackArtworkUrl) ||
+				""
+			const type = String(
+				track.type ||
+					detail.type ||
+					detail.trackType ||
+					"",
+			).toLowerCase()
+			return {
+				id: track.id || detail.trackId || detail.id || "",
+				title: track.title || detail.title || "Modal Track",
+				source: url,
+				url,
+				type:
+					type === "mid" || type === "midi"
+						? "midi"
+						: "audio",
+				mime:
+					track.mime ||
+					(type === "midi" ? "audio/midi" : "audio/mpeg"),
+				artwork,
+				metadata: {
+					...(track.metadata || {}),
+					title: track.title || detail.title || "Modal Track",
+					mime:
+						track.mime ||
+						(type === "midi" ? "audio/midi" : "audio/mpeg"),
+					artwork,
+					artworkUrl: artwork,
+					thumbnail: artwork,
+					cover: artwork,
+				},
+			}
+		},
+
+		mountModalSurface(detail = {}) {
+			const host = detail?.host
+			if (!host || !(host instanceof Element)) return
+			ensureModalPlayerAssets()
+			if (window.SystemDeckAudioDebug === true) {
+				console.debug("[SystemDeckPlayer:modal]", {
+					stage: "mount-received",
+					context: detail?.context || "modal",
+					detail,
+				})
+			}
+			const existing = host.querySelector(".sd-player-root")
+			if (existing && existing.dataset.sdPlayerModalMounted === "1") return
+			this.unmountModalSurface(detail)
+			const root = document.createElement("div")
+			root.className =
+				"systemdeck-scope sd-player-widget sd-player-root sd-player-root--modal"
+			root.dataset.sdPlayerModalMounted = "1"
+			host.innerHTML = ""
+			host.appendChild(root)
+			this.ensureProEQPanel(root)
+			const ui = this.cacheUI(root)
+			const miniSurface = q(root, ".sd-player-now-card")
+			this.widgets.set(root, { root, ui })
+			this.bindEvents(root, ui)
+			const item = this.normalizeModalTrack(detail)
+			if (window.SystemDeckAudioDebug === true) {
+				console.debug("[SystemDeckPlayer:modal]", {
+					stage: "track-normalized",
+					context: detail?.context || "modal",
+					track: item,
+					hasSource: !!item?.source,
+				})
+			}
+			if (ui.playlist && item.source) {
+				this.playlists.set(ui.playlist, [{ ...item, group: "Media" }])
+				this.renderPlaylist(ui)
+				ui.playlist.value = "0"
+			}
+			if (item.source && miniSurface) {
+				miniSurface._sdPlayerPlaySelected = () => {
+				const modalPlaylist = this.playlists.get(ui.playlist) || []
+					const selectedIndex = Number(ui.playlist?.value || 0)
+					const playIndex =
+						Number.isInteger(selectedIndex) && selectedIndex >= 0
+							? selectedIndex
+							: 0
+					const selectedItem = modalPlaylist[playIndex] || modalPlaylist[0]
+					if (!selectedItem) return
+					this.dispatchTrackPlay(selectedItem, playIndex, modalPlaylist)
+				}
+				const seededState = this.buildModalSeededPlaybackState(item)
+				this.updateUI(ui, seededState)
+				if (window.SystemDeckAudioDebug === true) {
+					console.debug("[SystemDeckPlayer:modal]", {
+						stage: "mounted",
+						context: detail?.context || "modal",
+						track: item,
+						hasSource: !!item.source,
+					})
+				}
+			} else if (window.SystemDeckPlayback) {
+				this.updateUI(ui, window.SystemDeckPlayback.getState())
+			}
+			if (window.SystemDeckAudio?.getEQState) {
+				this.syncEQUI(ui, window.SystemDeckAudio.getEQState())
+			}
+			root.style.visibility = "visible"
+			root.setAttribute("data-ready", "1")
+		},
+
+		unmountModalSurface(detail = {}) {
+			const host = detail?.host
+			if (!host || !(host instanceof Element)) return
+			const root = host.querySelector(".sd-player-root")
+			if (!root) return
+			const entry = this.widgets.get(root)
+			if (entry) {
+				const slot = entry.ui?.visualizer?.closest(".sd-player-now-card")
+				if (slot && typeof slot._sdVisualizerLoop === "function") {
+					slot._sdVisualizerLoop()
+					delete slot._sdVisualizerLoop
+				}
+				this.widgets.delete(root)
+			}
+			host.innerHTML = ""
+			if (window.SystemDeckAudioDebug === true) {
+				console.debug("[SystemDeckPlayer:modal]", {
+					stage: "unmounted",
+					context: detail?.context || "modal",
+				})
+			}
 		},
 
 		syncEQUI(ui, eqState = {}) {
@@ -727,37 +1537,16 @@
 				if (!el) return
 				el.value = String(Math.round(Number(v) || 0))
 			}
-			const band32 = Number(bands["32"] ?? 0)
-			const band64 = Number(bands["64"] ?? 0)
-			const band125 = Number(bands["125"] ?? 0)
-			const band250 = Number(bands["250"] ?? 0)
-			const band500 = Number(bands["500"] ?? 0)
-			const band1k = Number(bands["1k"] ?? bands["1K"] ?? 0)
-			const band2k = Number(bands["2k"] ?? bands["2K"] ?? 0)
-			const band4k = Number(bands["4k"] ?? bands["4K"] ?? 0)
-			const band8k = Number(bands["8k"] ?? bands["8K"] ?? 0)
-			const band16k = Number(bands["16k"] ?? bands["16K"] ?? 0)
-			setValue(ui.eqBass, band32)
-			setValue(ui.eqLowMid, band250)
-			setValue(ui.eqMid, band1k)
-			setValue(ui.eqHighMid, band4k)
-			setValue(ui.eqTreble, band16k)
-			const mapFreq = {
-				32: band32,
-				64: band64,
-				125: band125,
-				250: band250,
-				500: band500,
-				"1K": band1k,
-				"2K": band2k,
-				"4K": band4k,
-				"8K": band8k,
-				"16K": band16k,
-			}
+			const canonicalBands = Object.fromEntries(
+				Object.entries(EQ_STATE_KEYS_BY_FREQ).map(([freq, key]) => [
+					freq,
+					Number(bands[key] ?? bands[String(key).toUpperCase()] ?? 0),
+				]),
+			)
 			;(ui.eqBands10 || []).forEach((el) => {
 				const freq = String(el?.dataset?.freq || "")
-				if (Object.prototype.hasOwnProperty.call(mapFreq, freq)) {
-					setValue(el, mapFreq[freq])
+				if (Object.prototype.hasOwnProperty.call(canonicalBands, freq)) {
+					setValue(el, canonicalBands[freq])
 				}
 			})
 			if (
@@ -810,6 +1599,55 @@
 						Number(advancedBandState.q || 1),
 					)
 				}
+			}
+		},
+
+		syncAllEQUI(eqState = {}) {
+			this.widgets.forEach((widget) => {
+				if (widget?.ui) {
+					this.syncEQUI(widget.ui, eqState)
+				}
+			})
+		},
+
+		buildPresetEQState(preset = {}, baseState = {}) {
+			const safePreset = preset && typeof preset === "object" ? preset : {}
+			const nextBands =
+				safePreset.bands && typeof safePreset.bands === "object"
+					? safePreset.bands
+					: {}
+			return {
+				...(baseState && typeof baseState === "object" ? baseState : {}),
+				bands: {
+					32: Number(nextBands["32"] ?? 0),
+					64: Number(nextBands["64"] ?? 0),
+					125: Number(nextBands["125"] ?? 0),
+					250: Number(nextBands["250"] ?? 0),
+					500: Number(nextBands["500"] ?? 0),
+					"1k": Number(nextBands["1k"] ?? nextBands["1K"] ?? 0),
+					"2k": Number(nextBands["2k"] ?? nextBands["2K"] ?? 0),
+					"4k": Number(nextBands["4k"] ?? nextBands["4K"] ?? 0),
+					"8k": Number(nextBands["8k"] ?? nextBands["8K"] ?? 0),
+					"16k": Number(nextBands["16k"] ?? nextBands["16K"] ?? 0),
+				},
+				bassBoost:
+					Object.prototype.hasOwnProperty.call(
+						safePreset,
+						"bassBoost",
+					)
+						? !!safePreset.bassBoost
+						: !!baseState?.bassBoost,
+				masterGain: Number(
+					Object.prototype.hasOwnProperty.call(
+						safePreset,
+						"masterGain",
+					)
+						? safePreset.masterGain
+						: baseState?.masterGain ?? 1,
+				),
+				preset: String(
+					safePreset.name || safePreset.preset || "Custom",
+				),
 			}
 		},
 
@@ -968,7 +1806,7 @@
 
 			if (ui.status) {
 				ui.status.textContent = "Loading..."
-				ui.status.className = "sd-status-badge is-low"
+				ui.status.className = "sd-badge sd-badge-info"
 			}
 
 			try {
@@ -981,7 +1819,7 @@
 				console.error("[SystemDeckPlayer] Playback failed", e)
 				if (ui.status) {
 					ui.status.textContent = "Error"
-					ui.status.className = "sd-status-badge is-critical"
+					ui.status.className = "sd-badge sd-badge-warning"
 				}
 			} finally {
 				// Unlock after a small debounce
@@ -1067,9 +1905,9 @@
 								detectedName.endsWith(".midi")
 							await window.SystemDeckAudio?.resume?.()
 							document.dispatchEvent(
-								new CustomEvent("systemdeck:vault-play", {
+								new CustomEvent("systemdeck:play-file", {
 									detail: {
-										url: sourceUrl,
+										source: sourceUrl,
 										meta: {
 											id: String(
 												uploadedItem.id ||
@@ -1166,43 +2004,45 @@
 			ui.eqPreset?.addEventListener("change", (e) => {
 				const name = String(e.target.value || "Flat")
 				if (name === "Custom") return
+				if (
+					this.runtimeState?.profileHydrating === true &&
+					e.isTrusted !== true
+				) {
+					if (window.SystemDeckAudioDebug === true) {
+						console.debug("[SystemDeckAudio:profile-hydration]", {
+							stage: "skip-preset-change-during-hydration",
+							name,
+						})
+					}
+					return
+				}
 				const preset = EQ_PRESETS[name]
 				if (!preset) return
+				const fallbackState = this.buildPresetEQState(
+					preset,
+					window.SystemDeckAudio?.getEQState?.() || {},
+				)
+				this.syncAllEQUI(fallbackState)
+				if (window.SystemDeckAudioDebug === true && name === "Flat") {
+					console.debug("[SystemDeckAudio:profile-hydration]", {
+						stage: "preset-change-apply",
+						name,
+						isTrusted: e.isTrusted === true,
+						profileReady: !!this.runtimeState?.profileReady,
+						profileHydrating: !!this.runtimeState?.profileHydrating,
+					})
+				}
 				window.SystemDeckPlayback?.setEQ(preset)
 				const liveState = window.SystemDeckAudio?.getEQState?.()
 				if (liveState) {
-					this.syncEQUI(ui, liveState)
+					this.syncAllEQUI(liveState)
 				}
 			})
 
-			const bindBand = (el, band) => {
-				el?.addEventListener("input", (e) => {
-					const value = Number(e.target.value || 0)
-					window.SystemDeckPlayback?.updateEQBand?.(band, value)
-					if (ui.eqPreset) ui.eqPreset.value = "Custom"
-				})
-			}
-			bindBand(ui.eqBass, "bass")
-			bindBand(ui.eqLowMid, "lowMid")
-			bindBand(ui.eqMid, "mid")
-			bindBand(ui.eqHighMid, "highMid")
-			bindBand(ui.eqTreble, "treble")
-			const freqBandMap = {
-				32: "32",
-				64: "64",
-				125: "125",
-				250: "250",
-				500: "500",
-				"1K": "1k",
-				"2K": "2k",
-				"4K": "4k",
-				"8K": "8k",
-				"16K": "16k",
-			}
 			;(ui.eqBands10 || []).forEach((el) => {
 				el.addEventListener("input", (e) => {
 					const freq = String(el?.dataset?.freq || "")
-					const band = freqBandMap[freq]
+					const band = EQ_STATE_KEYS_BY_FREQ[freq]
 					if (!band) return
 					window.SystemDeckPlayback?.updateEQBand?.(
 						band,
@@ -1217,6 +2057,27 @@
 					const preset = EQ_PRESETS[name] || EQ_PRESETS.Flat
 					window.SystemDeckPlayback?.setEQ(preset)
 					return
+				}
+				if (
+					this.runtimeState?.profileHydrating === true &&
+					e.isTrusted !== true
+				) {
+					if (window.SystemDeckAudioDebug === true) {
+						console.debug("[SystemDeckAudio:profile-hydration]", {
+							stage: "skip-flat-apply-during-hydration",
+							isTrusted: false,
+						})
+					}
+					return
+				}
+				if (window.SystemDeckAudioDebug === true) {
+					console.debug("[SystemDeckAudio:profile-hydration]", {
+						stage: "flat-apply",
+						reason: "eq-disabled",
+						isTrusted: e.isTrusted === true,
+						profileReady: !!this.runtimeState?.profileReady,
+						profileHydrating: !!this.runtimeState?.profileHydrating,
+					})
 				}
 				window.SystemDeckPlayback?.setEQ(EQ_PRESETS.Flat)
 			})
@@ -1286,6 +2147,36 @@
 			ui.mixDrums?.addEventListener("input", updateEQ)
 
 			ui.uploadBtn?.addEventListener("click", () => ui.fileInput?.click())
+			ui.eqOpenToggle?.addEventListener("change", (e) => {
+				const open = !!e.target.checked
+				localStorage.setItem("systemdeck.player.eqOpen", open ? "1" : "0")
+				if (ui.eqSection) ui.eqSection.hidden = !open
+			})
+
+			ui.saveEqBtn?.addEventListener("click", async () => {
+				if (!window.SystemDeckAudioMemory) return
+				if (ui.saveEqStatus) ui.saveEqStatus.textContent = "Saving..."
+				try {
+					const track = this.getAuthoritativeCurrentTrack({})
+					if (!track || (!track.source && !track.url)) {
+						throw new Error("No active track")
+					}
+					const trackHash =
+						await window.SystemDeckAudioMemory.deriveTrackHash(track)
+					const profile =
+						window.SystemDeckAudioMemory.captureCurrentProfile()
+					await window.SystemDeckAudioMemory.saveProfile(
+						trackHash,
+						profile,
+					)
+					if (ui.saveEqStatus) ui.saveEqStatus.textContent = "Saved"
+				} catch (err) {
+					if (ui.saveEqStatus) ui.saveEqStatus.textContent = "Save failed"
+					if (window.SystemDeckAudioDebug === true) {
+						console.debug("[SystemDeckAudio:save-profile]", err)
+					}
+				}
+			})
 
 			ui.fileInput?.addEventListener("change", (e) => {
 				const file = e.target.files[0]
@@ -1303,6 +2194,9 @@
 				})
 				document.addEventListener("systemdeck:track-ended", (e) => {
 					this.handleTrackEnded(e.detail || {})
+				})
+				document.addEventListener("systemdeck:track-ready", (e) => {
+					void this.handleTrackReadyProfile(e.detail || {})
 				})
 
 				document.addEventListener("systemdeck:playlist-state", (e) => {
@@ -1328,6 +2222,14 @@
 				window.addEventListener("systemdeck:eq-state", (e) => {
 					const eqState = e.detail || {}
 					this.widgets.forEach((w) => this.syncEQUI(w.ui, eqState))
+				})
+
+				document.addEventListener("systemdeck:player-modal-mount", (e) => {
+					this.mountModalSurface(e.detail || {})
+				})
+
+				document.addEventListener("systemdeck:player-modal-unmount", (e) => {
+					this.unmountModalSurface(e.detail || {})
 				})
 
 				this.globalEventsBound = true
@@ -1393,6 +2295,10 @@
 
 		init() {
 			this.globalEventsBound = false
+			this.updateRuntimeState({
+				autoplayEnabled: false,
+				repeatTrackEnabled: false,
+			})
 			if (this.mountInterval) {
 				clearInterval(this.mountInterval)
 				this.mountInterval = null

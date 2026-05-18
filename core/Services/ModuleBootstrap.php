@@ -79,6 +79,7 @@ class ModuleBootstrap
             add_action('manage_sd_vault_file_posts_custom_column', [\SystemDeck\Widgets\Vault::class, 'render_admin_columns'], 10, 2);
             add_action('add_meta_boxes', [\SystemDeck\Widgets\Vault::class, 'add_meta_boxes']);
             add_action('save_post_sd_vault_file', [\SystemDeck\Widgets\Vault::class, 'save_meta_boxes']);
+            add_action('admin_enqueue_scripts', [\SystemDeck\Widgets\Vault::class, 'enqueue_media_modal_assets']);
 
             // AJAX Handlers
             \SystemDeck\Widgets\Vault::register_ajax_hooks();

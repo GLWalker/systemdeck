@@ -1010,51 +1010,24 @@ window.SystemDeckAudio = (() => {
 		spicy: {
 			tempo: 102,
 			arrangement: [
-				// Intro Riff (Translating the full tab)
+				// Hot intro
 				"Riff_A",
 				"Riff_B",
 				"Riff_C",
 				"A",
-				// Verse 1 (yo se que tienes...)
+
+				// Verse 1 with early horn callbacks
 				"A",
 				"D",
 				"E",
-				"A",
-				"D",
-				"E",
-				"A",
-				"D",
-				"E",
-				"A",
-				"D",
-				"E",
-				// Chorus (como la flor...)
-				"D",
-				"E",
-				"A",
-				"Fsm",
-				"D",
-				"E",
-				"D_E",
-				"A",
-				"D_E",
-				"A",
-				// Interlude (Short Riff)
 				"Riff_Short",
 				"A",
-				// Verse 2 (si vieras como duele...)
-				"A",
 				"D",
 				"E",
 				"A",
-				"D",
-				"E",
-				"A",
-				"D",
-				"E",
-				"A",
-				"D",
-				"E",
+				"D_E",
+				"Riff_B",
+
 				// Chorus
 				"D",
 				"E",
@@ -1064,17 +1037,59 @@ window.SystemDeckAudio = (() => {
 				"E",
 				"D_E",
 				"A",
+				"Riff_A",
+				"Riff_C",
+
+				// Verse 2 shortened and spiced
+				"A",
+				"D",
+				"E",
+				"Riff_Short",
+				"A",
+				"D",
+				"E",
+				"Riff_B",
+
+				// Chorus repeat
+				"D",
+				"E",
+				"A",
+				"Fsm",
+				"D",
+				"E",
 				"D_E",
 				"A",
-				// Outro Riff
+				"D_E",
+				"A",
+
+				// Dance horn break
 				"Riff_A",
 				"Riff_B",
 				"Riff_C",
+				"Riff_Short",
 				"A",
+				"D_E",
+				"Riff_B",
+				"Riff_C",
+
+				// Final chorus lift
+				"D",
+				"E",
+				"A",
+				"Fsm",
+				"D",
+				"E",
+				"D_E",
+				"A",
+
+				// Final horn solo outro
+				"Solo_A",
+				"Solo_B",
+				"Solo_C",
+				"Solo_Final",
 			],
 			patterns: {
 				A: {
-					// Deep 808-style Reggaeton bounce on the root note
 					bass: [
 						33, 0, 0, 33, 0, 0, 33, 0, 33, 0, 0, 33, 0, 0, 33, 0,
 					],
@@ -1171,7 +1186,6 @@ window.SystemDeckAudio = (() => {
 					],
 				},
 				D_E: {
-					// Split bar for the "pero a-a-ay" transition
 					bass: [
 						26, 0, 0, 26, 0, 0, 26, 0, 28, 0, 0, 28, 0, 0, 28, 0,
 					],
@@ -1195,7 +1209,7 @@ window.SystemDeckAudio = (() => {
 						"h",
 					],
 				},
-				// Translating the iconic Intro/Outro synth melody Tab
+
 				Riff_A: {
 					bass: [
 						26, 0, 0, 26, 0, 0, 26, 0, 26, 0, 0, 26, 0, 0, 26, 0,
@@ -1273,13 +1287,121 @@ window.SystemDeckAudio = (() => {
 						"h",
 					],
 				},
-				// The interlude short riff Tab
 				Riff_Short: {
 					bass: [
 						33, 0, 0, 33, 0, 0, 33, 0, 33, 0, 0, 33, 0, 0, 33, 0,
 					],
 					horn: [
 						75, 0, 74, 0, 77, 0, 69, 70, 0, 72, 0, 74, 72, 0, 70, 0,
+					],
+					drums: [
+						"k",
+						"h",
+						"h",
+						"s",
+						"h",
+						"h",
+						"s",
+						"h",
+						"k",
+						"h",
+						"h",
+						"s",
+						"h",
+						"h",
+						"s",
+						"h",
+					],
+				},
+
+				Solo_A: {
+					bass: [
+						33, 0, 0, 33, 0, 0, 33, 0, 33, 0, 0, 33, 0, 0, 33, 0,
+					],
+					horn: [
+						74, 76, 77, 0, 77, 76, 74, 72, 74, 0, 70, 72, 74, 76,
+						77, 0,
+					],
+					drums: [
+						"k",
+						"h",
+						"h",
+						"s",
+						"h",
+						"h",
+						"s",
+						"h",
+						"k",
+						"h",
+						"h",
+						"s",
+						"h",
+						"h",
+						"s",
+						"h",
+					],
+				},
+				Solo_B: {
+					bass: [
+						26, 0, 0, 26, 0, 0, 26, 0, 28, 0, 0, 28, 0, 0, 28, 0,
+					],
+					horn: [
+						79, 0, 77, 76, 74, 0, 72, 74, 76, 77, 0, 74, 72, 70, 69,
+						0,
+					],
+					drums: [
+						"k",
+						"h",
+						"h",
+						"s",
+						"h",
+						"h",
+						"s",
+						"h",
+						"k",
+						"h",
+						"h",
+						"s",
+						"h",
+						"h",
+						"s",
+						"h",
+					],
+				},
+				Solo_C: {
+					bass: [
+						30, 0, 0, 30, 0, 0, 30, 0, 33, 0, 0, 33, 0, 0, 33, 0,
+					],
+					horn: [
+						70, 72, 74, 0, 76, 77, 79, 0, 77, 76, 74, 72, 70, 0, 72,
+						74,
+					],
+					drums: [
+						"k",
+						"h",
+						"h",
+						"s",
+						"h",
+						"h",
+						"s",
+						"h",
+						"k",
+						"h",
+						"h",
+						"s",
+						"h",
+						"h",
+						"s",
+						"h",
+					],
+				},
+				Solo_Final: {
+					bass: [
+						33, 0, 0, 33, 0, 0, 33, 0, 33, 0, 0, 33, 0, 0, 33, 0,
+					],
+					horn: [
+						77, 0, 76, 0, 74, 72, 70, 0, 69, 70, 72, 74, 0, 72, 70,
+						0,
 					],
 					drums: [
 						"k",
@@ -1641,7 +1763,9 @@ window.SystemDeckAudio = (() => {
 				return Array.from({ length: bars }, () => 0)
 			}
 			try {
-				this.visualizerAnalyser.getByteFrequencyData(this.visualizerData)
+				this.visualizerAnalyser.getByteFrequencyData(
+					this.visualizerData,
+				)
 				const step = Math.max(
 					1,
 					Math.floor(this.visualizerData.length / bars),
@@ -1676,9 +1800,7 @@ window.SystemDeckAudio = (() => {
 				patch.nowPlaying || this.playbackState.nowPlaying || {}
 			const nextNowPlaying = { ...existingNowPlaying }
 			const nowMeta = { ...(nextNowPlaying.metadata || {}) }
-			const isMidiMeta = String(
-				nowMeta.mediaType || nowMeta.mime || "",
-			)
+			const isMidiMeta = String(nowMeta.mediaType || nowMeta.mime || "")
 				.toLowerCase()
 				.includes("midi")
 			if (!patch.nowPlaying) {
@@ -1985,16 +2107,25 @@ window.SystemDeckAudio = (() => {
 				? derivative.tracks
 				: []
 			const normalizedTracks = tracks.map((track, index) => {
-				const trackNotes = (Array.isArray(track?.notes) ? track.notes : [])
+				const trackNotes = (
+					Array.isArray(track?.notes) ? track.notes : []
+				)
 					.map((note) => {
 						const t = Number(note?.time)
 						const d = Number(note?.duration)
 						const m = Number(note?.midi)
-						
+
 						// VALIDATION: Catch NaN or invalid temporal data
-						if (!Number.isFinite(t) || !Number.isFinite(d) || !Number.isFinite(m)) {
+						if (
+							!Number.isFinite(t) ||
+							!Number.isFinite(d) ||
+							!Number.isFinite(m)
+						) {
 							if (window.SYSTEMDECK_DEBUG_AUDIO) {
-								console.warn(`[MIDI VALIDATION] Invalid note found in Track ${index}`, note)
+								console.warn(
+									`[MIDI VALIDATION] Invalid note found in Track ${index}`,
+									note,
+								)
 							}
 							return null
 						}
@@ -2014,7 +2145,7 @@ window.SystemDeckAudio = (() => {
 						}
 					})
 					.filter((note) => note !== null && note.midi > 0)
-				
+
 				// SORTING: Ensure note events are strictly ordered by time
 				trackNotes.sort((a, b) => a.time - b.time)
 
@@ -2410,11 +2541,11 @@ window.SystemDeckAudio = (() => {
 			this.compressor.connect(this.limiter)
 			this.limiter.toDestination()
 			this.eqNodes = {
-				"32": eq32,
-				"64": eq64,
-				"125": eq125,
-				"250": eq250,
-				"500": eq500,
+				32: eq32,
+				64: eq64,
+				125: eq125,
+				250: eq250,
+				500: eq500,
 				"1k": eq1k,
 				"2k": eq2k,
 				"4k": eq4k,
@@ -2972,11 +3103,11 @@ window.SystemDeckAudio = (() => {
 
 		getEQState() {
 			const bands = {
-				"32": Number(this.eqNodes?.["32"]?.gain?.value || 0),
-				"64": Number(this.eqNodes?.["64"]?.gain?.value || 0),
-				"125": Number(this.eqNodes?.["125"]?.gain?.value || 0),
-				"250": Number(this.eqNodes?.["250"]?.gain?.value || 0),
-				"500": Number(this.eqNodes?.["500"]?.gain?.value || 0),
+				32: Number(this.eqNodes?.["32"]?.gain?.value || 0),
+				64: Number(this.eqNodes?.["64"]?.gain?.value || 0),
+				125: Number(this.eqNodes?.["125"]?.gain?.value || 0),
+				250: Number(this.eqNodes?.["250"]?.gain?.value || 0),
+				500: Number(this.eqNodes?.["500"]?.gain?.value || 0),
 				"1k": Number(this.eqNodes?.["1k"]?.gain?.value || 0),
 				"2k": Number(this.eqNodes?.["2k"]?.gain?.value || 0),
 				"4k": Number(this.eqNodes?.["4k"]?.gain?.value || 0),
@@ -2984,16 +3115,66 @@ window.SystemDeckAudio = (() => {
 				"16k": Number(this.eqNodes?.["16k"]?.gain?.value || 0),
 			}
 			const advanced = {
-				"32": { frequency: Number(this.eqNodes?.["32"]?.frequency?.value || 32), q: Number(this.eqNodes?.["32"]?.Q?.value || 1.4) },
-				"64": { frequency: Number(this.eqNodes?.["64"]?.frequency?.value || 64), q: Number(this.eqNodes?.["64"]?.Q?.value || 1.4) },
-				"125": { frequency: Number(this.eqNodes?.["125"]?.frequency?.value || 125), q: Number(this.eqNodes?.["125"]?.Q?.value || 1.2) },
-				"250": { frequency: Number(this.eqNodes?.["250"]?.frequency?.value || 250), q: Number(this.eqNodes?.["250"]?.Q?.value || 1.2) },
-				"500": { frequency: Number(this.eqNodes?.["500"]?.frequency?.value || 500), q: Number(this.eqNodes?.["500"]?.Q?.value || 1) },
-				"1k": { frequency: Number(this.eqNodes?.["1k"]?.frequency?.value || 1000), q: Number(this.eqNodes?.["1k"]?.Q?.value || 1) },
-				"2k": { frequency: Number(this.eqNodes?.["2k"]?.frequency?.value || 2000), q: Number(this.eqNodes?.["2k"]?.Q?.value || 1) },
-				"4k": { frequency: Number(this.eqNodes?.["4k"]?.frequency?.value || 4000), q: Number(this.eqNodes?.["4k"]?.Q?.value || 1) },
-				"8k": { frequency: Number(this.eqNodes?.["8k"]?.frequency?.value || 8000), q: Number(this.eqNodes?.["8k"]?.Q?.value || 0.9) },
-				"16k": { frequency: Number(this.eqNodes?.["16k"]?.frequency?.value || 16000), q: Number(this.eqNodes?.["16k"]?.Q?.value || 0.8) },
+				32: {
+					frequency: Number(
+						this.eqNodes?.["32"]?.frequency?.value || 32,
+					),
+					q: Number(this.eqNodes?.["32"]?.Q?.value || 1.4),
+				},
+				64: {
+					frequency: Number(
+						this.eqNodes?.["64"]?.frequency?.value || 64,
+					),
+					q: Number(this.eqNodes?.["64"]?.Q?.value || 1.4),
+				},
+				125: {
+					frequency: Number(
+						this.eqNodes?.["125"]?.frequency?.value || 125,
+					),
+					q: Number(this.eqNodes?.["125"]?.Q?.value || 1.2),
+				},
+				250: {
+					frequency: Number(
+						this.eqNodes?.["250"]?.frequency?.value || 250,
+					),
+					q: Number(this.eqNodes?.["250"]?.Q?.value || 1.2),
+				},
+				500: {
+					frequency: Number(
+						this.eqNodes?.["500"]?.frequency?.value || 500,
+					),
+					q: Number(this.eqNodes?.["500"]?.Q?.value || 1),
+				},
+				"1k": {
+					frequency: Number(
+						this.eqNodes?.["1k"]?.frequency?.value || 1000,
+					),
+					q: Number(this.eqNodes?.["1k"]?.Q?.value || 1),
+				},
+				"2k": {
+					frequency: Number(
+						this.eqNodes?.["2k"]?.frequency?.value || 2000,
+					),
+					q: Number(this.eqNodes?.["2k"]?.Q?.value || 1),
+				},
+				"4k": {
+					frequency: Number(
+						this.eqNodes?.["4k"]?.frequency?.value || 4000,
+					),
+					q: Number(this.eqNodes?.["4k"]?.Q?.value || 1),
+				},
+				"8k": {
+					frequency: Number(
+						this.eqNodes?.["8k"]?.frequency?.value || 8000,
+					),
+					q: Number(this.eqNodes?.["8k"]?.Q?.value || 0.9),
+				},
+				"16k": {
+					frequency: Number(
+						this.eqNodes?.["16k"]?.frequency?.value || 16000,
+					),
+					q: Number(this.eqNodes?.["16k"]?.Q?.value || 0.8),
+				},
 			}
 			return {
 				preamp: Number(this.masterBus?.gain?.value || 1),
@@ -3012,11 +3193,11 @@ window.SystemDeckAudio = (() => {
 					? eqPreset.bands
 					: {}
 			this.setEQ({
-				"32": bands["32"],
-				"64": bands["64"],
-				"125": bands["125"],
-				"250": bands["250"],
-				"500": bands["500"],
+				32: bands["32"],
+				64: bands["64"],
+				125: bands["125"],
+				250: bands["250"],
+				500: bands["500"],
 				"1k": bands["1k"] ?? bands["1K"],
 				"2k": bands["2k"] ?? bands["2K"],
 				"4k": bands["4k"] ?? bands["4K"],
@@ -4633,7 +4814,12 @@ window.SystemDeckAudio = (() => {
 				)
 			}
 
-			if (!derivative && sourceUrl && !sourceUrl.trim().startsWith("{") && !sourceUrl.trim().startsWith("[")) {
+			if (
+				!derivative &&
+				sourceUrl &&
+				!sourceUrl.trim().startsWith("{") &&
+				!sourceUrl.trim().startsWith("[")
+			) {
 				const response = await fetch(source.url, {
 					credentials: "same-origin",
 				})
@@ -4673,7 +4859,11 @@ window.SystemDeckAudio = (() => {
 			this.stopMidiPlayback(false, false)
 
 			this.midiDerivative = normalized
-			this.midiSourceType = source?.data ? "inlineDerivative" : (source?.url?.includes(".json") ? "derivativeUrl" : "rawMidiUrl")
+			this.midiSourceType = source?.data
+				? "inlineDerivative"
+				: source?.url?.includes(".json")
+				? "derivativeUrl"
+				: "rawMidiUrl"
 			this.midiSourceHash = String(normalized?.source?.hash || "")
 			this.midiDuration = Number(normalized?.playback?.duration || 0)
 			this.midiPausedAt = 0
@@ -4681,7 +4871,11 @@ window.SystemDeckAudio = (() => {
 
 			if (window.SYSTEMDECK_DEBUG_AUDIO) {
 				const trackCount = normalized.tracks?.length || 0
-				const totalNotes = normalized.tracks?.reduce((acc, t) => acc + (t.notes?.length || 0), 0) || 0
+				const totalNotes =
+					normalized.tracks?.reduce(
+						(acc, t) => acc + (t.notes?.length || 0),
+						0,
+					) || 0
 				const bpm = normalized.timing?.tempoMap?.[0]?.bpm || 120
 				console.log("[MIDI DIAGNOSTICS: LOAD]", {
 					sourceType: this.midiSourceType,
@@ -4690,7 +4884,7 @@ window.SystemDeckAudio = (() => {
 					bpm,
 					duration: this.midiDuration,
 					schema: normalized.schema,
-					version: normalized.version
+					version: normalized.version,
 				})
 			}
 			this.currentTrack = String(
@@ -4760,19 +4954,26 @@ window.SystemDeckAudio = (() => {
 
 			this.midiParts = tracks.map((track) => {
 				const rawNotes = Array.isArray(track?.notes) ? track.notes : []
-				
-				if (window.SYSTEMDECK_DEBUG_AUDIO && tracks.indexOf(track) === 0) {
-					console.log(`[MIDI DIAGNOSTICS: PLAY] First 10 notes of Track 0:`, 
-						rawNotes.slice(0, 10).map(n => ({
+
+				if (
+					window.SYSTEMDECK_DEBUG_AUDIO &&
+					tracks.indexOf(track) === 0
+				) {
+					console.log(
+						`[MIDI DIAGNOSTICS: PLAY] First 10 notes of Track 0:`,
+						rawNotes.slice(0, 10).map((n) => ({
 							time: n.time,
 							midi: n.midi,
 							dur: n.duration,
-							vel: n.velocity
-						}))
+							vel: n.velocity,
+						})),
 					)
 				}
 
-				const events = rawNotes.map((note) => [Math.max(0, Number(note?.time || 0)), note])
+				const events = rawNotes.map((note) => [
+					Math.max(0, Number(note?.time || 0)),
+					note,
+				])
 				const part = this.trackDisposable(
 					new Tone.Part((time, note) => {
 						this.triggerMidiNote(track, note, time)
@@ -5147,7 +5348,7 @@ window.SystemDeckAudio = (() => {
 			const now = this.Tone.now()
 			this.fxGain.gain.cancelScheduledValues(now)
 			this.fxGain.gain.rampTo(0, 0.05, now)
-			
+
 			// Restore volume after a short silence to allow new FX to trigger
 			setTimeout(() => {
 				if (this.fxGain) {
@@ -5317,7 +5518,7 @@ window.SystemDeckAudio = (() => {
 
 			// Resolve Tone safely to avoid null transport crashes during rapid UI initialization
 			const T = this.Tone || window.Tone
-			const now = (T && typeof T.now === "function") ? T.now() : 0
+			const now = T && typeof T.now === "function" ? T.now() : 0
 
 			// Hard track-switch reset: snap timeline forward to avoid Tone scheduling conflicts
 			const safety = 0.2 // 200ms cooldown for envelope stability

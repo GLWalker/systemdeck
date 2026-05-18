@@ -405,9 +405,39 @@ class StorageEngine
             UNIQUE KEY widget_id (widget_id)
         ) $charset_collate;";
 
+        $table_audio_defaults = $wpdb->prefix . 'sd_audio_defaults';
+        $sql_audio_defaults = "CREATE TABLE $table_audio_defaults (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            user_id bigint(20) NOT NULL,
+            track_hash char(64) NOT NULL,
+            defaults_json longtext NULL,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
+            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL,
+            PRIMARY KEY  (id),
+            UNIQUE KEY user_track_default (user_id, track_hash),
+            KEY user_id (user_id),
+            KEY track_hash (track_hash)
+        ) $charset_collate;";
+
+        $table_audio_profiles = $wpdb->prefix . 'sd_audio_profiles';
+        $sql_audio_profiles = "CREATE TABLE $table_audio_profiles (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            user_id bigint(20) NOT NULL,
+            track_hash char(64) NOT NULL,
+            profile_json longtext NULL,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
+            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL,
+            PRIMARY KEY  (id),
+            UNIQUE KEY user_track_profile (user_id, track_hash),
+            KEY user_id (user_id),
+            KEY track_hash (track_hash)
+        ) $charset_collate;";
+
         dbDelta($sql_items);
         dbDelta($sql_state);
         dbDelta($sql_discovered);
+        dbDelta($sql_audio_defaults);
+        dbDelta($sql_audio_profiles);
     }
 
     private static function migrate_items_workspace_column(): void

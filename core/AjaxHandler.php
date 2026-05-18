@@ -4511,6 +4511,16 @@ class AjaxHandler
             update_user_meta($user_id, 'sd_audio_master_volume', (string) $audio_master_volume);
         }
 
+        if (array_key_exists('advanced_audio_media_modal', $_POST)) {
+            $enabled = !empty($_POST['advanced_audio_media_modal']) && $_POST['advanced_audio_media_modal'] !== 'false';
+            update_user_meta($user_id, 'sd_advanced_audio_media_modal', $enabled ? '1' : '0');
+        }
+
+        if (array_key_exists('advanced_audio_vault_modal', $_POST)) {
+            $enabled = !empty($_POST['advanced_audio_vault_modal']) && $_POST['advanced_audio_vault_modal'] !== 'false';
+            update_user_meta($user_id, 'sd_advanced_audio_vault_modal', $enabled ? '1' : '0');
+        }
+
         wp_send_json_success(['message' => 'Preferences saved.']);
     }
 

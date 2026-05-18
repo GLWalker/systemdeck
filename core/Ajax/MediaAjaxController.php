@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace SystemDeck\Core\Ajax;
 
 use SystemDeck\Core\AjaxHandler;
+use SystemDeck\Core\VaultManager;
 
 if (!defined('ABSPATH')) {
     exit;
@@ -95,21 +96,47 @@ class MediaAjaxController
                 }
 
                 $url = site_url('?sd_vault_stream=' . $post->ID);
-                $type = $is_midi ? 'midi' : 'file';
+                $type = VaultManager::detect_media_type($mime, (string) get_post_meta($post->ID, '_sd_vault_original_filename', true));
+                $artwork_url = (string) get_post_meta($post->ID, '_sd_vault_artwork_url', true);
+                $artwork_attachment_id = max(0, (int) get_post_meta($post->ID, '_sd_vault_artwork_attachment_id', true));
+                $duration = (float) get_post_meta($post->ID, '_sd_vault_duration', true);
+                $linked_attachment_id = max(0, (int) get_post_meta($post->ID, '_sd_vault_wp_attachment_id', true));
 
-                $metadata = [
-                    'id'             => $post->ID,
+                $metadata = array_filter([
+                    'id' => $post->ID,
+                    'vaultId' => $post->ID,
+                    'attachmentId' => $linked_attachment_id ?: null,
                     'midiDerivative' => get_post_meta($post->ID, '_sd_midi_derivative_json', true),
-                    'derivativeUrl'  => get_post_meta($post->ID, '_sd_midi_derivative_url', true),
-                    'originalUrl'    => $url,
-                    'sourceFile'     => basename((string)get_post_meta($post->ID, '_sd_vault_vault_path', true))
-                ];
+                    'derivativeUrl' => get_post_meta($post->ID, '_sd_midi_derivative_url', true),
+                    'originalUrl' => $url,
+                    'sourceFile' => basename((string) get_post_meta($post->ID, '_sd_vault_vault_path', true)),
+                    'filename' => (string) get_post_meta($post->ID, '_sd_vault_original_filename', true),
+                    'extension' => strtolower((string) pathinfo((string) get_post_meta($post->ID, '_sd_vault_original_filename', true), PATHINFO_EXTENSION)),
+                    'duration' => $duration > 0 ? $duration : null,
+                    'artworkAttachmentId' => $artwork_attachment_id > 0 ? $artwork_attachment_id : null,
+                    'artwork' => $artwork_url !== '' ? $artwork_url : null,
+                    'artworkUrl' => $artwork_url !== '' ? $artwork_url : null,
+                    'thumbnail' => $artwork_url !== '' ? $artwork_url : null,
+                    'cover' => $artwork_url !== '' ? $artwork_url : null,
+                    'origin' => 'vault',
+                    'authority' => (string) get_post_meta($post->ID, '_sd_vault_authority', true),
+                ], static function ($value) {
+                    return $value !== null && $value !== '';
+                });
 
                 $item = [
                     'id'       => $post->ID,
                     'title'    => $title,
                     'source'   => $url,
                     'url'      => $url,
+                    'artwork'  => $artwork_url !== '' ? $artwork_url : null,
+                    'artworkUrl' => $artwork_url !== '' ? $artwork_url : null,
+                    'thumbnail' => $artwork_url !== '' ? $artwork_url : null,
+                    'cover' => $artwork_url !== '' ? $artwork_url : null,
+                    'attachment_id' => $linked_attachment_id ?: null,
+                    'linked_attachment_id' => $linked_attachment_id ?: null,
+                    'linked_vault_id' => $post->ID,
+                    'duration' => $duration,
                     'type'     => $type,
                     'mime'     => $mime,
                     'origin'   => 'vault',
@@ -132,35 +159,11 @@ class MediaAjaxController
 
         if ($media_query->have_posts()) {
             foreach ($media_query->posts as $post) {
-                $url = wp_get_attachment_url($post->ID);
-                $mime = get_post_mime_type($post->ID);
-                $title = $post->post_title ?: 'Untitled Media Track';
-                $is_midi = strpos((string)$mime, 'midi') !== false;
-                $artwork = '';
-                $thumb_id = get_post_thumbnail_id($post->ID);
-                if ($thumb_id) {
-                    $artwork = (string) wp_get_attachment_image_url((int) $thumb_id, 'medium');
+                $item = VaultManager::build_attachment_media_payload((int) $post->ID);
+                if (!$item) {
+                    continue;
                 }
-                if (!$artwork) {
-                    $artwork = (string) wp_get_attachment_image_url($post->ID, 'medium');
-                }
-
-                $item = [
-                    'id'       => $post->ID,
-                    'title'    => $title,
-                    'source'   => $url,
-                    'url'      => $url,
-                    'artwork'  => $artwork ?: null,
-                    'type'     => $is_midi ? 'midi' : 'file',
-                    'mime'     => $mime,
-                    'origin'   => 'media',
-                    'metadata' => [
-                        'id' => $post->ID,
-                        'artwork' => $artwork ?: null,
-                        'artworkUrl' => $artwork ?: null,
-                        'thumbnail' => $artwork ?: null,
-                    ]
-                ];
+                $item['origin'] = 'media';
                 $playlist['items'][] = $item;
                 $playlist['groups']['media'][] = $item;
                 $playlist['media'][] = $item; // Compat

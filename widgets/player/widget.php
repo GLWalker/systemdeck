@@ -62,11 +62,11 @@ final class Player extends BaseWidget
     public static function assets(): array
     {
         return [
-            'css' => ['style.css'],
+            'css' => ['sd-player-style', 'dashicons'],
             'js' => [
                 'sd-audio-engine',
                 'sd-playback-adapter',
-                'app.js'
+                'sd-player-app'
             ],
         ];
     }

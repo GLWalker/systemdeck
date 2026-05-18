@@ -167,6 +167,10 @@ function systemdeck_register_infrastructure(): void
         \SystemDeck\Core\StorageEngine::init();
     }
 
+    if (class_exists('\\SystemDeck\\Core\\Rest\\AudioMemoryRoute')) {
+        \SystemDeck\Core\Rest\AudioMemoryRoute::init();
+    }
+
     // RC Directive Phase 2: Check if Registry Snapshot needs refresh
     do_action('system_deck_init');
     // Note: RegistryService::get_snapshot() handles refresh internally on read
@@ -631,6 +635,8 @@ class SystemDeck_Assets
         $tonejs_midi_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'assets/vendor/tonejs-midi.min.js') ?: SYSTEMDECK_VERSION);
         $audio_engine_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'assets/js/sd-audio-engine.js') ?: SYSTEMDECK_VERSION);
         $playback_adapter_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'assets/js/sd-playback-adapter.js') ?: SYSTEMDECK_VERSION);
+        $audio_identity_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'assets/js/sd-audio-identity.js') ?: SYSTEMDECK_VERSION);
+        $audio_memory_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'assets/js/sd-audio-memory.js') ?: SYSTEMDECK_VERSION);
         $player_style_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'widgets/player/style.css') ?: SYSTEMDECK_VERSION);
         $player_app_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'widgets/player/app.js') ?: SYSTEMDECK_VERSION);
 
@@ -638,10 +644,12 @@ class SystemDeck_Assets
         wp_register_script('sd-tonejs-midi', SYSTEMDECK_URL . 'assets/vendor/tonejs-midi.min.js', [], $tonejs_midi_ver, true);
         wp_register_script('sd-audio-engine', SYSTEMDECK_URL . 'assets/js/sd-audio-engine.js', [], $audio_engine_ver, true);
         wp_register_script('sd-playback-adapter', SYSTEMDECK_URL . 'assets/js/sd-playback-adapter.js', ['jquery', 'sd-audio-engine'], $playback_adapter_ver, true);
+        wp_register_script('sd-audio-identity', SYSTEMDECK_URL . 'assets/js/sd-audio-identity.js', [], $audio_identity_ver, true);
+        wp_register_script('sd-audio-memory', SYSTEMDECK_URL . 'assets/js/sd-audio-memory.js', ['wp-api-fetch', 'sd-audio-identity'], $audio_memory_ver, true);
         if (class_exists('\\SystemDeck\\Core\\Assets')) {
             \SystemDeck\Core\Assets::register_all();
         }
-        wp_register_style('sd-player-style', SYSTEMDECK_URL . 'widgets/player/style.css', ['sd-legacy-common'], $player_style_ver);
+        wp_register_style('sd-player-style', SYSTEMDECK_URL . 'widgets/player/style.css', ['sd-common', 'dashicons'], $player_style_ver);
         wp_register_script('sd-player-app', SYSTEMDECK_URL . 'widgets/player/app.js', ['jquery', 'sd-audio-engine'], $player_app_ver, true);
         wp_add_inline_script(
             'sd-audio-engine',
@@ -953,6 +961,12 @@ class SystemDeck_Assets
                 'sd_incognito_mode' => get_user_meta(get_current_user_id(), 'sd_incognito_mode', true) === 'true',
                 'sd_default_dock' => get_user_meta(get_current_user_id(), 'sd_default_dock', true) ?: 'standard-dock',
                 'sd_audio_master_volume' => max(0, min(1, (float) (get_user_meta(get_current_user_id(), 'sd_audio_master_volume', true) ?: 1))),
+                'sd_advanced_audio_media_modal' => get_user_meta(get_current_user_id(), 'sd_advanced_audio_media_modal', true) === '1',
+                'sd_advanced_audio_vault_modal' => get_user_meta(get_current_user_id(), 'sd_advanced_audio_vault_modal', true) === '1',
+            ],
+            'audio' => [
+                'advancedMediaModal' => get_user_meta(get_current_user_id(), 'sd_advanced_audio_media_modal', true) === '1',
+                'advancedVaultModal' => get_user_meta(get_current_user_id(), 'sd_advanced_audio_vault_modal', true) === '1',
             ],
             'workspaces' => $visible_workspaces,
             'theme_json' => class_exists('WP_Theme_JSON_Resolver')
@@ -991,7 +1005,9 @@ class SystemDeck_Assets
                 '    ajax_url: window.SYSTEMDECK_STATE.config.ajaxurl,' . "\n" .
                 '    nonces: Object.assign({}, (window.SYSTEMDECK_ENV && window.SYSTEMDECK_ENV.nonces) || {}, { systemdeck_runtime: window.SYSTEMDECK_STATE.config.nonce }),' . "\n" .
                 '    audio: {' . "\n" .
-                '        masterVolume: Number(window.SYSTEMDECK_STATE.config.user.sd_audio_master_volume || 1)' . "\n" .
+                '        masterVolume: Number(window.SYSTEMDECK_STATE.config.user.sd_audio_master_volume || 1),' . "\n" .
+                '        advancedMediaModal: window.SYSTEMDECK_STATE.config.audio && window.SYSTEMDECK_STATE.config.audio.advancedMediaModal === true,' . "\n" .
+                '        advancedVaultModal: window.SYSTEMDECK_STATE.config.audio && window.SYSTEMDECK_STATE.config.audio.advancedVaultModal === true' . "\n" .
                 '    }' . "\n" .
                 '});' . "\n" .
                 '(function() {' . "\n" .
@@ -1055,6 +1071,7 @@ class SystemDeck_Assets
             // Enqueue Shell
             wp_enqueue_style('systemdeck-shell');
             wp_enqueue_script('systemdeck-shell');
+            wp_enqueue_script('sd-audio-memory');
 
             // Widget and app assets should load after core/runtime/shell assets so
             // widget styles remain the final override layer.

@@ -22,6 +22,27 @@ const PIN_PICKER_LAUNCHER = {
 }
 
 export function initializeMenuController() {
+	const isSystemDeckCanvasContext = () => {
+		const shell = document.getElementById("systemdeck")
+		const canvasHost = document.querySelector(
+			"#sd-canvas-root, #systemdeck-canvas-root, .sd-canvas-shell, [data-systemdeck-canvas]",
+		)
+		return !!(shell && canvasHost)
+	}
+	const normalizeHref = (href) => {
+		const value = String(href || "").trim()
+		if (!value) return value
+		if (/^https?:\/\//i.test(value)) return value
+		if (value.startsWith("#")) return value
+		try {
+			return new URL(value, window.location.origin).toString()
+		} catch (_error) {
+			return value
+		}
+	}
+
+	if (!isSystemDeckCanvasContext()) return
+
 	const menuWrap = document.getElementById("sd-menuwrap")
 	if (!menuWrap) return
 	let workspaceOptionsLauncher = document.getElementById(
@@ -256,7 +277,7 @@ export function initializeMenuController() {
 		const link = e.target.closest("a")
 		if (!link) return
 
-		const href = link.getAttribute("href")
+		const href = normalizeHref(link.getAttribute("href"))
 		const workspaceId = link.getAttribute("data-workspace_id")
 
 		// 1. Config / System

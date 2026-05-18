@@ -541,6 +541,24 @@
 			return window.SystemDeckAudio || null
 		},
 
+		sdAdvancedMediaModalEnabled: function () {
+			return (
+				window.sd_vars?.audio?.advancedMediaModal === true ||
+				window.SYSTEMDECK_BOOTSTRAP?.config?.audio
+					?.advancedMediaModal === true ||
+				window.SYSTEMDECK_ENV?.audio?.advancedMediaModal === true
+			)
+		},
+
+		sdAdvancedVaultModalEnabled: function () {
+			return (
+				window.sd_vars?.audio?.advancedVaultModal === true ||
+				window.SYSTEMDECK_BOOTSTRAP?.config?.audio
+					?.advancedVaultModal === true ||
+				window.SYSTEMDECK_ENV?.audio?.advancedVaultModal === true
+			)
+		},
+
 		postAction: function (action, data = {}) {
 			return new Promise((resolve, reject) => {
 				$.post(
@@ -879,6 +897,18 @@
 			if (this.isAttachmentAudioLike(attachment)) {
 				const mediaHost = frameEl.find(".attachment-media-view").first()
 				if (mediaHost.length) {
+					const hasPlayerRuntime = this.sdAdvancedMediaModalEnabled()
+					if (!hasPlayerRuntime) {
+						mediaHost.removeClass("sd-vault-has-systemdeck-player")
+						this.unmountCanonicalModalPlayer(frameEl, "media-modal")
+						mediaHost
+							.find(
+								".sd-vault-media-audio-extension, .sd-vault-midi-player-bridge, .sd-vault-modal-player-surface",
+							)
+							.remove()
+						return
+					}
+
 					mediaHost.addClass("sd-vault-has-systemdeck-player")
 					mediaHost
 						.find(
@@ -905,9 +935,14 @@
 						this.renderModalPlayerSurfaceHTML(runtimeFile, {
 							midi,
 							includeTools: midi && isItemMode && !!file,
+							context: "media-modal",
 						}),
 					)
-					this.bindMidiBridgeEvents(frameEl, runtimeFile, { midi })
+					this.mountCanonicalModalPlayer(
+						frameEl,
+						runtimeFile,
+						"media-modal",
+					)
 				}
 			}
 
@@ -1300,6 +1335,36 @@
 							mime: attachment.mime || "",
 							origin: "vault-media",
 							mediaType: midi ? "midi" : "file",
+							artwork:
+								attachment.artwork ||
+								attachment.artworkUrl ||
+								attachment.thumbnail ||
+								attachment.cover ||
+								null,
+							artworkUrl:
+								attachment.artworkUrl ||
+								attachment.artwork ||
+								attachment.thumbnail ||
+								attachment.cover ||
+								null,
+							thumbnail:
+								attachment.thumbnail ||
+								attachment.artwork ||
+								attachment.artworkUrl ||
+								attachment.cover ||
+								null,
+							cover:
+								attachment.cover ||
+								attachment.artwork ||
+								attachment.artworkUrl ||
+								attachment.thumbnail ||
+								null,
+							duration: Number(attachment.duration || 0),
+							attachmentId: Number(
+								attachment.attachment_id || attachment.id || 0,
+							),
+							linkedVaultId:
+								Number(attachment.linked_vault_id || 0) || null,
 							midiDerivative: attachment.midi_derivative || null,
 						},
 					},
@@ -1322,38 +1387,6 @@
 
 		handleEditAction: function (id) {
 			this.openDetails(id)
-		},
-
-		openNativeMediaModal: function (file) {
-			const self = this
-			if (typeof wp === "undefined" || !wp.media)
-				return this.openDetails(file.id)
-
-			this.mediaFrameContext = { type: "item", file: file }
-
-			const frame = wp.media({
-				title: file.title || "Edit Vault Item",
-				library: { type: null },
-				button: { text: "Done" },
-				multiple: false,
-			})
-
-			frame.on("open", function () {
-				const selection = frame.state().get("selection")
-				const attachment = wp.media.attachment(file.attachment_id)
-				attachment.fetch().done(function () {
-					selection.add(attachment ? [attachment] : [])
-				})
-				self.startMediaExtensionLoop(frame)
-			})
-
-			frame.on("close", function () {
-				self.stopMediaExtensionLoop()
-				self.resetMediaExtensionState()
-				self.mediaFrameContext = null
-			})
-
-			frame.open()
 		},
 
 		fetchFileDetails: function (id) {
@@ -1567,7 +1600,7 @@
 			const exportLabel =
 				file.storage_mode === "media_public"
 					? "Return to Vault"
-					: "Publish to Media Library"
+					: "Copy to Media Library"
 			const rowActions = `<div class="row-actions"><span class="edit"><a href="#" class="sd-action-edit">Edit</a> | </span><span class="view"><a href="#" class="sd-action-view">View</a> | </span><span class="export"><a href="#" class="sd-action-export" data-storage-mode="${this.escapeHtml(
 				file.storage_mode || "vault_private",
 			)}">${exportLabel}</a> | </span><span class="trash"><a href="#" class="sd-action-trash">Trash</a></span></div>`
@@ -1622,6 +1655,7 @@
 
 			this.cleanupAudioSubscriptions()
 			this.resetMidiEditor(modal)
+			this.unmountCanonicalModalPlayer(modal)
 
 			modal.attr("aria-hidden", "true").hide()
 			this.findInDetails([
@@ -1634,6 +1668,149 @@
 				".sd-vault-details-parent-comment",
 				"#sd-vault-details-parent-comment",
 			]).val("0")
+		},
+
+		mountCanonicalModalPlayer: function (modal, file, context = "vault-modal") {
+			const shell = first(modal, [".sd-vault-modal-player-surface"]).first()
+			if (!shell.length) return
+			let host = shell.find(".sd-player-modal-mount").first()
+			const isMidi = this.isMidiFile(file)
+			const mime = String(file?.mime || file?.type || "").toLowerCase()
+			const isAudio = mime.startsWith("audio/") || isMidi
+			if (!isAudio) {
+				this.ensureVaultModalMountHost(shell, file, context, isMidi)
+				this.clearVaultAudioFallback(modal)
+				return
+			}
+
+			if (!this.sdAdvancedVaultModalEnabled()) {
+				this.renderVaultAudioFallback(modal, file, shell)
+				return
+			}
+
+			this.clearVaultAudioFallback(modal)
+			host = this.ensureVaultModalMountHost(shell, file, context, isMidi)
+			if (!host || !host.length) return
+			const hostEl = host[0]
+			const fileId = String(file?.id || "")
+			const trackUrl = String(file?.stream_url || file?.url || "")
+			const trackTitle = String(file?.title || "Vault file")
+			const trackType = isMidi ? "midi" : "audio"
+			host.attr("data-context", context)
+			host.attr("data-track-id", fileId)
+			host.attr("data-track-url", trackUrl)
+			host.attr("data-track-title", trackTitle)
+			host.attr("data-track-type", trackType)
+			if (hostEl.dataset.sdMountedTrackId === fileId) return
+			hostEl.dataset.sdMountedTrackId = fileId
+			if (window.SystemDeckAudioDebug === true) {
+				console.debug("[SystemDeckPlayer:modal]", {
+					stage: "vault-dispatch-mount",
+					context,
+					fileId,
+					trackUrl,
+					trackTitle,
+					trackType,
+				})
+			}
+			document.dispatchEvent(
+				new CustomEvent("systemdeck:player-modal-mount", {
+					detail: {
+						context,
+						host: hostEl,
+						track: file || null,
+						trackId: fileId,
+						url: trackUrl,
+						title: trackTitle,
+						type: trackType,
+					},
+				}),
+			)
+		},
+
+		unmountCanonicalModalPlayer: function (modal, context = "vault-modal") {
+			const host = first(modal, [".sd-player-modal-mount"]).first()
+			this.clearVaultAudioFallback(modal)
+			if (!host.length) return
+			const hostEl = host[0]
+			if (window.SystemDeckAudioDebug === true) {
+				console.debug("[SystemDeckPlayer:modal]", {
+					stage: "vault-dispatch-unmount",
+					context,
+					fileId: String(host.attr("data-track-id") || ""),
+				})
+			}
+			delete hostEl.dataset.sdMountedTrackId
+			document.dispatchEvent(
+				new CustomEvent("systemdeck:player-modal-unmount", {
+					detail: { context, host: hostEl },
+				}),
+			)
+			host.empty()
+		},
+
+		clearVaultAudioFallback: function (modal) {
+			if (!modal || !modal.length) return
+			modal.find(".sd-vault-audio-fallback").remove()
+		},
+
+		ensureVaultModalMountHost: function (
+			shell,
+			file,
+			context = "vault-modal",
+			isMidi = false,
+		) {
+			if (!shell.length) return
+
+			let host = shell.find(".sd-player-modal-mount").first()
+			if (!host.length) {
+				shell.prepend(
+					`<div class="sd-player-modal-mount"
+						data-context="${this.escapeHtml(String(context || "vault-modal"))}"
+						data-track-id="${this.escapeHtml(String(file?.id || ""))}"
+						data-track-url="${this.escapeHtml(String(file?.stream_url || file?.url || ""))}"
+						data-track-title="${this.escapeHtml(String(file?.title || "Vault file"))}"
+						data-track-type="${isMidi ? "midi" : "audio"}"></div>`,
+				)
+				host = shell.find(".sd-player-modal-mount").first()
+			}
+			return host
+		},
+
+		renderVaultAudioFallback: function (modal, file, shell = null) {
+			const resolvedShell =
+				shell && shell.length
+					? shell
+					: first(modal, [".sd-vault-modal-player-surface"]).first()
+			if (!resolvedShell.length) return
+
+			const host = resolvedShell.find(".sd-player-modal-mount").first()
+			if (host.length) {
+				delete host[0].dataset.sdMountedTrackId
+				host.remove()
+			}
+
+			this.clearVaultAudioFallback(modal)
+			host.empty()
+
+			const streamUrl = String(file?.stream_url || file?.url || "")
+			if (!streamUrl) return
+
+			if (this.isMidiFile(file)) {
+				resolvedShell.append(
+					`<div class="sd-vault-audio-fallback sd-vault-midi-fallback">
+						<p>MIDI preview requires the SystemDeck Player widget.</p>
+						<p><a class="button button-secondary" href="${this.escapeHtml(streamUrl)}" target="_blank" rel="noopener">Open file</a></p>
+					</div>`,
+				)
+				return
+			}
+
+			resolvedShell.append(
+				`<div class="sd-vault-audio-fallback">
+					<audio controls preload="metadata" src="${this.escapeHtml(streamUrl)}"></audio>
+				</div>`,
+			)
 		},
 
 		updateDetailsNavigation: function (id) {
@@ -2085,139 +2262,6 @@
 				)
 		},
 
-		bindMidiBridgeEvents: function (modal, file, options = {}) {
-			const self = this
-			const bridge = modal
-				.find(".sd-vault-modal-player-surface, .sd-vault-midi-player-bridge")
-				.first()
-			if (!bridge.length) return
-			const isMidi =
-				options.midi === true ||
-				this.isMidiFile(file) ||
-				String(file?.mime || "")
-					.toLowerCase()
-					.includes("midi")
-			bridge.find(".sd-midi-bridge-play").on("click", async () => {
-				if (window.SystemDeckPlayback) {
-					try {
-						await window.SystemDeckAudio?.resume?.()
-					} catch (_err) {}
-					const authoritativeFile = modal?.data("sdVaultCurrentFile")
-					const playbackFile =
-						authoritativeFile &&
-						Number(authoritativeFile?.id || 0) > 0
-							? authoritativeFile
-							: file
-					const playbackId = Number(playbackFile?.id || file?.id || 0)
-					const current = window.SystemDeckPlayback.getState()
-					const isCurrent =
-						String(current.nowPlaying?.id || current.id) ===
-						String(playbackId || file.id)
-
-					if (isCurrent && current.status === "playing") {
-						window.SystemDeckPlayback.pause()
-					} else if (isCurrent && current.status === "paused") {
-						window.SystemDeckPlayback.resume()
-					} else {
-						try {
-							const item =
-								await self.getPlayerVaultPlaylistItem(playbackId)
-							const playableItem =
-								isMidi &&
-								String(item?.type || "").toLowerCase() !== "midi"
-									? { ...item, type: "midi" }
-									: item
-							window.SystemDeckPlayback.setPlaylist(
-								[playableItem],
-								0,
-							)
-							await window.SystemDeckPlayback.playIndex(0)
-						} catch (err) {
-							console.warn(
-								"[VaultModalPlayback] player playlist item unavailable",
-								err,
-							)
-						}
-					}
-				}
-			})
-
-			bridge.find(".sd-midi-bridge-stop").on("click", () => {
-				window.SystemDeckPlayback?.stop()
-			})
-
-			// State synchronization
-			this.cleanupAudioSubscriptions()
-
-			if (window.SystemDeckPlayback) {
-				const stateHandler = (e) => {
-					const state = e.detail || {}
-					const isCurrent =
-						String(state.nowPlaying?.id || state.id) ===
-						String(file.id)
-					const statusText = bridge.find(".sd-midi-bridge-status")
-					const playBtn = bridge.find(
-						".sd-midi-bridge-play .dashicons",
-					)
-
-					if (isCurrent) {
-						statusText.text(
-							state.status.charAt(0).toUpperCase() +
-								state.status.slice(1),
-						)
-						playBtn.attr(
-							"class",
-							state.status === "playing"
-								? "dashicons dashicons-pause"
-								: "dashicons dashicons-play",
-						)
-
-						const percent =
-							(state.currentTime / state.duration) * 100
-						bridge
-							.find(".sd-midi-bridge-progress-bar")
-							.css("width", percent + "%")
-						bridge
-							.find(".sd-midi-bridge-time")
-							.text(
-								`${self.formatTime(
-									state.currentTime,
-								)} / ${self.formatTime(state.duration)}`,
-							)
-
-						if (
-							state.status === "stopped" ||
-							state.status === "ended"
-						) {
-							bridge
-								.find(".sd-midi-bridge-progress-bar")
-								.css("width", "0%")
-							bridge
-								.find(".sd-midi-bridge-time")
-								.text(
-									`0:00 / ${self.formatTime(
-										state.duration || 0,
-									)}`,
-								)
-						}
-					} else {
-						statusText.text("Ready")
-						playBtn.attr("class", "dashicons dashicons-play")
-					}
-				}
-
-				document.addEventListener(
-					"systemdeck:playback-state",
-					stateHandler,
-				)
-				this.audioStateUnsubscribe = () =>
-					document.removeEventListener(
-						"systemdeck:playback-state",
-						stateHandler,
-					)
-			}
-		},
-
 		renderDetailsPreview: function (modal, file, details) {
 			const authoritativeFile = modal?.data("sdVaultCurrentFile")
 			const currentFile =
@@ -2239,6 +2283,7 @@
 			])
 			previewShell.find(".sd-vault-loading-text").remove()
 			previewShell.children().not(previewActions).remove()
+			this.unmountCanonicalModalPlayer(modal)
 			previewActions.removeClass("has-midi-tools").hide().empty()
 			this.cleanupAudioSubscriptions()
 			this.resetMidiEditor(modal)
@@ -2303,7 +2348,6 @@
 						includeTools: false,
 					}),
 				)
-				this.bindMidiBridgeEvents(modal, currentFile, { midi: false })
 			} else if (this.isMidiFile(currentFile)) {
 				insertPreview(
 					this.renderModalPlayerSurfaceHTML(currentFile, {
@@ -2311,7 +2355,6 @@
 						includeTools: true,
 					}),
 				)
-				this.bindMidiBridgeEvents(modal, currentFile, { midi: true })
 			} else if (details.mediaType === "video") {
 				insertPreview(
 					`<div class="wp-media-wrapper wp-video"><video controls="controls" class="wp-video-shortcode" preload="metadata"><source type="${this.escapeHtml(
@@ -2345,32 +2388,20 @@
 			}
 
 			if (this.isMidiFile(currentFile)) this.loadMidiEditor(modal, currentFile)
+			this.mountCanonicalModalPlayer(modal, currentFile, "vault-modal")
 		},
 
 		renderModalPlayerSurfaceHTML: function (file, options = {}) {
 			const midi = options.midi === true
 			const includeTools = options.includeTools === true
-			const statusLabel = midi ? "MIDI Ready" : "Audio Ready"
 			return `
-				<div class="sd-vault-modal-player-surface sd-vault-midi-player-bridge" data-file-id="${file.id}">
-					<div class="sd-midi-bridge-visual">
-						<span class="dashicons ${
-							midi ? "dashicons-performance" : "dashicons-format-audio"
-						}"></span>
-						<div class="sd-midi-bridge-status">${statusLabel}</div>
-					</div>
-					<div class="sd-midi-bridge-controls">
-						<button type="button" class="button sd-midi-bridge-play" title="Play/Pause">
-							<span class="dashicons dashicons-play"></span>
-						</button>
-						<button type="button" class="button sd-midi-bridge-stop" title="Stop">
-							<span class="dashicons dashicons-media-stop"></span>
-						</button>
-						<div class="sd-midi-bridge-progress-wrap">
-							<div class="sd-midi-bridge-progress-bar" style="width: 0%"></div>
-						</div>
-						<div class="sd-midi-bridge-time">0:00 / 0:00</div>
-					</div>
+				<div class="sd-vault-modal-player-surface" data-file-id="${file.id}">
+					<div class="sd-player-modal-mount"
+						data-context="${options.context || "vault-modal"}"
+						data-track-id="${this.escapeHtml(String(file?.id || ""))}"
+						data-track-url="${this.escapeHtml(String(file?.stream_url || file?.url || ""))}"
+						data-track-title="${this.escapeHtml(String(file?.title || "Vault file"))}"
+						data-track-type="${midi ? "midi" : "audio"}"></div>
 				</div>
 				${
 					includeTools

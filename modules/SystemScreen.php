@@ -57,7 +57,7 @@ class SystemScreen
         }
 
         wp_enqueue_script('sd-scanner-js');
-        wp_enqueue_style('sd-legacy-common');
+        wp_enqueue_style('sd-common');
         wp_enqueue_style('sd-screen-meta');
 
         wp_localize_script('sd-scanner-js', 'sdScannerVars', [

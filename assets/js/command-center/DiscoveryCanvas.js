@@ -130,6 +130,12 @@ export default function DiscoveryCanvas() {
 		if (!Number.isFinite(raw)) return 1
 		return Math.max(0, Math.min(1, raw))
 	})
+	const [advancedAudioMediaModal, setAdvancedAudioMediaModal] = useState(
+		!!window.sd_vars?.user?.sd_advanced_audio_media_modal,
+	)
+	const [advancedAudioVaultModal, setAdvancedAudioVaultModal] = useState(
+		!!window.sd_vars?.user?.sd_advanced_audio_vault_modal,
+	)
 	const [importPayload, setImportPayload] = useState("")
 	const [importFileName, setImportFileName] = useState("")
 	const [audienceCandidatesByWorkspace, setAudienceCandidatesByWorkspace] =
@@ -555,6 +561,12 @@ export default function DiscoveryCanvas() {
 					incognito_mode: incognitoMode ? "true" : "false",
 					default_dock: defaultDock,
 					audio_master_volume: audioMasterVolume,
+					advanced_audio_media_modal: advancedAudioMediaModal
+						? "true"
+						: "false",
+					advanced_audio_vault_modal: advancedAudioVaultModal
+						? "true"
+						: "false",
 				})
 			if (!res?.success) {
 				pushNotice(
@@ -580,6 +592,28 @@ export default function DiscoveryCanvas() {
 					defaultDock
 				window.SYSTEMDECK_BOOTSTRAP.config.user.sd_audio_master_volume =
 					audioMasterVolume
+				window.SYSTEMDECK_BOOTSTRAP.config.user.sd_advanced_audio_media_modal =
+					advancedAudioMediaModal
+				window.SYSTEMDECK_BOOTSTRAP.config.user.sd_advanced_audio_vault_modal =
+					advancedAudioVaultModal
+			}
+			if (window.SYSTEMDECK_BOOTSTRAP?.config?.audio) {
+				window.SYSTEMDECK_BOOTSTRAP.config.audio.advancedMediaModal =
+					advancedAudioMediaModal
+				window.SYSTEMDECK_BOOTSTRAP.config.audio.advancedVaultModal =
+					advancedAudioVaultModal
+			}
+			if (window.sd_vars) {
+				window.sd_vars.user = window.sd_vars.user || {}
+				window.sd_vars.user.sd_advanced_audio_media_modal =
+					advancedAudioMediaModal
+				window.sd_vars.user.sd_advanced_audio_vault_modal =
+					advancedAudioVaultModal
+				window.sd_vars.audio = window.sd_vars.audio || {}
+				window.sd_vars.audio.advancedMediaModal =
+					advancedAudioMediaModal
+				window.sd_vars.audio.advancedVaultModal =
+					advancedAudioVaultModal
 			}
 			const shellEl = document.getElementById("systemdeck")
 			if (shellEl) {
@@ -590,13 +624,17 @@ export default function DiscoveryCanvas() {
 			if (window.SYSTEMDECK_ENV) {
 				window.SYSTEMDECK_ENV.audio = {
 					masterVolume: Number(audioMasterVolume || 1),
-					}
+					advancedMediaModal: !!advancedAudioMediaModal,
+					advancedVaultModal: !!advancedAudioVaultModal,
+				}
 				}
 				if (window.dispatchEvent && window.CustomEvent) {
 					window.dispatchEvent(
 						new CustomEvent("systemdeck:audio-settings-changed", {
 							detail: {
 								masterVolume: Number(audioMasterVolume || 1),
+								advancedMediaModal: !!advancedAudioMediaModal,
+								advancedVaultModal: !!advancedAudioVaultModal,
 							},
 						}),
 					)
@@ -2717,6 +2755,78 @@ export default function DiscoveryCanvas() {
 																		{`${Math.round(audioMasterVolume * 100)}%`}
 																	</span>
 																</div>
+															</td>
+														</tr>
+														<tr>
+															<th scope='row'>
+																{__(
+																	"Advanced Audio in Media Library",
+																	"systemdeck",
+																)}
+															</th>
+															<td>
+																<label className='sd-checkbox-control'>
+																	<input
+																		type='checkbox'
+																		checked={
+																			advancedAudioMediaModal
+																		}
+																		onChange={(
+																			e,
+																		) =>
+																			setAdvancedAudioMediaModal(
+																				e
+																					.target
+																					.checked,
+																			)
+																		}
+																		disabled={
+																			isLoading
+																		}
+																	/>
+																	<span>
+																		{__(
+																			"Use SystemDeck Player inside the WordPress Media edit modal for audio/MIDI.",
+																			"systemdeck",
+																		)}
+																	</span>
+																</label>
+															</td>
+														</tr>
+														<tr>
+															<th scope='row'>
+																{__(
+																	"Advanced Audio in Vault",
+																	"systemdeck",
+																)}
+															</th>
+															<td>
+																<label className='sd-checkbox-control'>
+																	<input
+																		type='checkbox'
+																		checked={
+																			advancedAudioVaultModal
+																		}
+																		onChange={(
+																			e,
+																		) =>
+																			setAdvancedAudioVaultModal(
+																				e
+																					.target
+																					.checked,
+																			)
+																		}
+																		disabled={
+																			isLoading
+																		}
+																	/>
+																	<span>
+																		{__(
+																			"Use SystemDeck Player inside the Vault edit modal for audio/MIDI.",
+																			"systemdeck",
+																		)}
+																	</span>
+																</label>
 															</td>
 														</tr>
 													</tbody>

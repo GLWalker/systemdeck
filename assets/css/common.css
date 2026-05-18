@@ -11,11 +11,32 @@
  */
 
 /* ==========================================================================
-   SD COMMON LEGACY (MIGRATED)
+   SystemDeck Common CSS — Table of Contents
+   ==========================================================================
+   1. WordPress postbox baseline alignment
+   2. SystemDeck widget shell extensions
+   3. Typography and heading normalization
+   4. Buttons
+   5. Forms and inputs
+   6. Tables and list-table style content
+   7. Comment, activity, and discussion patterns
+   8. Notices, messages, and states
+   9. Pixi host surfaces
+   10. Shared utility content patterns
+   11. Modal portals — Widget picker + Pin/Telemetrics picker
+   12. Legacy compatibility — unscoped workspace/discovery helpers
+   13. Runtime Shell Infrastructure
+   14. Configuration Workspace
+   15. Registry & Item Management
+   16. Preview & Meta Blocks
+   17. Configuration Manager (Admin View)
+   18. Inspector & Forensic HUD
+   19. Workspace Grid & Drag-and-Drop
+   20. Runtime Surface & Modal Infrastructure
    ========================================================================== */
 
 /* Headings & Parity */
-#systemdeck .wp-heading-inline {
+:is(#systemdeck, .systemdeck-scope) .wp-heading-inline {
     color: var(--sd-heading-color);
     font-size: 23px;
     font-weight: 400;
@@ -24,7 +45,7 @@
     line-height: 1.3;
 }
 
-#systemdeck .wp-header-end {
+:is(#systemdeck, .systemdeck-scope) .wp-header-end {
     clear: both;
     margin: 0 0 20px;
     border: 0;
@@ -32,7 +53,7 @@
 }
 
 /* Shared Canvas Stage */
-#systemdeck .sd-canvas-stage {
+:is(#systemdeck, .systemdeck-scope) .sd-canvas-stage {
     position: absolute;
     top: 0;
     left: 0;
@@ -44,20 +65,20 @@
     box-sizing: border-box;
 }
 
-#systemdeck #sd-workspace-content,
-#systemdeck .sd-canvas-manager,
-#systemdeck .sd-active-canvas-container,
-#systemdeck .sd-discovery-canvas,
-#systemdeck .sd-config-container,
-#systemdeck .sd-settings-tabs,
-#systemdeck .components-tab-panel,
-#systemdeck .components-tab-panel__tab-content {
+:is(#systemdeck, .systemdeck-scope) #sd-workspace-content,
+:is(#systemdeck, .systemdeck-scope) .sd-canvas-manager,
+:is(#systemdeck, .systemdeck-scope) .sd-active-canvas-container,
+:is(#systemdeck, .systemdeck-scope) .sd-discovery-canvas,
+:is(#systemdeck, .systemdeck-scope) .sd-config-container,
+:is(#systemdeck, .systemdeck-scope) .sd-settings-tabs,
+:is(#systemdeck, .systemdeck-scope) .components-tab-panel,
+:is(#systemdeck, .systemdeck-scope) .components-tab-panel__tab-content {
     min-width: 0;
     max-width: 100%;
     box-sizing: border-box;
 }
 
-#systemdeck .sd-canvas-header {
+:is(#systemdeck, .systemdeck-scope) .sd-canvas-header {
     display: flex;
     align-items: center;
     gap: 16px;
@@ -65,16 +86,16 @@
     position: relative;
 }
 
-#systemdeck .sd-canvas-header .wp-heading-inline {
+:is(#systemdeck, .systemdeck-scope) .sd-canvas-header .wp-heading-inline {
     padding: 0;
     margin: 0;
 }
 
-#systemdeck .sd-canvas-header .wp-header-end {
+:is(#systemdeck, .systemdeck-scope) .sd-canvas-header .wp-header-end {
     display: none;
 }
 
-#systemdeck .sd-canvas-header__logo {
+:is(#systemdeck, .systemdeck-scope) .sd-canvas-header__logo {
     line-height: 0;
     flex-shrink: 0;
     display: flex;
@@ -83,19 +104,19 @@
     margin-right: 1em;
 }
 
-#systemdeck .sd-canvas-header__logo svg {
+:is(#systemdeck, .systemdeck-scope) .sd-canvas-header__logo svg {
     width: 3em;
     height: 3em;
 }
 
 /* Frontend theme protection */
-#systemdeck p,
-#systemdeck span,
-#systemdeck li,
-#systemdeck td,
-#systemdeck th,
-#systemdeck label,
-#systemdeck .description {
+:is(#systemdeck, .systemdeck-scope) p,
+:is(#systemdeck, .systemdeck-scope) span,
+:is(#systemdeck, .systemdeck-scope) li,
+:is(#systemdeck, .systemdeck-scope) td,
+:is(#systemdeck, .systemdeck-scope) th,
+:is(#systemdeck, .systemdeck-scope) label,
+:is(#systemdeck, .systemdeck-scope) .description {
     color: var(--sd-text);
     font-size: 13px;
     line-height: 1.6;
@@ -107,12 +128,12 @@
             sans-serif);
 }
 
-#systemdeck h1,
-#systemdeck h2,
-#systemdeck h3,
-#systemdeck h4,
-#systemdeck h5,
-#systemdeck h6 {
+:is(#systemdeck, .systemdeck-scope) h1,
+:is(#systemdeck, .systemdeck-scope) h2,
+:is(#systemdeck, .systemdeck-scope) h3,
+:is(#systemdeck, .systemdeck-scope) h4,
+:is(#systemdeck, .systemdeck-scope) h5,
+:is(#systemdeck, .systemdeck-scope) h6 {
     color: var(--sd-heading-color);
     font-family: var(--sd-font-family,
             -apple-system,
@@ -122,8 +143,8 @@
             sans-serif);
 }
 
-#systemdeck strong,
-#systemdeck b {
+:is(#systemdeck, .systemdeck-scope) strong,
+:is(#systemdeck, .systemdeck-scope) b {
     font-weight: 600;
     color: inherit;
 }
@@ -173,7 +194,7 @@ body.sd-visual-mode-active {
         sans-serif;
 }
 
-#sd-visual-workspace .sd-visual-island {
+.sd-visual-island {
     position: fixed;
     bottom: 60px;
     left: 50%;
@@ -233,6 +254,225 @@ body.sd-visual-mode-active {
     right: 0;
 }
 
+/* Admin Bar Parity Menu */
+#sd-visual-menu {
+    display: flex;
+    align-items: center;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    gap: 4px;
+}
+
+#sd-visual-menu .ab-item {
+    color: #eee !important;
+    padding: 6px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.2s;
+    cursor: pointer;
+    text-decoration: none !important;
+}
+
+#sd-visual-menu .ab-item:hover,
+#sd-visual-menu .ab-item.active {
+    background: var(--sd-highlight-color, #2271b1) !important;
+    color: #fff !important;
+}
+
+#sd-visual-menu .ab-item .dashicons,
+#sd-visual-menu .ab-item .ab-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    line-height: 1;
+    display: block;
+}
+
+#sd-visual-menu .sd-separator {
+    width: 1px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.15);
+    margin: 0 10px;
+}
+
+/* Style Swapper */
+#sd-visual-style-select {
+    display: flex;
+    align-items: center;
+}
+
+#sd-style-swapper {
+    background: transparent;
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    font-size: 11px;
+    padding: 2px 6px;
+    outline: none;
+    cursor: pointer;
+}
+
+/* The Main Canvas Stage */
+#sd-visual-canvas-wrap {
+    flex-grow: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+    padding-bottom: 100px;
+    background: color-mix(in srgb, var(--sd-menu-background) 80%, #000 20%);
+    overflow: auto;
+    scrollbar-width: thin;
+}
+
+#sd-visual-resizable {
+    position: relative;
+    width: 783px;
+    height: 100%;
+    background: #fff;
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--sd-border);
+    border-radius: 4px;
+    transform-origin: top center;
+    transition: width 0.3s ease, height 0.3s ease, transform 0.3s ease;
+}
+
+#sd-visual-resizable.is-resizing {
+    transition: none !important;
+}
+
+#sd-visual-resizable.is-resizing::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 999;
+}
+
+/* Resizer Handles */
+.sd-resizer {
+    position: absolute;
+    background: var(--sd-menu-background);
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+#sd-visual-resizable:hover .sd-resizer,
+.sd-resizer.is-resizing {
+    opacity: 1;
+}
+
+.sd-resizer-r {
+    top: 50%;
+    right: -24px;
+    width: 24px;
+    height: 64px;
+    transform: translateY(-50%);
+    cursor: e-resize;
+    border-radius: 0 6px 6px 0;
+    background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 10 20" xmlns="http://www.w3.org/2000/svg"><path d="M4 4v12m2-12v12" stroke="%23eee" stroke-width="2" fill="none"/></svg>');
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.sd-resizer-b {
+    bottom: -24px;
+    left: 50%;
+    width: 64px;
+    height: 24px;
+    transform: translateX(-50%);
+    cursor: s-resize;
+    border-radius: 0 0 6px 6px;
+    background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 20 10" xmlns="http://www.w3.org/2000/svg"><path d="M4 4h12m-12 2h12" stroke="%23eee" stroke-width="2" fill="none"/></svg>');
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+#sd-resize-tooltip {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 12px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+    z-index: 1001;
+}
+
+#sd-resize-tooltip.visible {
+    opacity: 1;
+}
+
+#sd-visual-frame {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+}
+
+#sd-inspector-hud-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--sd-border);
+    background: var(--sd-card-header-bg);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#sd-inspector-hud-header h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--sd-text);
+}
+
+#sd-inspector-hud-content {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 0;
+    scrollbar-width: thin;
+}
+
+.sd-hud-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    opacity: 0.5;
+    padding: 40px;
+    text-align: center;
+}
+
+.sd-hud-breadcrumbs {
+    background: var(--sd-card-bg);
+    border-bottom: 1px solid var(--sd-border);
+    padding: 8px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+}
+
+.sd-hud-breadcrumb-item {
+    font-size: 10px;
+}
+
 .sd-hud-panel-body {
     padding: 16px;
     border-bottom: 1px solid var(--sd-border);
@@ -276,7 +516,7 @@ body.sd-visual-mode-active {
    1. WordPress postbox baseline alignment
    ========================================================================== */
 
-#systemdeck .postbox {
+:is(#systemdeck, .systemdeck-scope) .postbox {
     display: block;
     position: relative;
     box-sizing: border-box;
@@ -285,7 +525,7 @@ body.sd-visual-mode-active {
     box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
 }
 
-#systemdeck .postbox-header {
+:is(#systemdeck, .systemdeck-scope) .postbox-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -293,7 +533,7 @@ body.sd-visual-mode-active {
     padding: 0 12px;
 }
 
-#systemdeck .postbox .hndle {
+:is(#systemdeck, .systemdeck-scope) .postbox .hndle {
     margin: 0;
     padding: 12px 0;
     font-weight: 600;
@@ -304,12 +544,12 @@ body.sd-visual-mode-active {
 }
 
 /* WordPress utility visibility helpers used by header controls */
-#systemdeck .hidden,
-#systemdeck .hide-if-js {
+:is(#systemdeck, .systemdeck-scope) .hidden,
+:is(#systemdeck, .systemdeck-scope) .hide-if-js {
     display: none !important;
 }
 
-#systemdeck .screen-reader-text {
+:is(#systemdeck, .systemdeck-scope) .screen-reader-text {
     border: 0;
     clip: rect(1px, 1px, 1px, 1px);
     -webkit-clip-path: inset(50%);
@@ -323,15 +563,15 @@ body.sd-visual-mode-active {
     word-wrap: normal !important;
 }
 
-#systemdeck .postbox .handle-actions {
+:is(#systemdeck, .systemdeck-scope) .postbox .handle-actions {
     display: flex;
     align-items: center;
     gap: 4px;
 }
 
-#systemdeck .postbox .handle-actions .handle-order-higher,
-#systemdeck .postbox .handle-actions .handle-order-lower,
-#systemdeck .postbox .handle-actions .handlediv {
+:is(#systemdeck, .systemdeck-scope) .postbox .handle-actions .handle-order-higher,
+:is(#systemdeck, .systemdeck-scope) .postbox .handle-actions .handle-order-lower,
+:is(#systemdeck, .systemdeck-scope) .postbox .handle-actions .handlediv {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -345,30 +585,30 @@ body.sd-visual-mode-active {
     cursor: pointer;
 }
 
-#systemdeck .postbox .handle-actions .handle-order-higher:hover,
-#systemdeck .postbox .handle-actions .handle-order-lower:hover,
-#systemdeck .postbox .handle-actions .handlediv:hover {
+:is(#systemdeck, .systemdeck-scope) .postbox .handle-actions .handle-order-higher:hover,
+:is(#systemdeck, .systemdeck-scope) .postbox .handle-actions .handle-order-lower:hover,
+:is(#systemdeck, .systemdeck-scope) .postbox .handle-actions .handlediv:hover {
     color: #1d2327;
 }
 
-#systemdeck .postbox .handle-actions .handle-order-higher:focus-visible,
-#systemdeck .postbox .handle-actions .handle-order-lower:focus-visible,
-#systemdeck .postbox .handle-actions .handlediv:focus-visible {
+:is(#systemdeck, .systemdeck-scope) .postbox .handle-actions .handle-order-higher:focus-visible,
+:is(#systemdeck, .systemdeck-scope) .postbox .handle-actions .handle-order-lower:focus-visible,
+:is(#systemdeck, .systemdeck-scope) .postbox .handle-actions .handlediv:focus-visible {
     outline: 2px solid #2271b1;
     outline-offset: 1px;
     border-radius: 2px;
 }
 
-#systemdeck .postbox .handle-actions .handle-order-higher[aria-disabled="true"],
-#systemdeck .postbox .handle-actions .handle-order-lower[aria-disabled="true"] {
+:is(#systemdeck, .systemdeck-scope) .postbox .handle-actions .handle-order-higher[aria-disabled="true"],
+:is(#systemdeck, .systemdeck-scope) .postbox .handle-actions .handle-order-lower[aria-disabled="true"] {
     opacity: 0.45;
     cursor: default;
     pointer-events: none;
 }
 
-#systemdeck .postbox .order-higher-indicator::before,
-#systemdeck .postbox .order-lower-indicator::before,
-#systemdeck .postbox .toggle-indicator::before {
+:is(#systemdeck, .systemdeck-scope) .postbox .order-higher-indicator::before,
+:is(#systemdeck, .systemdeck-scope) .postbox .order-lower-indicator::before,
+:is(#systemdeck, .systemdeck-scope) .postbox .toggle-indicator::before {
     display: inline-block;
     font: normal 20px/1 dashicons;
     line-height: 1;
@@ -380,42 +620,42 @@ body.sd-visual-mode-active {
     text-decoration: none !important;
 }
 
-#systemdeck .postbox .order-higher-indicator::before {
+:is(#systemdeck, .systemdeck-scope) .postbox .order-higher-indicator::before {
     content: "\f343";
 }
 
-#systemdeck .postbox .order-lower-indicator::before {
+:is(#systemdeck, .systemdeck-scope) .postbox .order-lower-indicator::before {
     content: "\f347";
 }
 
-#systemdeck .postbox .toggle-indicator::before {
+:is(#systemdeck, .systemdeck-scope) .postbox .toggle-indicator::before {
     content: "\f142";
 }
 
-#systemdeck .postbox.closed .toggle-indicator::before {
+:is(#systemdeck, .systemdeck-scope) .postbox.closed .toggle-indicator::before {
     content: "\f140";
 }
 
-#systemdeck .postbox .sd-handle-order-left .order-higher-indicator::before {
+:is(#systemdeck, .systemdeck-scope) .postbox .sd-handle-order-left .order-higher-indicator::before {
     transform: rotate(-90deg);
 }
 
-#systemdeck .postbox .sd-handle-order-right .order-lower-indicator::before {
+:is(#systemdeck, .systemdeck-scope) .postbox .sd-handle-order-right .order-lower-indicator::before {
     transform: rotate(-90deg);
 }
 
-#systemdeck .postbox .inside {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside {
     display: block;
     box-sizing: border-box;
     padding: 12px;
     margin: 0;
 }
 
-#systemdeck .postbox.closed {
+:is(#systemdeck, .systemdeck-scope) .postbox.closed {
     box-shadow: none;
 }
 
-#systemdeck .postbox.closed>.inside {
+:is(#systemdeck, .systemdeck-scope) .postbox.closed>.inside {
     display: none;
 }
 
@@ -438,19 +678,19 @@ body.sd-visual-mode-active {
    2. SystemDeck widget shell extensions
    ========================================================================== */
 
-#systemdeck .postbox.sd-widget .handle-actions .sd-width-control {
+:is(#systemdeck, .systemdeck-scope) .postbox.sd-widget .handle-actions .sd-width-control {
     display: flex;
     align-items: center;
 }
 
-#systemdeck .postbox.sd-widget .sd-width-dropdown .components-dropdown-menu__toggle {
+:is(#systemdeck, .systemdeck-scope) .postbox.sd-widget .sd-width-dropdown .components-dropdown-menu__toggle {
     min-width: 30px;
     width: 30px;
     height: 30px;
     padding: 0;
 }
 
-#systemdeck .postbox.sd-widget .sd-width-dropdown .components-dropdown-menu__toggle .dashicon {
+:is(#systemdeck, .systemdeck-scope) .postbox.sd-widget .sd-width-dropdown .components-dropdown-menu__toggle .dashicon {
     color: #787c82;
     font-size: 20px;
     width: 20px;
@@ -459,30 +699,30 @@ body.sd-visual-mode-active {
     transform: translateY(0);
 }
 
-#systemdeck .postbox.sd-widget .sd-width-dropdown .components-dropdown-menu__toggle .dashicons-editor-expand {
+:is(#systemdeck, .systemdeck-scope) .postbox.sd-widget .sd-width-dropdown .components-dropdown-menu__toggle .dashicons-editor-expand {
     transform: translateY(1px);
 }
 
-#systemdeck .postbox.sd-widget .sd-width-dropdown .components-dropdown-menu__toggle:hover .dashicon {
+:is(#systemdeck, .systemdeck-scope) .postbox.sd-widget .sd-width-dropdown .components-dropdown-menu__toggle:hover .dashicon {
     color: #1d2327;
 }
 
 /* Pin Authority migrated to assets/css/pins.css */
 
 /* ==========================================================================
-   4. Typography and heading normalization
+   3. Typography and heading normalization
    ========================================================================== */
 
-#systemdeck .postbox .inside h2,
-#systemdeck .postbox .inside h3,
-#systemdeck .postbox .inside h4 {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside h2,
+:is(#systemdeck, .systemdeck-scope) .postbox .inside h3,
+:is(#systemdeck, .systemdeck-scope) .postbox .inside h4 {
     margin-top: 0;
     margin-bottom: 0.5em;
     font-weight: 600;
     color: #1d2327;
 }
 
-#systemdeck .postbox .inside p {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside p {
     margin-top: 0;
     margin-bottom: 1em;
     color: #3c434a;
@@ -490,16 +730,16 @@ body.sd-visual-mode-active {
     line-height: 1.5;
 }
 
-#systemdeck .postbox .inside p:last-child {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside p:last-child {
     margin-bottom: 0;
 }
 
 /* ==========================================================================
-   5. Buttons
+   4. Buttons
    ========================================================================== */
 
 /* Base Neutral Button Chrome */
-#systemdeck .button {
+:is(#systemdeck, .systemdeck-scope) .button {
     display: inline-block;
     box-sizing: border-box;
     margin: 0;
@@ -518,26 +758,26 @@ body.sd-visual-mode-active {
     -webkit-appearance: none;
 }
 
-#systemdeck .button:hover {
+:is(#systemdeck, .systemdeck-scope) .button:hover {
     background: #f0f0f1;
     border-color: #8c8f94;
     color: #1d2327;
 }
 
-#systemdeck .button:focus {
+:is(#systemdeck, .systemdeck-scope) .button:focus {
     border-color: #2271b1;
     box-shadow: 0 0 0 1px #2271b1;
     outline: 2px solid transparent;
 }
 
-#systemdeck .button:active {
+:is(#systemdeck, .systemdeck-scope) .button:active {
     background: #f6f7f7;
     border-color: #8c8f94;
     box-shadow: none;
 }
 
 /* Secondary / Outlined Accent Button */
-#systemdeck .button-secondary {
+:is(#systemdeck, .systemdeck-scope) .button-secondary {
     display: inline-block;
     box-sizing: border-box;
     margin: 0;
@@ -556,54 +796,54 @@ body.sd-visual-mode-active {
     -webkit-appearance: none;
 }
 
-#systemdeck .button-secondary:hover {
+:is(#systemdeck, .systemdeck-scope) .button-secondary:hover {
     background: #f0f0f1;
     border-color: #0a4b78;
     color: #0a4b78;
 }
 
-#systemdeck .button-secondary:focus {
+:is(#systemdeck, .systemdeck-scope) .button-secondary:focus {
     border-color: #2271b1;
     color: #0a4b78;
     box-shadow: 0 0 0 1px #2271b1;
     outline: 2px solid transparent;
 }
 
-#systemdeck .button-secondary:active {
+:is(#systemdeck, .systemdeck-scope) .button-secondary:active {
     background: #f6f7f7;
     border-color: #8c8f94;
     box-shadow: none;
 }
 
 /* Primary Button Chrome */
-#systemdeck .button-primary {
+:is(#systemdeck, .systemdeck-scope) .button-primary {
     background: #2271b1;
     border-color: #2271b1;
     color: #fff;
     box-shadow: 0 1px 0 #2271b1;
 }
 
-#systemdeck .button-primary:hover {
+:is(#systemdeck, .systemdeck-scope) .button-primary:hover {
     background: #135e96;
     border-color: #135e96;
     color: #fff;
 }
 
-#systemdeck .button-primary:focus {
+:is(#systemdeck, .systemdeck-scope) .button-primary:focus {
     border-color: #135e96;
     color: #fff;
     box-shadow: 0 0 0 1px #fff, 0 0 0 3px #2271b1;
     outline: 2px solid transparent;
 }
 
-#systemdeck .button-primary:active {
+:is(#systemdeck, .systemdeck-scope) .button-primary:active {
     background: #135e96;
     border-color: #135e96;
     box-shadow: none;
 }
 
 /* Base Button Link Chrome */
-#systemdeck .button-link {
+:is(#systemdeck, .systemdeck-scope) .button-link {
     display: inline-block;
     margin: 0;
     padding: 0;
@@ -618,38 +858,38 @@ body.sd-visual-mode-active {
     vertical-align: middle;
 }
 
-#systemdeck .button-link:hover,
-#systemdeck .button-link:focus {
+:is(#systemdeck, .systemdeck-scope) .button-link:hover,
+:is(#systemdeck, .systemdeck-scope) .button-link:focus {
     color: #135e96;
     text-decoration: underline;
 }
 
-#systemdeck .button-link:focus {
+:is(#systemdeck, .systemdeck-scope) .button-link:focus {
     box-shadow: 0 0 0 1px #2271b1;
     outline: 2px solid transparent;
 }
 
 /* Destructive / Danger Links */
-#systemdeck .button-link.delete,
-#systemdeck .button-link.trash {
+:is(#systemdeck, .systemdeck-scope) .button-link.delete,
+:is(#systemdeck, .systemdeck-scope) .button-link.trash {
     color: #d63638;
 }
 
-#systemdeck .button-link.delete:hover,
-#systemdeck .button-link.trash:hover,
-#systemdeck .button-link.delete:focus,
-#systemdeck .button-link.trash:focus {
+:is(#systemdeck, .systemdeck-scope) .button-link.delete:hover,
+:is(#systemdeck, .systemdeck-scope) .button-link.trash:hover,
+:is(#systemdeck, .systemdeck-scope) .button-link.delete:focus,
+:is(#systemdeck, .systemdeck-scope) .button-link.trash:focus {
     color: #d63638;
     text-decoration: underline;
 }
 
 /* Disabled States */
-#systemdeck .button[disabled],
-#systemdeck .button:disabled,
-#systemdeck .button-primary[disabled],
-#systemdeck .button-primary:disabled,
-#systemdeck .button-secondary[disabled],
-#systemdeck .button-secondary:disabled {
+:is(#systemdeck, .systemdeck-scope) .button[disabled],
+:is(#systemdeck, .systemdeck-scope) .button:disabled,
+:is(#systemdeck, .systemdeck-scope) .button-primary[disabled],
+:is(#systemdeck, .systemdeck-scope) .button-primary:disabled,
+:is(#systemdeck, .systemdeck-scope) .button-secondary[disabled],
+:is(#systemdeck, .systemdeck-scope) .button-secondary:disabled {
     color: #a7aaad !important;
     border-color: #dcdcde !important;
     background: #f6f7f7 !important;
@@ -658,14 +898,14 @@ body.sd-visual-mode-active {
 }
 
 /* Button Modifiers */
-#systemdeck .button.button-small {
+:is(#systemdeck, .systemdeck-scope) .button.button-small {
     font-size: 11px;
     min-height: 24px;
     line-height: 2;
     padding: 0 8px;
 }
 
-#systemdeck .button.button-large {
+:is(#systemdeck, .systemdeck-scope) .button.button-large {
     font-size: 14px;
     min-height: 32px;
     line-height: 2.1428;
@@ -673,14 +913,14 @@ body.sd-visual-mode-active {
 }
 
 /* Action Grouping */
-#systemdeck .button-group {
+:is(#systemdeck, .systemdeck-scope) .button-group {
     display: flex;
     gap: 8px;
     align-items: center;
     flex-wrap: wrap;
 }
 
-#systemdeck .button .sd-button-icon {
+:is(#systemdeck, .systemdeck-scope) .button .sd-button-icon {
     margin-right: 2px;
     font-size: 110%;
     color: inherit;
@@ -688,36 +928,36 @@ body.sd-visual-mode-active {
 }
 
 /* ==========================================================================
-   6. Forms and inputs
+   5. Forms and inputs
    ========================================================================== */
 
-#systemdeck .input-text-wrap,
-#systemdeck .textarea-wrap {
+:is(#systemdeck, .systemdeck-scope) .input-text-wrap,
+:is(#systemdeck, .systemdeck-scope) .textarea-wrap {
     display: flex;
     flex-direction: column;
     gap: 6px;
     margin-bottom: 12px;
 }
 
-#systemdeck .input-text-wrap:last-child,
-#systemdeck .textarea-wrap:last-child {
+:is(#systemdeck, .systemdeck-scope) .input-text-wrap:last-child,
+:is(#systemdeck, .systemdeck-scope) .textarea-wrap:last-child {
     margin-bottom: 0;
 }
 
-#systemdeck .postbox label {
+:is(#systemdeck, .systemdeck-scope) .postbox label {
     display: inline-block;
     font-weight: 500;
     color: #1d2327;
 }
 
-#systemdeck input[type="text"],
-#systemdeck input[type="email"],
-#systemdeck input[type="url"],
-#systemdeck input[type="number"],
-#systemdeck input[type="search"],
-#systemdeck input[type="password"],
-#systemdeck textarea,
-#systemdeck select {
+:is(#systemdeck, .systemdeck-scope) input[type="text"],
+:is(#systemdeck, .systemdeck-scope) input[type="email"],
+:is(#systemdeck, .systemdeck-scope) input[type="url"],
+:is(#systemdeck, .systemdeck-scope) input[type="number"],
+:is(#systemdeck, .systemdeck-scope) input[type="search"],
+:is(#systemdeck, .systemdeck-scope) input[type="password"],
+:is(#systemdeck, .systemdeck-scope) textarea,
+:is(#systemdeck, .systemdeck-scope) select {
     max-width: 25em;
     width: 100%;
     border: 1px solid #8c8f94;
@@ -730,19 +970,19 @@ body.sd-visual-mode-active {
     transition: box-shadow 0.1s linear;
 }
 
-#systemdeck textarea {
+:is(#systemdeck, .systemdeck-scope) textarea {
     resize: vertical;
     padding: 6px 8px;
     max-width: 100%;
 }
 
-#systemdeck fieldset {
+:is(#systemdeck, .systemdeck-scope) fieldset {
     border: 0;
     padding: 0;
     margin: 0;
 }
 
-#systemdeck .description {
+:is(#systemdeck, .systemdeck-scope) .description {
     display: block;
     color: #646970;
     font-style: normal;
@@ -750,7 +990,7 @@ body.sd-visual-mode-active {
     margin-top: 4px;
 }
 
-#systemdeck .submit {
+:is(#systemdeck, .systemdeck-scope) .submit {
     display: flex;
     gap: 8px;
     align-items: center;
@@ -760,21 +1000,18 @@ body.sd-visual-mode-active {
 }
 
 /* Reset inner margins for buttons dropped strictly into submit rows */
-#systemdeck .submit .button,
-#systemdeck .submit .button-primary,
-#systemdeck .submit .button-secondary,
-#systemdeck .submit .button-link {
+:is(#systemdeck, .systemdeck-scope) .submit .button,
+:is(#systemdeck, .systemdeck-scope) .submit .button-primary,
+:is(#systemdeck, .systemdeck-scope) .submit .button-secondary,
+:is(#systemdeck, .systemdeck-scope) .submit .button-link {
     margin: 0;
 }
 
 /* ==========================================================================
-   7. Tables and list-table style content
+   6. Tables and list-table style content
    ========================================================================== */
 
-/* ==========================================================================
-   7. Tables and list-table style content
-   ========================================================================== */
-#systemdeck .postbox .inside .wp-list-table {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .wp-list-table {
     background: #fff;
     border: 1px solid #c3c4c7;
     border-collapse: collapse;
@@ -784,7 +1021,7 @@ body.sd-visual-mode-active {
     margin: 0;
 }
 
-#systemdeck .sd-table-container {
+:is(#systemdeck, .systemdeck-scope) .sd-table-container {
     max-height: 400px;
     overflow-y: auto;
     border: 1px solid #c3c4c7;
@@ -792,12 +1029,12 @@ body.sd-visual-mode-active {
     background: #fff;
 }
 
-#systemdeck .sd-table-container .wp-list-table {
+:is(#systemdeck, .systemdeck-scope) .sd-table-container .wp-list-table {
     border: none !important;
 }
 
-#systemdeck .postbox .inside .wp-list-table th,
-#systemdeck .postbox .inside .wp-list-table td {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .wp-list-table th,
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .wp-list-table td {
     border-bottom: 1px solid #f0f0f1;
     color: #3c434a;
     padding: 8px 10px;
@@ -806,7 +1043,7 @@ body.sd-visual-mode-active {
     vertical-align: middle;
 }
 
-#systemdeck .postbox .inside .wp-list-table thead th {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .wp-list-table thead th {
     border-bottom: 1px solid #c3c4c7;
     position: sticky;
     top: 0;
@@ -814,7 +1051,7 @@ body.sd-visual-mode-active {
     background: #fff;
 }
 
-#systemdeck .postbox .inside .wp-list-table th {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .wp-list-table th {
     color: #1d2327;
     font-weight: 400;
     text-align: left;
@@ -823,63 +1060,63 @@ body.sd-visual-mode-active {
 /* 7.1 Special Column Alignment */
 
 /* Sticky / Icon Column */
-#systemdeck .postbox .inside .wp-list-table th.column-sticky,
-#systemdeck .postbox .inside .wp-list-table td.check-column {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .wp-list-table th.column-sticky,
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .wp-list-table td.check-column {
     width: 32px;
     padding: 8px 0;
     text-align: center;
 }
 
-#systemdeck .postbox .inside .wp-list-table td.check-column {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .wp-list-table td.check-column {
     vertical-align: middle;
 }
 
 /* Comments Column */
-#systemdeck .postbox .inside .wp-list-table th.column-comments,
-#systemdeck .postbox .inside .wp-list-table td.column-comments {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .wp-list-table th.column-comments,
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .wp-list-table td.column-comments {
     width: 50px;
     text-align: center;
 }
 
-#systemdeck .postbox .inside .wp-list-table td.column-comments {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .wp-list-table td.column-comments {
     vertical-align: middle;
 }
 
 /* Date Column */
-#systemdeck .postbox .inside .wp-list-table th.column-date,
-#systemdeck .postbox .inside .wp-list-table td.column-date {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .wp-list-table th.column-date,
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .wp-list-table td.column-date {
     text-align: right;
     width: 100px;
 }
 
-#systemdeck .postbox .inside .wp-list-table td.column-date {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .wp-list-table td.column-date {
     color: #646970;
     font-size: 13px;
 }
 
 /* Striped rows */
-#systemdeck .postbox .inside .wp-list-table tr.striped>td {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .wp-list-table tr.striped>td {
     background-color: #f6f7f7;
 }
 
-#systemdeck .postbox .inside .wp-list-table tr:last-child th,
-#systemdeck .postbox .inside .wp-list-table tr:last-child td {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .wp-list-table tr:last-child th,
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .wp-list-table tr:last-child td {
     border-bottom: 0;
 }
 
 /* 7.2 Content Elements */
-#systemdeck .row-title {
+:is(#systemdeck, .systemdeck-scope) .row-title {
     font-weight: 600;
     color: #2271b1;
     text-decoration: none;
     display: block;
 }
 
-#systemdeck .row-title:hover {
+:is(#systemdeck, .systemdeck-scope) .row-title:hover {
     color: #135e96;
 }
 
-#systemdeck .postbox .inside .row-actions {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .row-actions {
     display: flex;
     align-items: center;
     gap: 4px;
@@ -889,21 +1126,21 @@ body.sd-visual-mode-active {
     margin-top: 2px;
 }
 
-#systemdeck .postbox .inside .row-actions span {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .row-actions span {
     display: inline-flex;
     align-items: center;
 }
 
-#systemdeck .postbox .inside .row-actions a {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .row-actions a {
     color: #2271b1;
     text-decoration: none;
 }
 
-#systemdeck .postbox .inside .row-actions a:hover {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .row-actions a:hover {
     color: #135e96;
 }
 
-#systemdeck .postbox .inside .wp-list-table .sd-btn-icon {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .wp-list-table .sd-btn-icon {
     color: #646970;
     cursor: pointer;
     font-size: 20px;
@@ -913,35 +1150,35 @@ body.sd-visual-mode-active {
     vertical-align: middle;
 }
 
-#systemdeck .postbox .inside .wp-list-table .sd-btn-icon.active,
-#systemdeck .postbox .inside .wp-list-table .sd-btn-icon:hover {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .wp-list-table .sd-btn-icon.active,
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .wp-list-table .sd-btn-icon:hover {
     color: #135e96;
 }
 
 /* Comment Count Badges */
-#systemdeck .post-com-count-wrapper {
+:is(#systemdeck, .systemdeck-scope) .post-com-count-wrapper {
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
-#systemdeck .sd-no-comments {
+:is(#systemdeck, .systemdeck-scope) .sd-no-comments {
     color: #c3c4c7;
     font-size: 16px;
 }
 
 /* Loading States */
-#systemdeck .sd-loading-td {
+:is(#systemdeck, .systemdeck-scope) .sd-loading-td {
     padding: 20px;
     text-align: center;
     color: #646970;
 }
 
 /* ==========================================================================
-   8. Comment, activity, and discussion patterns
+   7. Comment, activity, and discussion patterns
    ========================================================================== */
 
-.dashboard-comment-wrap {
+:is(#systemdeck, .systemdeck-scope) .dashboard-comment-wrap {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -950,13 +1187,13 @@ body.sd-visual-mode-active {
     border-bottom: 1px solid #f0f0f1;
 }
 
-#systemdeck .dashboard-comment-wrap:last-child {
+:is(#systemdeck, .systemdeck-scope) .dashboard-comment-wrap:last-child {
     padding-bottom: 0;
     margin-bottom: 0;
     border-bottom: 0;
 }
 
-#systemdeck .comment-meta {
+:is(#systemdeck, .systemdeck-scope) .comment-meta {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -964,35 +1201,35 @@ body.sd-visual-mode-active {
     font-size: 13px;
 }
 
-#systemdeck .comment-meta img.avatar {
+:is(#systemdeck, .systemdeck-scope) .comment-meta img.avatar {
     border-radius: 50%;
     display: block;
 }
 
-#systemdeck .comment-meta cite {
+:is(#systemdeck, .systemdeck-scope) .comment-meta cite {
     font-style: normal;
     font-weight: 600;
     color: #1d2327;
 }
 
-#systemdeck .comment-content {
+:is(#systemdeck, .systemdeck-scope) .comment-content {
     margin: 0;
     color: #3c434a;
 }
 
-#systemdeck .comment-content p {
+:is(#systemdeck, .systemdeck-scope) .comment-content p {
     margin: 0 0 12px 0;
 }
 
-#systemdeck .comment-content p:last-child {
+:is(#systemdeck, .systemdeck-scope) .comment-content p:last-child {
     margin-bottom: 0;
 }
 
 /* ==========================================================================
-   9. Notices, messages, and states
+   8. Notices, messages, and states
    ========================================================================== */
 
-.notice {
+:is(#systemdeck, .systemdeck-scope) .notice {
     background: #fff;
     border-left: 4px solid #c3c4c7;
     box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
@@ -1000,27 +1237,29 @@ body.sd-visual-mode-active {
     padding: 8px 12px;
 }
 
-#systemdeck .notice p {
+:is(#systemdeck, .systemdeck-scope) .notice p {
     margin: 0;
     padding: 0;
 }
 
-#systemdeck .notice-info {
+:is(#systemdeck, .systemdeck-scope) .notice-info {
     border-left-color: #72aee6;
 }
 
-#systemdeck .notice-warning {
+:is(#systemdeck, .systemdeck-scope) .notice-warning {
     border-left-color: #dba617;
 }
 
-#systemdeck .notice-success {
+:is(#systemdeck, .systemdeck-scope) .notice-success {
     border-left-color: #00a32a;
 }
 
-#systemdeck .notice-error {
+:is(#systemdeck, .systemdeck-scope) .notice-error {
     border-left-color: #d63638;
 }
 
+/* sd-status-badge: used inside :is(#systemdeck, .systemdeck-scope) and in media-bridge modal panels rendered outside #systemdeck;
+   intentionally not scoped to :is(#systemdeck, .systemdeck-scope) so Vault modal panels outside the shell still receive styles. */
 .sd-status-badge {
     display: inline-block;
     padding: 3px 6px;
@@ -1058,32 +1297,32 @@ body.sd-visual-mode-active {
     color: #000;
 }
 
-.sd-btn-icon.active {
+:is(#systemdeck, .systemdeck-scope) .sd-btn-icon.active {
     color: #2271b1;
 }
 
-#systemdeck .postbox.sd-pin.is-loading,
-#systemdeck .postbox.sd-widget.is-loading {
+:is(#systemdeck, .systemdeck-scope) .postbox.sd-pin.is-loading,
+:is(#systemdeck, .systemdeck-scope) .postbox.sd-widget.is-loading {
     opacity: 0.6;
     pointer-events: none;
 }
 
-#systemdeck .postbox.sd-pin.has-error {
+:is(#systemdeck, .systemdeck-scope) .postbox.sd-pin.has-error {
     border-color: #d63638;
 }
 
 /* ==========================================================================
-   10. Pixi host surfaces
+   9. Pixi host surfaces
    ========================================================================== */
 
-.sd-pixi-surface {
+:is(#systemdeck, .systemdeck-scope) .sd-pixi-surface {
     width: 100%;
     display: block;
     position: relative;
     overflow: hidden;
 }
 
-#systemdeck .postbox.sd-widget.sd-pixi-widget .inside {
+:is(#systemdeck, .systemdeck-scope) .postbox.sd-widget.sd-pixi-widget .inside {
     overflow: hidden;
 }
 
@@ -1095,32 +1334,32 @@ body.sd-visual-mode-active {
     margin-left: -12px;
 }
 
-#systemdeck .postbox.sd-widget.sd-pixi-widget canvas,
-#systemdeck .postbox.sd-pin.sd-pixi-pin canvas {
+:is(#systemdeck, .systemdeck-scope) .postbox.sd-widget.sd-pixi-widget canvas,
+:is(#systemdeck, .systemdeck-scope) .postbox.sd-pin.sd-pixi-pin canvas {
     display: block;
     max-width: 100%;
 }
 
-#systemdeck .postbox.sd-pin .sd-pixi-surface {
+:is(#systemdeck, .systemdeck-scope) .postbox.sd-pin .sd-pixi-surface {
     min-height: 120px;
 }
 
-#systemdeck .postbox.sd-pin.is-compact .sd-pixi-surface {
+:is(#systemdeck, .systemdeck-scope) .postbox.sd-pin.is-compact .sd-pixi-surface {
     min-height: 80px;
 }
 
 /* ==========================================================================
-   11. Shared utility content patterns
+   10. Shared utility content patterns
    ========================================================================== */
 
-.sd-empty-state {
+:is(#systemdeck, .systemdeck-scope) .sd-empty-state {
     min-height: 24px;
     display: block;
     padding: 12px 0;
     color: #646970;
 }
 
-.sd-meta-row {
+:is(#systemdeck, .systemdeck-scope) .sd-meta-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1128,20 +1367,20 @@ body.sd-visual-mode-active {
     border-bottom: 1px solid #f0f0f1;
 }
 
-.sd-meta-row:last-child {
+:is(#systemdeck, .systemdeck-scope) .sd-meta-row:last-child {
     border-bottom: 0;
 }
 
-.sd-meta-label {
+:is(#systemdeck, .systemdeck-scope) .sd-meta-label {
     font-weight: 500;
     color: #1d2327;
 }
 
-.sd-meta-value {
+:is(#systemdeck, .systemdeck-scope) .sd-meta-value {
     color: #646970;
 }
 
-.sd-footer-actions {
+:is(#systemdeck, .systemdeck-scope) .sd-footer-actions {
     display: flex;
     justify-content: flex-end;
     align-items: center;
@@ -1151,12 +1390,12 @@ body.sd-visual-mode-active {
     gap: 8px;
 }
 
-/* Utility — shared across all SystemDeck widgets */
+/* sd-hidden: intentionally global — used by JS toggle on elements outside :is(#systemdeck, .systemdeck-scope) */
 .sd-hidden {
     display: none !important;
 }
 
-#systemdeck .postbox .inside .sd-toolbar {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .sd-toolbar {
     display: flex;
     justify-content: flex-end !important;
     align-items: center;
@@ -1165,24 +1404,26 @@ body.sd-visual-mode-active {
     border-bottom: 1px solid #dcdcde;
 }
 
-#systemdeck .postbox .inside .sd-pagination {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .sd-pagination {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 4px 12px;
 }
 
-#systemdeck .postbox .inside .paging-input {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .paging-input {
     margin: 0 8px;
 }
 
-#systemdeck .postbox .inside .pagination-links {
+:is(#systemdeck, .systemdeck-scope) .postbox .inside .pagination-links {
     display: flex;
     align-items: center;
 }
 
 /* ==========================================================================
-   12. IMPORT RUNTIME  _ _ NEEDS SEPERATED< RAN IN SMALLER USAGE TIMES
+   11. Modal portals — Widget picker + Pin/Telemetrics picker
+   These modals are rendered by WordPress/Gutenberg OUTSIDE #systemdeck.
+   Must be scoped by explicit frame class, NOT by #systemdeck.
    ========================================================================== */
 
 .components-modal__frame.sd-widget-picker-modal {
@@ -1971,16 +2212,16 @@ body.sd-visual-mode-active {
 }
 
 /* Command Center drag/drop visuals (WP dashboard parity) */
-body.is-dragging-metaboxes #systemdeck .sd-discovery-canvas .sd-discovery-grid,
-body.sd-widget-dragging #systemdeck .sd-discovery-canvas .sd-discovery-grid,
-#systemdeck .sd-discovery-canvas .sd-discovery-grid.is-dragging {
+body.is-dragging-metaboxes:is(#systemdeck, .systemdeck-scope) .sd-discovery-canvas .sd-discovery-grid,
+body.sd-widget-dragging:is(#systemdeck, .systemdeck-scope) .sd-discovery-canvas .sd-discovery-grid,
+:is(#systemdeck, .systemdeck-scope) .sd-discovery-canvas .sd-discovery-grid.is-dragging {
     outline: 3px dashed #646970;
     outline-offset: -4px;
 }
 
-body.is-dragging-metaboxes #systemdeck .sd-discovery-canvas .sd-grid-widget.is-drop-target,
-body.sd-widget-dragging #systemdeck .sd-discovery-canvas .sd-grid-widget.is-drop-target,
-#systemdeck .sd-discovery-canvas .sd-grid-widget.is-drop-target {
+body.is-dragging-metaboxes:is(#systemdeck, .systemdeck-scope) .sd-discovery-canvas .sd-grid-widget.is-drop-target,
+body.sd-widget-dragging:is(#systemdeck, .systemdeck-scope) .sd-discovery-canvas .sd-grid-widget.is-drop-target,
+:is(#systemdeck, .systemdeck-scope) .sd-discovery-canvas .sd-grid-widget.is-drop-target {
     outline: 3px dashed #c3c4c7;
     outline-offset: -3px;
 }
@@ -2115,6 +2356,7 @@ body.sd-widget-dragging #systemdeck .sd-discovery-canvas .sd-grid-widget.is-drop
     padding: 8px 20px 18px;
 }
 
+.sd-badge,
 .sd-discovery-canvas .sd-workspace-badge {
     display: inline-flex;
     align-items: center;
@@ -2128,34 +2370,46 @@ body.sd-widget-dragging #systemdeck .sd-discovery-canvas .sd-grid-widget.is-drop
     border: 1px solid transparent;
 }
 
+.sd-badge-neutral,
 .sd-discovery-canvas .sd-workspace-badge--neutral {
     background: #f3f4f6;
     color: #394150;
     border-color: #e5e7eb;
 }
 
+.sd-badge-muted,
 .sd-discovery-canvas .sd-workspace-badge--muted {
     background: #f8fafc;
     color: #475569;
     border-color: #e2e8f0;
 }
 
+.sd-badge-info,
 .sd-discovery-canvas .sd-workspace-badge--info {
     background: #e8f3ff;
     color: #0f4c81;
     border-color: #bfd8f3;
 }
 
+.sd-badge-warning,
 .sd-discovery-canvas .sd-workspace-badge--warning {
     background: #fff7e6;
     color: #8a5800;
     border-color: #f2d38a;
 }
 
+.sd-badge-accent,
 .sd-discovery-canvas .sd-workspace-badge--accent {
     background: #eef2ff;
     color: #4338ca;
     border-color: #c7d2fe;
+}
+
+.sd-badge-success,
+.sd-discovery-canvas .sd-workspace-badge--success {
+    background: #eef2ff;
+    color: #00a32a;
+    border-color: #d7fde1;
 }
 
 .sd-discovery-canvas .sd-workspace-card__edit-panel {
@@ -2393,7 +2647,11 @@ body.sd-widget-dragging #systemdeck .sd-discovery-canvas .sd-grid-widget.is-drop
     }
 }
 
-.sd-discovery-section-label {
+/* ==========================================================================
+   12. Legacy compatibility — unscoped workspace/discovery helpers
+   ========================================================================== */
+
+:is(#systemdeck, .systemdeck-scope) .sd-discovery-section-label {
     grid-column: 1 / -1;
     font-weight: 700;
     font-size: 14px;
@@ -2403,22 +2661,22 @@ body.sd-widget-dragging #systemdeck .sd-discovery-canvas .sd-grid-widget.is-drop
 }
 
 /* Specific Card Layouts */
-.sd-grid-widget {
+:is(#systemdeck, .systemdeck-scope) .sd-grid-widget {
     align-self: start;
     min-width: 0;
 }
 
-.sd-grid-widget.is-dragging {
+:is(#systemdeck, .systemdeck-scope) .sd-grid-widget.is-dragging {
     opacity: 0.6;
 }
 
 /* Active Workspace Indicator */
-.sd-active-workspace {
+:is(#systemdeck, .systemdeck-scope) .sd-active-workspace {
     border-left: 4px solid var(--sd-highlight-color) !important;
 }
 
 /* Workspace Metadata */
-.sd-ws-meta {
+:is(#systemdeck, .systemdeck-scope) .sd-ws-meta {
     color: var(--sd-text-muted);
     font-size: 13px;
     display: flex;
@@ -2426,132 +2684,99 @@ body.sd-widget-dragging #systemdeck .sd-discovery-canvas .sd-grid-widget.is-drop
     gap: 6px;
 }
 
-.sd-ws-meta strong {
+:is(#systemdeck, .systemdeck-scope) .sd-ws-meta strong {
     font-weight: 600;
     color: var(--sd-text);
 }
 
-.sd-policy-row {
+:is(#systemdeck, .systemdeck-scope) .sd-policy-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
 }
 
-.sd-policy-label {
+:is(#systemdeck, .systemdeck-scope) .sd-policy-label {
     font-weight: 600;
     color: var(--sd-text);
 }
 
-.sd-ws-meta--policy {
+:is(#systemdeck, .systemdeck-scope) .sd-ws-meta--policy {
     margin-top: 10px;
     display: block;
 }
 
-.sd-ws-private-note {
+:is(#systemdeck, .systemdeck-scope) .sd-ws-private-note {
     margin-top: 6px;
 }
 
-.sd-action-success {
+:is(#systemdeck, .systemdeck-scope) .sd-action-success {
     color: var(--sd-success) !important;
 }
 
-.sd-action-error {
+:is(#systemdeck, .systemdeck-scope) .sd-action-error {
     color: var(--sd-error) !important;
 }
 
-.sd-action-active {
+:is(#systemdeck, .systemdeck-scope) .sd-action-active {
     color: var(--sd-highlight-color) !important;
 }
 
-.sd-action-muted {
+:is(#systemdeck, .systemdeck-scope) .sd-action-muted {
     color: var(--sd-text-muted) !important;
 }
 
-.sd-action-disabled {
+:is(#systemdeck, .systemdeck-scope) .sd-action-disabled {
     color: var(--sd-border) !important;
 }
 
 /* Rename Input Positioning */
-.sd-rename-input {
+:is(#systemdeck, .systemdeck-scope) .sd-rename-input {
     margin: 0 !important;
     flex: 1;
 }
 
 /* Horizontal Inline Creator (SD21 Style) */
-.sd-workspace-creator {
-    margin: 10px 0 16px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--sd-border);
-}
 
-.sd-inline-creator {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.sd-creator-input-wrap {
-    width: 320px;
-}
-
-.sd-creator-input,
-.sd-rename-input {
-    width: 100%;
-    max-width: 100%;
-    height: 30px;
-    min-height: 30px;
-}
-
-.sd-policy-toggle-row {
+:is(#systemdeck, .systemdeck-scope) .sd-policy-toggle-row {
     display: inline-flex;
     align-items: center;
     gap: 8px;
 }
 
-.sd-policy-toggle-row .components-form-toggle {
+:is(#systemdeck, .systemdeck-scope) .sd-policy-toggle-row .components-form-toggle {
     margin: 0;
 }
 
-.sd-creator-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.sd-create-btn .dashicons {
+:is(#systemdeck, .systemdeck-scope) .sd-create-btn .dashicons {
     margin-right: 6px;
 }
 
-.sd-create-btn,
-.sd-creator-actions .button {
+:is(#systemdeck, .systemdeck-scope) .sd-create-btn,
+:is(#systemdeck, .systemdeck-scope) .sd-creator-actions .button {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     min-height: 30px;
 }
 
-.sd-creator-actions .button {
+:is(#systemdeck, .systemdeck-scope) .sd-creator-actions .button {
     justify-content: center;
 }
 
-.sd-workspace-template-actions {
+:is(#systemdeck, .systemdeck-scope) .sd-workspace-template-actions {
     margin-top: 12px;
     flex-wrap: wrap;
 }
 
-.sd-workspace-template-status {
+:is(#systemdeck, .systemdeck-scope) .sd-workspace-template-status {
     margin: 8px 0 0;
     font-size: 12px;
     color: var(--sd-text-muted);
 }
 
-.sd-manage-canvas-link-wrap {
-    margin: 8px 0 14px;
-}
-
 /* Scanner Tab View */
-.sd-scanner-tab {
+:is(#systemdeck, .systemdeck-scope) .sd-scanner-tab {
     background: var(--sd-card-bg);
     height: 500px;
     border-radius: 4px;
@@ -2559,7 +2784,7 @@ body.sd-widget-dragging #systemdeck .sd-discovery-canvas .sd-grid-widget.is-drop
     overflow: hidden;
 }
 
-.sd-scanner-frame {
+:is(#systemdeck, .systemdeck-scope) .sd-scanner-frame {
     display: block;
     width: 100%;
     height: 100%;
@@ -2567,66 +2792,66 @@ body.sd-widget-dragging #systemdeck .sd-discovery-canvas .sd-grid-widget.is-drop
 }
 
 /* Registry Tab View */
-.sd-registry-tab {
+:is(#systemdeck, .systemdeck-scope) .sd-registry-tab {
     padding: 0;
 }
 
-.sd-registry-table {
+:is(#systemdeck, .systemdeck-scope) .sd-registry-table {
     margin: 16px 0;
     border: 1px solid var(--sd-border);
     box-shadow: 0 1px 1px var(--sd-box-shadow);
     width: 100%;
 }
 
-.sd-registry-table thead th,
-.sd-registry-table thead td {
+:is(#systemdeck, .systemdeck-scope) .sd-registry-table thead th,
+:is(#systemdeck, .systemdeck-scope) .sd-registry-table thead td {
     border-bottom: 1px solid var(--sd-border);
 }
 
-.sd-registry-table td,
-.sd-registry-table th {
+:is(#systemdeck, .systemdeck-scope) .sd-registry-table td,
+:is(#systemdeck, .systemdeck-scope) .sd-registry-table th {
     padding: 11px 10px;
     line-height: 1.5;
 }
 
-.sd-registry-table th.check-column {
+:is(#systemdeck, .systemdeck-scope) .sd-registry-table th.check-column {
     width: 2.2em;
     padding: 11px 0 0 10px;
     vertical-align: top;
 }
 
-.sd-registry-table .column-primary {
+:is(#systemdeck, .systemdeck-scope) .sd-registry-table .column-primary {
     width: 45%;
 }
 
-.sd-registry-table tbody tr:nth-child(odd) {
+:is(#systemdeck, .systemdeck-scope) .sd-registry-table tbody tr:nth-child(odd) {
     background-color: var(--sd-surface-subtle);
 }
 
-.sd-registry-widget-id {
+:is(#systemdeck, .systemdeck-scope) .sd-registry-widget-id {
     opacity: 0.65;
     font-size: 13px;
     background: transparent;
     padding: 0;
 }
 
-.sd-registry-actions {
+:is(#systemdeck, .systemdeck-scope) .sd-registry-actions {
     display: flex;
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
 }
 
-.sd-registry-actions--spacious {
+:is(#systemdeck, .systemdeck-scope) .sd-registry-actions--spacious {
     margin-top: 16px;
     margin-bottom: 0;
 }
 
-.sd-registry-actions--top-gap {
+:is(#systemdeck, .systemdeck-scope) .sd-registry-actions--top-gap {
     margin-top: 12px;
 }
 
-.sd-import-row {
+:is(#systemdeck, .systemdeck-scope) .sd-import-row {
     margin-top: 16px;
     display: flex;
     align-items: center;
@@ -2634,36 +2859,36 @@ body.sd-widget-dragging #systemdeck .sd-discovery-canvas .sd-grid-widget.is-drop
     gap: 8px;
 }
 
-.sd-import-file-input {
+:is(#systemdeck, .systemdeck-scope) .sd-import-file-input {
     display: none;
 }
 
-.sd-description--top-gap-sm {
+:is(#systemdeck, .systemdeck-scope) .sd-description--top-gap-sm {
     margin-top: 8px;
 }
 
-.sd-description--top-gap-md {
+:is(#systemdeck, .systemdeck-scope) .sd-description--top-gap-md {
     margin-top: 10px;
 }
 
-.sd-inline-status--offset {
+:is(#systemdeck, .systemdeck-scope) .sd-inline-status--offset {
     margin-left: 8px;
 }
 
-.sd-inline-status {
+:is(#systemdeck, .systemdeck-scope) .sd-inline-status {
     font-size: 12px;
     font-weight: 600;
 }
 
-.sd-inline-status.is-success {
+:is(#systemdeck, .systemdeck-scope) .sd-inline-status.is-success {
     color: var(--sd-success);
 }
 
-.sd-inline-status.is-error {
+:is(#systemdeck, .systemdeck-scope) .sd-inline-status.is-error {
     color: var(--sd-error);
 }
 
-.sd-tools-block-inserts {
+:is(#systemdeck, .systemdeck-scope) .sd-tools-block-inserts {
     margin-bottom: 16px;
     padding: 12px;
     border: 1px solid var(--sd-border);
@@ -2671,7 +2896,7 @@ body.sd-widget-dragging #systemdeck .sd-discovery-canvas .sd-grid-widget.is-drop
     background: var(--sd-card-bg);
 }
 
-.sd-tools-workspace-select {
+:is(#systemdeck, .systemdeck-scope) .sd-tools-workspace-select {
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -2679,67 +2904,67 @@ body.sd-widget-dragging #systemdeck .sd-discovery-canvas .sd-grid-widget.is-drop
     max-width: 320px;
 }
 
-.sd-tools-workspace-select select {
+:is(#systemdeck, .systemdeck-scope) .sd-tools-workspace-select select {
     padding: 4px 8px;
 }
 
-.sd-welcome-notice {
+:is(#systemdeck, .systemdeck-scope) .sd-welcome-notice {
     margin: 0 0 20px !important;
 }
 
-.sd-tools-actions {
+:is(#systemdeck, .systemdeck-scope) .sd-tools-actions {
     align-items: flex-start;
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
 }
 
-.sd-tools-policy-fieldset {
+:is(#systemdeck, .systemdeck-scope) .sd-tools-policy-fieldset {
     width: 100%;
     border: 0;
     padding: 0;
     margin: 0;
 }
 
-.sd-tools-policy-group {
+:is(#systemdeck, .systemdeck-scope) .sd-tools-policy-group {
     margin-bottom: 10px;
 }
 
-.sd-tools-policy-label {
+:is(#systemdeck, .systemdeck-scope) .sd-tools-policy-label {
     margin: 6px 0;
 }
 
-.sd-tools-policy-options {
+:is(#systemdeck, .systemdeck-scope) .sd-tools-policy-options {
     display: flex;
     gap: 8px 12px;
     flex-wrap: wrap;
 }
 
-.sd-tools-policy-options .sd-checkbox-control {
+:is(#systemdeck, .systemdeck-scope) .sd-tools-policy-options .sd-checkbox-control {
     margin: 0;
     display: inline-flex;
     align-items: center;
     gap: 6px;
 }
 
-.sd-tools-policy-option {
+:is(#systemdeck, .systemdeck-scope) .sd-tools-policy-option {
     padding-right: 12px;
     display: inline-flex;
     align-items: center;
     gap: 4px;
 }
 
-.sd-options-group--compact {
+:is(#systemdeck, .systemdeck-scope) .sd-options-group--compact {
     margin-bottom: -10px;
 }
 
-.sd-submit-row {
+:is(#systemdeck, .systemdeck-scope) .sd-submit-row {
     display: flex;
     gap: 8px;
     align-items: center;
 }
 
-.sd-tools-policy-row {
+:is(#systemdeck, .systemdeck-scope) .sd-tools-policy-row {
     margin-top: 10px;
     display: flex;
     flex-direction: column;
@@ -2747,7 +2972,7 @@ body.sd-widget-dragging #systemdeck .sd-discovery-canvas .sd-grid-widget.is-drop
     max-width: 360px;
 }
 
-.sd-target-users-list {
+:is(#systemdeck, .systemdeck-scope) .sd-target-users-list {
     border: 1px solid #dcdcde;
     border-radius: 4px;
     background: #fff;
@@ -2759,18 +2984,18 @@ body.sd-widget-dragging #systemdeck .sd-discovery-canvas .sd-grid-widget.is-drop
     overflow: auto;
 }
 
-.sd-tools-actions .button {
+:is(#systemdeck, .systemdeck-scope) .sd-tools-actions .button {
     margin: 0;
 }
 
-.sd-tools-insert-grid {
+:is(#systemdeck, .systemdeck-scope) .sd-tools-insert-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 8px;
     margin-bottom: 8px;
 }
 
-.sd-tools-allowlist {
+:is(#systemdeck, .systemdeck-scope) .sd-tools-allowlist {
     margin-bottom: 16px;
     padding: 12px;
     border: 1px solid var(--sd-border);
@@ -2778,13 +3003,13 @@ body.sd-widget-dragging #systemdeck .sd-discovery-canvas .sd-grid-widget.is-drop
     background: var(--sd-card-bg);
 }
 
-.sd-hook-validation-list {
+:is(#systemdeck, .systemdeck-scope) .sd-hook-validation-list {
     margin-top: 10px;
     padding-top: 10px;
     border-top: 1px dashed var(--sd-border);
 }
 
-.sd-hook-validation-row {
+:is(#systemdeck, .systemdeck-scope) .sd-hook-validation-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -2792,7 +3017,7 @@ body.sd-widget-dragging #systemdeck .sd-discovery-canvas .sd-grid-widget.is-drop
     margin-bottom: 6px;
 }
 
-.sd-select-input {
+:is(#systemdeck, .systemdeck-scope) .sd-select-input {
     min-height: 30px;
     line-height: 1.4;
     padding: 0 24px 0 8px;
@@ -2802,76 +3027,16 @@ body.sd-widget-dragging #systemdeck .sd-discovery-canvas .sd-grid-widget.is-drop
     color: var(--sd-input-text);
 }
 
-.sd-checkbox-control {
+:is(#systemdeck, .systemdeck-scope) .sd-checkbox-control {
     display: inline-flex;
     align-items: center;
     gap: 8px;
     cursor: pointer;
 }
 
-.sd-checkbox-control input[type="checkbox"] {
-    margin: 0;
-}
-
-.sd-checkbox-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-}
-
-/* Final overrides for the redesigned workspace surface. */
-.sd-grid-widget.is-dragging {
-    opacity: 0.68;
-}
-
-.sd-workspace-creator {
-    margin: 0 0 20px;
-    padding: 18px;
-    border: 1px solid color-mix(in srgb, var(--sd-border, #dcdcde) 88%, white);
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.7);
-}
-
-.sd-config-container {
-    border: 1px solid color-mix(in srgb, var(--sd-border, #dcdcde) 88%, white);
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.78);
-    overflow: hidden;
-}
-
-.sd-settings-tabs {
-    border-radius: 4px;
-}
-
-.sd-inline-creator {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-.sd-creator-input-wrap {
-    flex: 1 1 320px;
-    width: auto;
-}
-
-.sd-creator-input,
-.sd-rename-input {
-    height: 40px;
-    min-height: 40px;
-    border-radius: 4px;
-}
-
-.sd-creator-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-.sd-manage-canvas-link-wrap {
-    margin: 0 0 18px;
-}
+/* ==========================================================================
+   13. Runtime Shell Infrastructure
+   ========================================================================== */
 
 #sd-canvas-root {
     width: 100%;
@@ -2881,7 +3046,7 @@ body.sd-widget-dragging #systemdeck .sd-discovery-canvas .sd-grid-widget.is-drop
     color: var(--sd-menu-text);
 }
 
-.sd-placeholder {
+:is(#systemdeck, .systemdeck-scope) .sd-placeholder {
     padding: 40px;
     border: 2px dashed color-mix(in srgb, var(--sd-border) 30%, transparent);
     margin: 20px;
@@ -2889,481 +3054,7 @@ body.sd-widget-dragging #systemdeck .sd-discovery-canvas .sd-grid-widget.is-drop
     border-radius: 8px;
 }
 
-.sd-config-canvas {
-    display: grid;
-    grid-template-columns: 350px 1fr;
-    height: 100%;
-    width: 100%;
-    background: var(--sd-body-background);
-    color: var(--sd-text);
-    overflow: hidden;
-    position: relative;
-    z-index: 10;
-}
-
-.sd-config-sidebar {
-    background: color-mix(in srgb,
-            var(--sd-card-bg) 85%,
-            var(--sd-menu-background) 15%);
-    border-right: 1px solid var(--sd-border);
-    display: flex;
-    flex-direction: column;
-}
-
-.sd-config-header {
-    padding: 20px;
-    background: var(--sd-card-header-bg);
-    border-bottom: 1px solid var(--sd-border);
-}
-
-.sd-config-header h2 {
-    margin: 0 0 8px 0;
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--sd-highlight-color);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.sd-config-header p {
-    margin: 0 0 15px 0;
-    font-size: 13px;
-    opacity: 0.7;
-    line-height: 1.4;
-}
-
-.sd-config-header .button {
-    width: 100%;
-}
-
-.sd-registry-list,
-.sd-widget-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 10px;
-}
-
-.sd-registry-item,
-.sd-config-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 15px;
-    margin-bottom: 8px;
-    background: color-mix(in srgb,
-            var(--sd-card-bg) 95%,
-            var(--sd-menu-background) 5%);
-    border: 1px solid rgba(0, 0, 0, 0);
-    border-radius: 4px;
-    transition: all 0.2s ease;
-    cursor: pointer;
-}
-
-.sd-registry-item:hover,
-.sd-config-item:hover {
-    background: color-mix(in srgb,
-            var(--sd-card-bg) 90%,
-            var(--sd-menu-background) 10%);
-    border-color: var(--sd-highlight-color);
-    transform: translateX(2px);
-}
-
-.sd-registry-item.active,
-.sd-config-item.enabled {
-    background: color-mix(in srgb, var(--sd-highlight-color) 12%, transparent);
-    border-left: 3px solid var(--sd-highlight-color);
-}
-
-.sd-item-meta {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-}
-
-.sd-item-title {
-    font-weight: 500;
-    font-size: 14px;
-    margin-left: 8px;
-}
-
-.sd-item-source {
-    font-size: 11px;
-    opacity: 0.6;
-    margin-top: 2px;
-    margin-left: 8px;
-}
-
-.sd-toggle-switch {
-    position: relative;
-    width: 40px;
-    height: 20px;
-    background: color-mix(in srgb,
-            var(--sd-card-bg) 80%,
-            var(--sd-menu-background) 20%);
-    border-radius: 10px;
-    transition: background 0.3s ease;
-    border: 1px solid var(--sd-border);
-}
-
-.sd-config-item.enabled .sd-toggle-switch {
-    background: var(--sd-highlight-color);
-    border-color: var(--sd-highlight-color);
-}
-
-.sd-knob {
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 14px;
-    height: 14px;
-    background: var(--sd-menu-current-text);
-    border-radius: 50%;
-    transition: transform 0.3s ease;
-    box-shadow: 0 2px 4px color-mix(in srgb, var(--sd-border) 20%, var(--sd-menu-background) 80%);
-}
-
-.sd-config-item.enabled .sd-knob {
-    transform: translateX(20px);
-}
-
-.sd-config-preview {
-    position: relative;
-    background: color-mix(in srgb,
-            var(--sd-card-bg) 75%,
-            var(--sd-menu-background) 25%);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-.sd-preview-label {
-    padding: 15px 20px;
-    background: color-mix(in srgb,
-            var(--sd-card-bg) 80%,
-            var(--sd-menu-background) 20%);
-    border-bottom: 1px solid var(--sd-border);
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--sd-highlight-color);
-}
-
-.sd-preview-placeholder {
-    text-align: center;
-    opacity: 0.3;
-    margin: auto;
-}
-
-.sd-preview-placeholder .dashicons {
-    font-size: 64px;
-    width: 64px;
-    height: 64px;
-    margin-bottom: 10px;
-}
-
-.sd-registry-list::-webkit-scrollbar,
-.sd-widget-list::-webkit-scrollbar {
-    width: 8px;
-}
-
-.sd-registry-list::-webkit-scrollbar-track,
-.sd-widget-list::-webkit-scrollbar-track {
-    background: color-mix(in srgb,
-            var(--sd-card-bg) 80%,
-            var(--sd-menu-background) 20%);
-}
-
-.sd-registry-list::-webkit-scrollbar-thumb,
-.sd-widget-list::-webkit-scrollbar-thumb {
-    background: var(--sd-highlight-color);
-    border-radius: 4px;
-}
-
-.sd-registry-list::-webkit-scrollbar-thumb:hover,
-.sd-widget-list::-webkit-scrollbar-thumb:hover {
-    background: var(--sd-link-focus);
-}
-
-.sd-meta-blocks {
-    margin-top: 12px;
-    padding-top: 8px;
-    border-top: 1px solid color-mix(in srgb, var(--sd-border) 50%, transparent);
-}
-
-.sd-meta-block-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 8px;
-}
-
-.sd-meta-block-status {
-    margin: 10px 0 0;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.sd-meta-block-status.is-success {
-    color: var(--sd-success);
-}
-
-.sd-meta-block-status.is-error {
-    color: var(--sd-error);
-}
-
-.sd-canvas-html-block__content>*:first-child {
-    margin-top: 0;
-}
-
-.sd-canvas-html-block__content>*:last-child {
-    margin-bottom: 0;
-}
-
-.sd-canvas-html-block__content {
-    color: var(--sd-text);
-}
-
-.sd-canvas-html-block__content p,
-.sd-canvas-html-block__content li,
-.sd-canvas-html-block__content span,
-.sd-canvas-html-block__content strong,
-.sd-canvas-html-block__content em {
-    color: inherit;
-}
-
-.sd-config-manager {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 20px;
-    color: var(--sd-text);
-}
-
-.sd-config-manager__intro {
-    margin: 0 0 16px;
-    color: var(--sd-text-muted);
-}
-
-.sd-config-manager__notice {
-    margin: 0 0 16px !important;
-}
-
-.sd-config-manager__panel {
-    border: 1px solid var(--sd-border) !important;
-    box-shadow: 0 1px 1px var(--sd-box-shadow);
-}
-
-.sd-config-manager__create-row .components-flex-item:last-child {
-    margin-bottom: 16px;
-}
-
-.sd-config-manager .sd-form-label {
-    display: block;
-    margin-bottom: 8px;
-    color: var(--sd-text);
-    font-weight: 500;
-}
-
-.sd-config-manager__workspace-list {
-    margin-top: 24px;
-}
-
-.sd-config-manager__workspace-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.sd-config-manager__workspace-card {
-    padding: 15px;
-    background: var(--sd-card-bg);
-    border: 1px solid var(--sd-border);
-    border-radius: 4px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.sd-config-manager__workspace-title {
-    font-size: 16px;
-}
-
-.sd-config-manager__workspace-id {
-    margin-top: 2px;
-    font-size: 11px;
-    color: var(--sd-text-muted);
-    font-family: monospace;
-}
-
-.sd-btn-danger-text {
-    color: var(--sd-error) !important;
-}
-
-.sd-config-manager__rename-modal {
-    padding: 20px;
-}
-
-.sd-config-manager__rename-actions {
-    margin-top: 20px;
-}
-
-.sd-inspector-canvas {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-}
-
-.sd-inspector-toolbar {
-    padding: 10px 20px;
-    background: var(--sd-card-header-bg);
-    color: var(--sd-text);
-    border-bottom: 1px solid var(--sd-border);
-}
-
-.sd-inspector-notice {
-    margin: 0 !important;
-}
-
-.sd-inspector-body {
-    flex: 1;
-    overflow: auto;
-}
-
-.sd-inspector-frame {
-    display: block;
-    width: 100%;
-    height: 100%;
-    border: none;
-    background: var(--sd-card-bg);
-}
-
-.sd-inspector-scanner {
-    padding: 20px;
-}
-
-.sd-inspector-widget-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 10px;
-}
-
-.sd-inspector-widget-item {
-    padding: 10px;
-    border: 1px solid var(--sd-border-light);
-    border-radius: 4px;
-    background: var(--sd-card-bg);
-}
-
-.sd-inspector-widget-item.is-selected {
-    border-color: var(--sd-highlight-color);
-    background: color-mix(in srgb,
-            var(--sd-highlight-color) 8%,
-            var(--sd-card-bg) 92%);
-}
-
-.sd-inspector-actions {
-    margin-top: 20px;
-}
-
-.sd-canvas-widget-placeholder {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.sd-canvas-widget-placeholder small {
-    opacity: 0.7;
-}
-
-.sd-canvas-card {
-    padding: 12px;
-    border: 1px solid var(--sd-border);
-    border-radius: 4px;
-    background: var(--sd-card-bg);
-}
-
-.sd-workspace-empty {
-    padding: 20px;
-    text-align: center;
-    color: var(--sd-text-muted);
-}
-
-.sd-grid-widget.is-drop-target .sd-widget {
-    outline: 2px dashed color-mix(in srgb, var(--sd-highlight-color, #2271b1) 76%, white);
-    outline-offset: 2px;
-    background-image: repeating-linear-gradient(-45deg,
-            rgba(34, 113, 177, 0.06) 0 8px,
-            transparent 8px 16px);
-    transition: outline 0.15s ease, background-image 0.15s ease;
-}
-
-.sd-workspace-grid[data-dragging="true"] .sd-grid-widget .sd-widget {
-    border-style: dashed;
-    border-color: color-mix(in srgb,
-            var(--sd-highlight-color, #2271b1) 35%,
-            white);
-}
-
-body.sd-widget-dragging .uploader-window,
-body.sd-widget-dragging #wpmedia-dragdrop-area,
-body.sd-widget-dragging .plupload.dragdrop {
-    display: none !important;
-    opacity: 0 !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-}
-
-.sd-widget-crash {
-    padding: 20px;
-    color: var(--sd-error);
-    background: color-mix(in srgb, var(--sd-error) 18%, var(--sd-card-bg) 82%);
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-}
-
-.sd-widget-crash .dashicons {
-    font-size: 32px;
-    margin-bottom: 10px;
-}
-
-.sd-widget-crash__detail {
-    font-size: 11px;
-    opacity: 0.7;
-    margin-top: 5px;
-}
-
-.sd-workspace-meta-container {
-    display: flex;
-    margin-top: 0;
-}
-
-.sd-workspace-meta-container #workspace-meta {
-    margin-top: -20px;
-}
-
-.sd-meta-empty-note {
-    opacity: 0.5;
-    font-size: 11px;
-    font-style: italic;
-}
-
-.sd-meta-diag-wrap {
-    margin-top: 8px;
-}
-
-.sd-meta-diag-table {
-    max-width: 960px;
-}
-
-.sd-tunnel-frame {
-    background: var(--sd-card-bg);
-    border: 1px solid var(--sd-border);
-}
-
-.sd-boot-status {
+:is(#systemdeck, .systemdeck-scope) .sd-boot-status {
     height: 100%;
     display: flex;
     align-items: center;
@@ -3378,7 +3069,7 @@ body.sd-widget-dragging .plupload.dragdrop {
     color: var(--sd-text);
 }
 
-.sd-boot-status .dashicons {
+:is(#systemdeck, .systemdeck-scope) .sd-boot-status .dashicons {
     font-size: 32px;
     line-height: 1;
     width: 32px;
@@ -3386,26 +3077,633 @@ body.sd-widget-dragging .plupload.dragdrop {
     margin-bottom: 10px;
 }
 
-.sd-boot-status--error .dashicons {
+:is(#systemdeck, .systemdeck-scope) .sd-boot-status--error .dashicons {
     color: var(--sd-error);
 }
 
-.sd-boot-status__detail {
+:is(#systemdeck, .systemdeck-scope) .sd-boot-status__detail {
     margin-top: 5px;
     opacity: 0.8;
 }
 
-.sd-boot-status--error .button {
+:is(#systemdeck, .systemdeck-scope) .sd-boot-status--error .button {
     margin-top: 15px;
 }
 
-.sd-boot-status--loading {
+:is(#systemdeck, .systemdeck-scope) .sd-boot-status--loading {
     flex-direction: row;
     color: var(--sd-heading-color);
 }
 
-.sd-boot-status__spinner {
+:is(#systemdeck, .systemdeck-scope) .sd-boot-status__spinner {
     animation: spin 2s linear infinite;
     margin: 0 8px 0 0;
     color: var(--sd-button-color);
+}
+
+/* ==========================================================================
+   14. Configuration Workspace
+   ========================================================================== */
+
+:is(#systemdeck, .systemdeck-scope) .sd-checkbox-control input[type="checkbox"] {
+    margin: 0;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-workspace-creator {
+    margin: 0 0 20px;
+    padding: 18px;
+    border: 1px solid color-mix(in srgb, var(--sd-border, #dcdcde) 88%, white);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.7);
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-config-container {
+    border: 1px solid color-mix(in srgb, var(--sd-border, #dcdcde) 88%, white);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.78);
+    overflow: hidden;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-settings-tabs {
+    border-radius: 4px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-inline-creator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-creator-input-wrap {
+    flex: 1 1 320px;
+    width: auto;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-creator-input,
+:is(#systemdeck, .systemdeck-scope) .sd-rename-input {
+    height: 40px;
+    min-height: 40px;
+    border-radius: 4px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-creator-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-manage-canvas-link-wrap {
+    margin: 0 0 18px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-config-canvas {
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    height: 100%;
+    width: 100%;
+    background: var(--sd-body-background);
+    color: var(--sd-text);
+    overflow: hidden;
+    position: relative;
+    z-index: 10;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-config-sidebar {
+    background: color-mix(in srgb,
+            var(--sd-card-bg) 85%,
+            var(--sd-menu-background) 15%);
+    border-right: 1px solid var(--sd-border);
+    display: flex;
+    flex-direction: column;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-config-header {
+    padding: 20px;
+    background: var(--sd-card-header-bg);
+    border-bottom: 1px solid var(--sd-border);
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-config-header h2 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--sd-highlight-color);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-config-header p {
+    margin: 0 0 15px 0;
+    font-size: 13px;
+    opacity: 0.7;
+    line-height: 1.4;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-config-header .button {
+    width: 100%;
+}
+
+/* ==========================================================================
+   15. Registry & Item Management
+   ========================================================================== */
+
+:is(#systemdeck, .systemdeck-scope) .sd-registry-list,
+:is(#systemdeck, .systemdeck-scope) .sd-widget-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-registry-item,
+:is(#systemdeck, .systemdeck-scope) .sd-config-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 15px;
+    margin-bottom: 8px;
+    background: color-mix(in srgb,
+            var(--sd-card-bg) 95%,
+            var(--sd-menu-background) 5%);
+    border: 1px solid rgba(0, 0, 0, 0);
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-registry-item:hover,
+:is(#systemdeck, .systemdeck-scope) .sd-config-item:hover {
+    background: color-mix(in srgb,
+            var(--sd-card-bg) 90%,
+            var(--sd-menu-background) 10%);
+    border-color: var(--sd-highlight-color);
+    transform: translateX(2px);
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-registry-item.active,
+:is(#systemdeck, .systemdeck-scope) .sd-config-item.enabled {
+    background: color-mix(in srgb, var(--sd-highlight-color) 12%, transparent);
+    border-left: 3px solid var(--sd-highlight-color);
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-item-meta {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-item-title {
+    font-weight: 500;
+    font-size: 14px;
+    margin-left: 8px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-item-source {
+    font-size: 11px;
+    opacity: 0.6;
+    margin-top: 2px;
+    margin-left: 8px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-toggle-switch {
+    position: relative;
+    width: 40px;
+    height: 20px;
+    background: color-mix(in srgb,
+            var(--sd-card-bg) 80%,
+            var(--sd-menu-background) 20%);
+    border-radius: 10px;
+    transition: background 0.3s ease;
+    border: 1px solid var(--sd-border);
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-config-item.enabled .sd-toggle-switch {
+    background: var(--sd-highlight-color);
+    border-color: var(--sd-highlight-color);
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-knob {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    background: var(--sd-menu-current-text);
+    border-radius: 50%;
+    transition: transform 0.3s ease;
+    box-shadow: 0 2px 4px color-mix(in srgb, var(--sd-border) 20%, var(--sd-menu-background) 80%);
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-config-item.enabled .sd-knob {
+    transform: translateX(20px);
+}
+
+/* ==========================================================================
+   16. Preview & Meta Blocks
+   ========================================================================== */
+
+:is(#systemdeck, .systemdeck-scope) .sd-config-preview {
+    position: relative;
+    background: color-mix(in srgb,
+            var(--sd-card-bg) 75%,
+            var(--sd-menu-background) 25%);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-preview-label {
+    padding: 15px 20px;
+    background: color-mix(in srgb,
+            var(--sd-card-bg) 80%,
+            var(--sd-menu-background) 20%);
+    border-bottom: 1px solid var(--sd-border);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--sd-highlight-color);
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-preview-placeholder {
+    text-align: center;
+    opacity: 0.3;
+    margin: auto;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-preview-placeholder .dashicons {
+    font-size: 64px;
+    width: 64px;
+    height: 64px;
+    margin-bottom: 10px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-registry-list::-webkit-scrollbar,
+:is(#systemdeck, .systemdeck-scope) .sd-widget-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-registry-list::-webkit-scrollbar-track,
+:is(#systemdeck, .systemdeck-scope) .sd-widget-list::-webkit-scrollbar-track {
+    background: color-mix(in srgb,
+            var(--sd-card-bg) 80%,
+            var(--sd-menu-background) 20%);
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-registry-list::-webkit-scrollbar-thumb,
+:is(#systemdeck, .systemdeck-scope) .sd-widget-list::-webkit-scrollbar-thumb {
+    background: var(--sd-highlight-color);
+    border-radius: 4px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-registry-list::-webkit-scrollbar-thumb:hover,
+:is(#systemdeck, .systemdeck-scope) .sd-widget-list::-webkit-scrollbar-thumb:hover {
+    background: var(--sd-link-focus);
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-meta-blocks {
+    margin-top: 12px;
+    padding-top: 8px;
+    border-top: 1px solid color-mix(in srgb, var(--sd-border) 50%, transparent);
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-meta-block-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-meta-block-status {
+    margin: 10px 0 0;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-meta-block-status.is-success {
+    color: var(--sd-success);
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-meta-block-status.is-error {
+    color: var(--sd-error);
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-canvas-html-block__content>*:first-child {
+    margin-top: 0;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-canvas-html-block__content>*:last-child {
+    margin-bottom: 0;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-canvas-html-block__content {
+    color: var(--sd-text);
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-canvas-html-block__content p,
+:is(#systemdeck, .systemdeck-scope) .sd-canvas-html-block__content li,
+:is(#systemdeck, .systemdeck-scope) .sd-canvas-html-block__content span,
+:is(#systemdeck, .systemdeck-scope) .sd-canvas-html-block__content strong,
+:is(#systemdeck, .systemdeck-scope) .sd-canvas-html-block__content em {
+    color: inherit;
+}
+
+/* ==========================================================================
+   17. Configuration Manager (Admin View)
+   ========================================================================== */
+
+:is(#systemdeck, .systemdeck-scope) .sd-config-manager {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    color: var(--sd-text);
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-config-manager__intro {
+    margin: 0 0 16px;
+    color: var(--sd-text-muted);
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-config-manager__notice {
+    margin: 0 0 16px !important;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-config-manager__panel {
+    border: 1px solid var(--sd-border) !important;
+    box-shadow: 0 1px 1px var(--sd-box-shadow);
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-config-manager__create-row .components-flex-item:last-child {
+    margin-bottom: 16px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-config-manager .sd-form-label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--sd-text);
+    font-weight: 500;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-config-manager__workspace-list {
+    margin-top: 24px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-config-manager__workspace-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-config-manager__workspace-card {
+    padding: 15px;
+    background: var(--sd-card-bg);
+    border: 1px solid var(--sd-border);
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-config-manager__workspace-title {
+    font-size: 16px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-config-manager__workspace-id {
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--sd-text-muted);
+    font-family: monospace;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-btn-danger-text {
+    color: var(--sd-error) !important;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-config-manager__rename-modal {
+    padding: 20px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-config-manager__rename-actions {
+    margin-top: 20px;
+}
+
+/* ==========================================================================
+   18. Inspector & Forensic HUD
+   ========================================================================== */
+
+:is(#systemdeck, .systemdeck-scope) .sd-inspector-canvas {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-inspector-toolbar {
+    padding: 10px 20px;
+    background: var(--sd-card-header-bg);
+    color: var(--sd-text);
+    border-bottom: 1px solid var(--sd-border);
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-inspector-notice {
+    margin: 0 !important;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-inspector-body {
+    flex: 1;
+    overflow: auto;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-inspector-frame {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: var(--sd-card-bg);
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-inspector-scanner {
+    padding: 20px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-inspector-widget-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 10px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-inspector-widget-item {
+    padding: 10px;
+    border: 1px solid var(--sd-border-light);
+    border-radius: 4px;
+    background: var(--sd-card-bg);
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-inspector-widget-item.is-selected {
+    border-color: var(--sd-highlight-color);
+    background: color-mix(in srgb,
+            var(--sd-highlight-color) 8%,
+            var(--sd-card-bg) 92%);
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-inspector-actions {
+    margin-top: 20px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-meta-empty-note {
+    opacity: 0.5;
+    font-size: 11px;
+    font-style: italic;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-meta-diag-wrap {
+    margin-top: 8px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-meta-diag-table {
+    max-width: 960px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-tunnel-frame {
+    background: var(--sd-card-bg);
+    border: 1px solid var(--sd-border);
+}
+
+/* ==========================================================================
+   19. Workspace Grid & Drag-and-Drop
+   ========================================================================== */
+
+:is(#systemdeck, .systemdeck-scope) .sd-canvas-widget-placeholder {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-canvas-widget-placeholder small {
+    opacity: 0.7;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-canvas-card {
+    padding: 12px;
+    border: 1px solid var(--sd-border);
+    border-radius: 4px;
+    background: var(--sd-card-bg);
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-workspace-empty {
+    padding: 20px;
+    text-align: center;
+    color: var(--sd-text-muted);
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-grid-widget.is-drop-target .sd-widget {
+    outline: 2px dashed color-mix(in srgb, var(--sd-highlight-color, #2271b1) 76%, white);
+    outline-offset: 2px;
+    background-image: repeating-linear-gradient(-45deg,
+            rgba(34, 113, 177, 0.06) 0 8px,
+            transparent 8px 16px);
+    transition: outline 0.15s ease, background-image 0.15s ease;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-workspace-grid[data-dragging="true"] .sd-grid-widget .sd-widget {
+    border-style: dashed;
+    border-color: color-mix(in srgb,
+            var(--sd-highlight-color, #2271b1) 35%,
+            white);
+}
+
+:is(#systemdeck, .systemdeck-scope) body.sd-widget-dragging .uploader-window,
+:is(#systemdeck, .systemdeck-scope) body.sd-widget-dragging #wpmedia-dragdrop-area,
+:is(#systemdeck, .systemdeck-scope) body.sd-widget-dragging .plupload.dragdrop {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-widget-crash {
+    padding: 20px;
+    color: var(--sd-error);
+    background: color-mix(in srgb, var(--sd-error) 18%, var(--sd-card-bg) 82%);
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-widget-crash .dashicons {
+    font-size: 32px;
+    margin-bottom: 10px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-widget-crash__detail {
+    font-size: 11px;
+    opacity: 0.7;
+    margin-top: 5px;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-workspace-meta-container {
+    display: flex;
+    margin-top: 0;
+}
+
+:is(#systemdeck, .systemdeck-scope) .sd-workspace-meta-container #workspace-meta {
+    margin-top: -20px;
+}
+
+/* ==========================================================================
+   20. Runtime Surface & Modal Infrastructure
+   ========================================================================== */
+
+/* 1. Universal Control Elements */
+:is(#systemdeck, .systemdeck-scope) .sd-btn,
+:is(#systemdeck, .systemdeck-scope) .button-primary,
+:is(#systemdeck, .systemdeck-scope) .button-secondary {
+    /* (Ensure these existing button resets use the :is() selector) */
+}
+
+/* 2. Normalize Native WP Modals across the SystemDeck Scope */
+.systemdeck-scope .components-modal__frame {
+    /* Normalizes width, border-radius, and shadow for all detached frames */
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    border: 1px solid #c3c4c7;
+}
+
+.systemdeck-scope .components-modal__header {
+    /* Centralized padding, bottom border, and layout drift fix */
+    padding: 16px 24px;
+    border-bottom: 1px solid #dcdcde;
+    background: #f6f7f7;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    margin: 0;
+}
+
+.systemdeck-scope .components-modal__header-heading {
+    font-weight: 600;
+    font-size: 16px;
+    color: #1e1e1e;
+}
+
+.systemdeck-scope .components-modal__content {
+    /* Centralized scroll behavior and internal padding */
+    padding: 24px;
+    background: #ffffff;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+}
+
+/* Fix WP's default close button drift in scoped modals */
+.systemdeck-scope .components-modal__header .components-button {
+    top: 50%;
+    transform: translateY(-50%);
+    right: 12px;
 }

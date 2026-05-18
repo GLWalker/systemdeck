@@ -425,7 +425,7 @@ export default function ScreenOptions() {
 	return (
 		<Modal
 			title={__("Widget Picker", "systemdeck")}
-			className='sd-widget-picker-modal'
+			className='sd-widget-picker-modal systemdeck-scope'
 			onRequestClose={handleRequestClose}>
 			<div className='sd-widget-picker__surface'>
 				<div className='sd-widget-picker'>

@@ -706,7 +706,7 @@ export default function PinPicker() {
 	return (
 		<Modal
 			title={__("Pin Picker", "systemdeck")}
-			className='sd-telemetrics-picker-modal'
+			className='sd-telemetrics-picker-modal systemdeck-scope'
 			onRequestClose={handleRequestClose}>
 			<div className='sd-pin-picker__surface'>
 				<div className='sd-pin-picker'>

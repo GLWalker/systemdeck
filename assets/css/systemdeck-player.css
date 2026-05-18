@@ -17,31 +17,6 @@
     visibility: visible;
 }
 
-.sd-player-root .dashicons {
-    font-family: dashicons !important;
-    font-style: normal;
-    font-weight: 400;
-    speak: none;
-    display: inline-block;
-    text-decoration: inherit;
-    text-transform: none;
-    text-rendering: auto;
-    line-height: 1;
-    width: 1em;
-    height: 1em;
-    font-size: 20px;
-    vertical-align: middle;
-    box-sizing: content-box;
-}
-
-.sd-player-root button .dashicons,
-.sd-player-root [role="button"] .dashicons,
-.sd-player-root .sd-player-control .dashicons {
-    display: inline-block;
-    vertical-align: middle;
-    flex: 0 0 auto;
-}
-
 /* Shell / section separation */
 .sd-player-root .sd-player-shell.sd-player-v2 {
     display: grid;
@@ -147,6 +122,7 @@
     height: 46px;
     font-size: 46px !important;
     color: #2271b1 !important;
+
 }
 
 .sd-player-root .sd-player-track-title,
@@ -238,15 +214,6 @@
     background: #2271b1;
 }
 
-/* Generic range reset */
-.sd-player-root input[type="range"] {
-    padding: 0;
-    border: 0;
-    outline: 0;
-    box-shadow: none;
-    background-clip: padding-box;
-}
-
 /* Seek / volume / bass boost / balance */
 .sd-player-root .sd-player-seek-row {
     margin-top: 8px;
@@ -287,10 +254,7 @@
 }
 
 .sd-player-root .sd-player-volume-toggle .dashicons {
-    font-size: 18px !important;
-    line-height: 1;
-    width: 18px;
-    height: 18px;
+    font-size: 160% !important;
 }
 
 .sd-player-root .sd-player-bass-inline {
@@ -346,24 +310,20 @@
 .sd-player-root .sd-player-transport {
     display: flex;
     justify-content: flex-end;
-    gap: 5px;
+    gap: 6px;
     align-items: center;
-    min-height: 28px;
+    min-height: 32px;
 }
 
 .sd-player-root .sd-player-transport .sd-transport-btn {
-    min-width: 28px;
-    width: 28px;
-    height: 28px;
+    min-width: 32px;
+    width: 32px;
+    height: 32px;
     padding: 0;
-    margin: 0;
     border-radius: 6px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    vertical-align: top;
-    line-height: 1;
-    font-size: 0;
     gap: 0;
     border: 1px solid #c3c4c7;
     background: #f6f7f7;
@@ -374,14 +334,9 @@
 }
 
 .sd-player-root .sd-player-transport .sd-transport-btn .dashicons {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     font-size: 16px !important;
-    line-height: 1 !important;
     width: 16px;
     height: 16px;
-    margin: 0;
 }
 
 .sd-player-root .sd-player-transport .sd-transport-btn:hover:not(:disabled) {
@@ -392,7 +347,7 @@
 }
 
 .sd-player-root .sd-player-transport .sd-transport-btn.sd-transport-btn-mode {
-    margin-left: 3px;
+    margin-left: 4px;
 }
 
 .sd-player-root .sd-player-transport .sd-transport-btn.is-active {
@@ -630,7 +585,6 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-
 }
 
 .sd-player-root .sd-player-eq-preamp-row {
@@ -641,7 +595,6 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    width: 33%;
 }
 
 .sd-player-root .sd-player-eq-preamp-row label span {
@@ -655,52 +608,42 @@
     appearance: none;
     -webkit-appearance: none;
     background: #c3c4c7;
-    height: 4px;
+    height: 6px;
     border-radius: 999px;
     flex: 1 1 auto;
     min-width: 0;
     width: 100%;
-    box-shadow: none;
 }
 
 .sd-player-root .sd-player-eq-preamp-row input[type="range"]::-webkit-slider-thumb {
     appearance: none;
     -webkit-appearance: none;
-    width: 11px;
-    height: 11px;
+    width: 12px;
+    height: 12px;
     background: #2271b1;
     border-radius: 50%;
     border: 0;
     cursor: pointer;
-    margin-top: -3.5px;
-}
-
-.sd-player-root .sd-player-eq-preamp-row input[type="range"]::-webkit-slider-runnable-track {
-    height: 4px;
-    background: #c3c4c7;
-    border: 0;
-    border-radius: 999px;
 }
 
 .sd-player-root .sd-player-eq-preamp-row input[type="range"]::-moz-range-track {
     background: #c3c4c7;
     border: 0;
-    height: 4px;
+    height: 6px;
     border-radius: 999px;
 }
 
 .sd-player-root .sd-player-eq-preamp-row input[type="range"]::-moz-range-thumb {
-    width: 11px;
-    height: 11px;
+    width: 12px;
+    height: 12px;
     background: #2271b1;
     border-radius: 50%;
     border: 0;
     cursor: pointer;
 }
 
-/* EQ board geometry */
 .sd-player-root .sd-player-eq-board {
-    --sd-eq-rail-height: 142px;
+    --sd-eq-rail-height: 150px;
     --sd-eq-rail-top: 8px;
     --sd-eq-label-row: 24px;
     display: grid;
@@ -739,6 +682,7 @@
     align-items: end;
     gap: 2px;
     min-height: calc(var(--sd-eq-rail-top) + var(--sd-eq-rail-height) + var(--sd-eq-label-row));
+
     padding: 0 2px 0;
     overflow: hidden;
 }
@@ -787,7 +731,7 @@
 .sd-player-root .sd-player-eq-lane {
     position: relative;
     height: var(--sd-eq-rail-height);
-    width: 18px;
+    width: 20px;
     display: grid;
     place-items: center;
 }
@@ -797,16 +741,7 @@
 }
 
 .sd-player-root .sd-player-eq-rail {
-    display: block;
-    position: absolute;
-    top: 0;
-    left: 50%;
-    width: 6px;
-    height: var(--sd-eq-rail-height);
-    transform: translateX(-50%);
-    background: #c3c4c7;
-    border-radius: 999px;
-    z-index: 1;
+    display: none;
 }
 
 .sd-player-root .sd-player-eq-band span {
@@ -820,36 +755,35 @@
     margin: 4px auto 0;
 }
 
-/* EQ vertical sliders */
+/* EQ vertical sliders (scoped after generic range rules to win specificity) */
 .sd-player-root .sd-player-eq-band input[type="range"] {
-    position: relative;
-    z-index: 2;
     margin: 0;
-    padding: 0;
-    border: 0;
-    outline: 0;
-    box-shadow: none;
-    width: 18px;
     height: var(--sd-eq-rail-height);
+    width: 6px;
     appearance: none;
     -webkit-appearance: none;
     writing-mode: vertical-lr;
     direction: rtl;
-    background: transparent !important;
+    background: #c3c4c7;
+    position: relative;
+    z-index: 2;
     accent-color: #2271b1;
+    border-radius: 999px;
 }
 
 .sd-player-root .sd-player-eq-band input[type="range"]::-webkit-slider-runnable-track {
     -webkit-appearance: none;
-    width: 6px;
-    background: transparent;
+    background: #c3c4c7;
     border: 0;
+    width: 6px;
+    border-radius: 999px;
 }
 
 .sd-player-root .sd-player-eq-band input[type="range"]::-moz-range-track {
-    width: 6px;
-    background: transparent;
+    background: #c3c4c7;
     border: 0;
+    width: 6px;
+    border-radius: 999px;
 }
 
 .sd-player-root .sd-player-eq-band input[type="range"]::-moz-range-progress {
@@ -860,23 +794,25 @@
 .sd-player-root .sd-player-eq-band input[type="range"]::-webkit-slider-thumb {
     appearance: none;
     -webkit-appearance: none;
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: #2271b1;
     border: 0;
     cursor: pointer;
     margin-top: 0;
-    margin-left: -3.5px;
+    margin-left: -5px;
 }
 
 .sd-player-root .sd-player-eq-band input[type="range"]::-moz-range-thumb {
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: #2271b1;
     border: 0;
     cursor: pointer;
+    margin-top: 0;
+    margin-left: -5px;
 }
 
 /* Advanced EQ */
@@ -903,51 +839,18 @@
 .sd-player-root .sd-player-track-row input[type="range"],
 .sd-player-root .sd-player-advanced-eq input[type="range"] {
     appearance: none;
-    -webkit-appearance: none;
     background: #c3c4c7;
-    height: 4px;
+    height: 6px;
     border-radius: 999px;
     width: 100%;
-    box-shadow: none;
-}
-
-.sd-player-root .sd-player-now-card input[type="range"]::-webkit-slider-runnable-track,
-.sd-player-root .sd-player-track-row input[type="range"]::-webkit-slider-runnable-track,
-.sd-player-root .sd-player-advanced-eq input[type="range"]::-webkit-slider-runnable-track {
-    height: 4px;
-    background: #c3c4c7;
-    border: 0;
-    border-radius: 999px;
 }
 
 .sd-player-root .sd-player-now-card input[type="range"]::-webkit-slider-thumb,
 .sd-player-root .sd-player-track-row input[type="range"]::-webkit-slider-thumb,
 .sd-player-root .sd-player-advanced-eq input[type="range"]::-webkit-slider-thumb {
     appearance: none;
-    -webkit-appearance: none;
-    width: 11px;
-    height: 11px;
-    background: #2271b1;
-    border-radius: 50%;
-    border: 0;
-    cursor: pointer;
-    margin-top: -3.5px;
-}
-
-.sd-player-root .sd-player-now-card input[type="range"]::-moz-range-track,
-.sd-player-root .sd-player-track-row input[type="range"]::-moz-range-track,
-.sd-player-root .sd-player-advanced-eq input[type="range"]::-moz-range-track {
-    height: 4px;
-    background: #c3c4c7;
-    border: 0;
-    border-radius: 999px;
-}
-
-.sd-player-root .sd-player-now-card input[type="range"]::-moz-range-thumb,
-.sd-player-root .sd-player-track-row input[type="range"]::-moz-range-thumb,
-.sd-player-root .sd-player-advanced-eq input[type="range"]::-moz-range-thumb {
-    width: 11px;
-    height: 11px;
+    width: 12px;
+    height: 12px;
     background: #2271b1;
     border-radius: 50%;
     border: 0;
@@ -968,6 +871,7 @@
 
 /* Responsive rules */
 @media (max-width: 900px) {
+
     .sd-player-root .sd-player-now-media {
         grid-template-columns: 86px minmax(0, 1fr);
         align-items: start;
@@ -1133,6 +1037,7 @@
 }
 
 @media (max-width: 360px) {
+
     .sd-player-root .sd-player-now-media {
         grid-template-columns: 1fr;
     }

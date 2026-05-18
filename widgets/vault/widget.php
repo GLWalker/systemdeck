@@ -49,6 +49,13 @@ class Vault extends BaseWidget
     private const MIDI_LAST_GENERATED_AT_META_KEY = '_sd_midi_last_generated_at';
     private const MIDI_LAST_MODIFIED_AT_META_KEY = '_sd_midi_last_modified_at';
     private const MIDI_LAST_REBUILT_AT_META_KEY = '_sd_midi_last_rebuilt_at';
+    private const ARTWORK_ATTACHMENT_ID_META_KEY = '_sd_vault_artwork_attachment_id';
+    private const ARTWORK_URL_META_KEY = '_sd_vault_artwork_url';
+    private const ARTWORK_PATH_META_KEY = '_sd_vault_artwork_path';
+    private const ARTWORK_AUTHORITY_META_KEY = '_sd_vault_artwork_authority';
+    private const ARTWORK_SOURCE_ID_META_KEY = '_sd_vault_artwork_source_id';
+    private const ARTWORK_HASH_META_KEY = '_sd_vault_artwork_hash';
+    private const DURATION_META_KEY = '_sd_vault_duration';
 
     // Authority & Origin tracking (Phase 2F)
     private const AUTHORITY_META_KEY = '_sd_vault_authority';
@@ -60,7 +67,7 @@ class Vault extends BaseWidget
     public static function assets(): array
     {
         return [
-            'css' => ['style.css', 'sd-vault-media.css', 'sd-player-style'],
+            'css' => ['style.css', 'sd-vault-media.css', 'sd-player-style', 'dashicons'],
             'js' => ['sd-audio-engine', 'sd-player-app', 'app.js', 'media-bridge.js']
         ];
     }
@@ -234,6 +241,42 @@ class Vault extends BaseWidget
         add_action('wp_ajax_sd_core_vault_ajax_publish_to_media_library', [self::class, 'handle_ajax_publish_to_media_library']);
     }
 
+    public static function enqueue_media_modal_assets(string $hook_suffix): void
+    {
+        if (!is_admin()) {
+            return;
+        }
+
+        $allowed_hooks = ['upload.php', 'post.php', 'post-new.php'];
+        if (!in_array($hook_suffix, $allowed_hooks, true)) {
+            return;
+        }
+
+        if (function_exists('wp_enqueue_media')) {
+            wp_enqueue_media();
+        }
+
+        wp_enqueue_style('sd-player-style');
+        wp_enqueue_style('dashicons');
+        wp_enqueue_script('sd-audio-engine');
+        wp_enqueue_script('sd-player-app');
+        if (!wp_script_is('sd-widget-vault-media-bridge', 'registered')) {
+            wp_register_script(
+                'sd-widget-vault-media-bridge',
+                SYSTEMDECK_URL . 'widgets/vault/media-bridge.js',
+                ['jquery', 'media-views', 'sd-player-app'],
+                SYSTEMDECK_VERSION,
+                true
+            );
+        }
+        wp_enqueue_script('sd-widget-vault-media-bridge');
+
+        wp_localize_script('sd-widget-vault-media-bridge', 'sd_vault_bridge', [
+            'ajaxurl' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('systemdeck_runtime'),
+        ]);
+    }
+
     public static function exclude_from_recent_comments(array $args): array
     {
         // To exclude our internal vault files, we must explicitly tell the query
@@ -309,11 +352,38 @@ class Vault extends BaseWidget
 
     public static function handle_ajax_link_attachment()
     {
-        self::check_vault_nonce();
         try {
+            $nonce = (string) ($_POST['nonce'] ?? $_POST['_ajax_nonce'] ?? '');
+            $nonce_valid = $nonce !== '' && (
+                wp_verify_nonce($nonce, 'systemdeck_runtime') ||
+                wp_verify_nonce($nonce, 'systemdeck') ||
+                wp_verify_nonce($nonce, 'sd_vault')
+            );
+            if (!$nonce_valid) {
+                wp_send_json_error(['error' => 'Invalid nonce.'], 403);
+            }
+
+            if (!current_user_can('upload_files')) {
+                wp_send_json_error(['error' => 'Insufficient permissions.'], 403);
+            }
+
+            $attachment_id = isset($_POST['attachment_id']) ? absint($_POST['attachment_id']) : 0;
+            if ($attachment_id <= 0) {
+                wp_send_json_error(['error' => 'Missing attachment_id.'], 400);
+            }
+
+            $attachment = get_post($attachment_id);
+            if (!$attachment || $attachment->post_type !== 'attachment') {
+                wp_send_json_error(['error' => 'Invalid attachment.'], 404);
+            }
+
             wp_send_json_success(self::ajax_link_attachment($_POST));
-        } catch (\Exception $e) {
-            wp_send_json_error(['error' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('[SystemDeck] sd_core_vault_ajax_link_attachment fatal: ' . $e->getMessage());
+                error_log('[SystemDeck] sd_core_vault_ajax_link_attachment trace: ' . $e->getTraceAsString());
+            }
+            wp_send_json_error(['error' => 'Server error linking attachment.'], 500);
         }
     }
 
@@ -423,6 +493,7 @@ class Vault extends BaseWidget
         return [
             'status' => 'success',
             'vault_id' => $vault_id,
+            'vault_file' => self::build_vault_file_payload($vault_id),
             'message' => 'File copied to Vault successfully.'
         ];
     }
@@ -451,6 +522,7 @@ class Vault extends BaseWidget
         return [
             'status' => 'success',
             'vault_id' => $vault_id,
+            'vault_file' => self::build_vault_file_payload($vault_id),
             'message' => 'File published to Vault and removed from Media Library.'
         ];
     }
@@ -474,6 +546,7 @@ class Vault extends BaseWidget
         return [
             'status' => 'success',
             'attachment_id' => $attachment_id,
+            'media_attachment' => VaultManager::build_attachment_media_payload($attachment_id),
             'message' => 'File copied to Media Library successfully.'
         ];
     }
@@ -500,6 +573,7 @@ class Vault extends BaseWidget
         return [
             'status' => 'success',
             'attachment_id' => $attachment_id,
+            'media_attachment' => VaultManager::build_attachment_media_payload($attachment_id),
             'message' => 'File published to Media Library and removed from Vault.'
         ];
     }
@@ -768,6 +842,9 @@ class Vault extends BaseWidget
                                         <div class="sd-vault-details-preview-shell thumbnail">
                                             <div class="attachment-actions sd-vault-details-preview-actions"
                                                 style="display:none;"></div>
+                                            <div class="sd-player-modal-mount"
+                                                data-context="vault-modal"
+                                                data-modal-surface="details-preview"></div>
 
                                         </div>
 
@@ -1159,6 +1236,57 @@ class Vault extends BaseWidget
         delete_post_meta($post_id, self::ATTACHMENT_ID_META_KEY);
     }
 
+    private static function maybe_delete_vault_generated_artwork_attachment(int $post_id): void
+    {
+        $artwork_path = VaultManager::normalize_vault_relative_path((string) get_post_meta($post_id, self::ARTWORK_PATH_META_KEY, true));
+        $artwork_authority = (string) get_post_meta($post_id, self::ARTWORK_AUTHORITY_META_KEY, true);
+        $artwork_source_id = max(0, (int) get_post_meta($post_id, self::ARTWORK_SOURCE_ID_META_KEY, true));
+
+        if ($artwork_path === '' || $artwork_authority !== 'vault_artwork' || $artwork_source_id !== $post_id) {
+            return;
+        }
+
+        if (self::is_vault_artwork_path_reused($post_id, $artwork_path)) {
+            return;
+        }
+
+        $absolute_artwork_path = VaultManager::resolve_absolute_path($artwork_path);
+        if ($absolute_artwork_path !== '' && is_file($absolute_artwork_path)) {
+            @unlink($absolute_artwork_path);
+        }
+
+        delete_post_meta($post_id, self::ARTWORK_ATTACHMENT_ID_META_KEY);
+        delete_post_meta($post_id, self::ARTWORK_URL_META_KEY);
+        delete_post_meta($post_id, self::ARTWORK_PATH_META_KEY);
+        delete_post_meta($post_id, self::ARTWORK_AUTHORITY_META_KEY);
+        delete_post_meta($post_id, self::ARTWORK_SOURCE_ID_META_KEY);
+        delete_post_meta($post_id, self::ARTWORK_HASH_META_KEY);
+    }
+
+    private static function is_vault_artwork_path_reused(int $post_id, string $artwork_path): bool
+    {
+        if ($artwork_path === '') {
+            return false;
+        }
+
+        $linked_vault_post_ids = get_posts([
+            'post_type' => self::CPT,
+            'post_status' => ['publish', 'private', 'inherit'],
+            'posts_per_page' => 1,
+            'fields' => 'ids',
+            'post__not_in' => [$post_id],
+            'meta_query' => [
+                [
+                    'key' => self::ARTWORK_PATH_META_KEY,
+                    'value' => $artwork_path,
+                    'compare' => '=',
+                ],
+            ],
+        ]);
+
+        return !empty($linked_vault_post_ids);
+    }
+
     private static function is_midi_file(string $mime, string $filename): bool
     {
         $mime_lc = strtolower($mime);
@@ -1220,6 +1348,218 @@ class Vault extends BaseWidget
     private static function current_midi_timestamp(): string
     {
         return (string) current_time('mysql');
+    }
+
+    private static function get_midi_meta_keys(): array
+    {
+        return [
+            self::MIDI_ACTIVE_DERIVATIVE_META_KEY,
+            self::MIDI_GENERATED_DERIVATIVE_META_KEY,
+            self::MIDI_SOURCE_HASH_META_KEY,
+            self::MIDI_DERIVATIVE_HASH_META_KEY,
+            self::MIDI_DERIVATIVE_VERSION_META_KEY,
+            self::MIDI_PARSER_VERSION_META_KEY,
+            self::MIDI_IS_MODIFIED_META_KEY,
+            self::MIDI_LAST_GENERATED_AT_META_KEY,
+            self::MIDI_LAST_MODIFIED_AT_META_KEY,
+            self::MIDI_LAST_REBUILT_AT_META_KEY,
+        ];
+    }
+
+    private static function sync_midi_meta_between_records(int $source_id, int $target_id): void
+    {
+        foreach (self::get_midi_meta_keys() as $meta_key) {
+            $value = get_post_meta($source_id, $meta_key, true);
+            if ($value === '' || $value === null) {
+                delete_post_meta($target_id, $meta_key);
+                continue;
+            }
+            update_post_meta($target_id, $meta_key, $value);
+        }
+    }
+
+    private static function sync_attachment_metadata_to_vault_record(int $post_id, int $attachment_id): void
+    {
+        $attachment = get_post($attachment_id);
+        if (!$attachment || $attachment->post_type !== 'attachment') {
+            return;
+        }
+
+        $attachment_payload = VaultManager::build_attachment_media_payload($attachment_id);
+        $attached_file = (string) get_attached_file($attachment_id);
+        $source_filename = $attached_file !== '' ? wp_basename($attached_file) : '';
+        $mime = (string) ($attachment_payload['mime'] ?? get_post_mime_type($attachment_id));
+        $duration = (float) ($attachment_payload['duration'] ?? 0);
+        $artwork = self::clone_attachment_artwork_for_vault($post_id, $attachment_id);
+        $artwork_attachment_id = max(0, (int) ($artwork['attachment_id'] ?? 0));
+        $artwork_url = (string) ($artwork['url'] ?? '');
+        $artwork_path = (string) ($artwork['path'] ?? '');
+        $artwork_authority = (string) ($artwork['authority'] ?? '');
+        $artwork_source_id = max(0, (int) ($artwork['source_id'] ?? 0));
+        $artwork_hash = (string) ($artwork['hash'] ?? '');
+        $attachment_artist = (string) ($attachment_payload['artist'] ?? '');
+        $attachment_album = (string) ($attachment_payload['album'] ?? '');
+
+        update_post_meta($post_id, self::ATTACHMENT_ID_META_KEY, $attachment_id);
+        update_post_meta($post_id, self::ORIGIN_META_KEY, 'media');
+        update_post_meta($post_id, '_sd_vault_mime_type', $mime);
+        update_post_meta($post_id, '_sd_vault_file_size', $attached_file && is_file($attached_file) ? (int) filesize($attached_file) : 0);
+        update_post_meta($post_id, '_sd_vault_original_filename', $source_filename);
+        update_post_meta($post_id, '_sd_vault_attachment_caption', (string) $attachment->post_excerpt);
+        update_post_meta($post_id, '_sd_vault_attachment_description', (string) $attachment->post_content);
+        update_post_meta($post_id, '_sd_vault_alt_text', (string) get_post_meta($attachment_id, '_wp_attachment_image_alt', true));
+        update_post_meta($post_id, '_sd_vault_attachment_artist', $attachment_artist);
+        update_post_meta($post_id, '_sd_vault_attachment_album', $attachment_album);
+        update_post_meta($post_id, self::ARTWORK_ATTACHMENT_ID_META_KEY, $artwork_attachment_id > 0 ? $artwork_attachment_id : '');
+        update_post_meta($post_id, self::ARTWORK_URL_META_KEY, $artwork_url);
+        update_post_meta($post_id, self::ARTWORK_PATH_META_KEY, $artwork_path);
+        update_post_meta($post_id, self::ARTWORK_AUTHORITY_META_KEY, $artwork_authority);
+        update_post_meta($post_id, self::ARTWORK_SOURCE_ID_META_KEY, $artwork_source_id > 0 ? (string) $artwork_source_id : '');
+        update_post_meta($post_id, self::ARTWORK_HASH_META_KEY, $artwork_hash);
+        update_post_meta($post_id, self::DURATION_META_KEY, $duration > 0 ? (string) $duration : '');
+        update_post_meta($post_id, '_sd_vault_last_media_sync', (string) current_time('mysql'));
+        update_post_meta($post_id, '_sd_vault_media_sync_direction', 'linked');
+
+        self::sync_midi_meta_between_records($attachment_id, $post_id);
+    }
+
+    private static function guess_artwork_extension_from_mime(string $mime): string
+    {
+        return match (strtolower($mime)) {
+            'image/jpeg', 'image/jpg' => 'jpg',
+            'image/png' => 'png',
+            'image/gif' => 'gif',
+            'image/webp' => 'webp',
+            default => 'jpg',
+        };
+    }
+
+    private static function create_vault_owned_artwork_attachment_from_file(int $vault_id, string $source_file, string $mime, string $label = 'artwork'): ?array
+    {
+        if ($source_file === '' || !is_file($source_file)) {
+            return null;
+        }
+        $binary = (string) file_get_contents($source_file);
+        if ($binary === '') {
+            return null;
+        }
+
+        return self::create_vault_owned_artwork_attachment_from_binary($vault_id, $binary, $mime, $label);
+    }
+
+    private static function create_vault_owned_artwork_attachment_from_binary(int $vault_id, string $binary, string $mime, string $label = 'artwork'): ?array
+    {
+        if ($binary === '') {
+            return null;
+        }
+
+        $vault_post = get_post($vault_id);
+        if (!$vault_post || $vault_post->post_type !== self::CPT) {
+            return null;
+        }
+
+        $vault_owner_id = (int) $vault_post->post_author;
+        if ($vault_owner_id <= 0) {
+            $vault_owner_id = max(0, (int) get_current_user_id());
+        }
+        if ($vault_owner_id <= 0) {
+            return null;
+        }
+
+        $vault_dir = VaultManager::ensure_user_vault_exists($vault_owner_id);
+        $extension = self::guess_artwork_extension_from_mime($mime);
+        $base_name = sanitize_file_name(get_the_title($vault_id) ?: 'vault-artwork');
+        $target_filename = wp_unique_filename($vault_dir, "{$base_name}-{$label}.{$extension}");
+        $target_path = trailingslashit($vault_dir) . $target_filename;
+        if (file_put_contents($target_path, $binary) === false) {
+            return null;
+        }
+
+        $relative_path = VaultManager::normalize_vault_relative_path($vault_owner_id . '/' . $target_filename);
+        $artwork_hash = hash('sha256', $binary);
+
+        return [
+            'attachment_id' => 0,
+            'path' => $relative_path,
+            'url' => self::build_private_stream_url($vault_id) . '&artwork=1',
+            'authority' => 'vault_artwork',
+            'source_id' => $vault_id,
+            'hash' => $artwork_hash,
+        ];
+    }
+
+    private static function extract_embedded_artwork_from_audio_meta(array $audio_meta): ?array
+    {
+        $image = $audio_meta['image'] ?? null;
+        if (is_array($image) && !empty($image['data']) && is_string($image['data'])) {
+            return [
+                'binary' => $image['data'],
+                'mime' => (string) ($image['mime'] ?? $audio_meta['image_mime'] ?? 'image/jpeg'),
+            ];
+        }
+
+        if (!empty($audio_meta['image']['data']) && is_string($audio_meta['image']['data'])) {
+            return [
+                'binary' => $audio_meta['image']['data'],
+                'mime' => (string) ($audio_meta['image']['mime'] ?? 'image/jpeg'),
+            ];
+        }
+
+        return null;
+    }
+
+    private static function clone_attachment_artwork_for_vault(int $vault_id, int $attachment_id): array
+    {
+        $attachment_payload = VaultManager::build_attachment_media_payload($attachment_id);
+        $artwork_attachment_id = max(0, (int) ($attachment_payload['artwork_attachment_id'] ?? 0));
+        if ($artwork_attachment_id <= 0) {
+            return ['attachment_id' => 0, 'url' => ''];
+        }
+
+        $artwork_path = (string) get_attached_file($artwork_attachment_id);
+        $mime = (string) get_post_mime_type($artwork_attachment_id);
+        $cloned = self::create_vault_owned_artwork_attachment_from_file($vault_id, $artwork_path, $mime, 'artwork');
+        if (!$cloned) {
+            return ['attachment_id' => 0, 'url' => ''];
+        }
+
+        return $cloned;
+    }
+
+    private static function sync_vault_record_metadata_to_attachment(int $vault_id, int $attachment_id): void
+    {
+        $vault_post = get_post($vault_id);
+        if (!$vault_post) {
+            return;
+        }
+
+        $alt_text = (string) get_post_meta($vault_id, '_sd_vault_alt_text', true);
+        $artist = (string) get_post_meta($vault_id, '_sd_vault_attachment_artist', true);
+        $album = (string) get_post_meta($vault_id, '_sd_vault_attachment_album', true);
+        $artwork_attachment_id = max(0, (int) get_post_meta($vault_id, self::ARTWORK_ATTACHMENT_ID_META_KEY, true));
+
+        wp_update_post([
+            'ID' => $attachment_id,
+            'post_title' => $vault_post->post_title,
+            'post_content' => $vault_post->post_content,
+            'post_excerpt' => (string) get_post_meta($vault_id, '_sd_vault_attachment_caption', true),
+        ]);
+
+        update_post_meta($attachment_id, '_wp_attachment_image_alt', $alt_text);
+        if ($artist !== '') {
+            update_post_meta($attachment_id, '_sd_vault_attachment_artist', $artist);
+        }
+        if ($album !== '') {
+            update_post_meta($attachment_id, '_sd_vault_attachment_album', $album);
+        }
+        update_post_meta($attachment_id, self::VAULT_SOURCE_ID_META_KEY, $vault_id);
+        update_post_meta($attachment_id, self::ORIGIN_META_KEY, 'vault');
+        update_post_meta($attachment_id, self::AUTHORITY_META_KEY, (string) get_post_meta($vault_id, self::AUTHORITY_META_KEY, true));
+        if ($artwork_attachment_id > 0 && get_post($artwork_attachment_id)) {
+            set_post_thumbnail($attachment_id, $artwork_attachment_id);
+        }
+
+        self::sync_midi_meta_between_records($vault_id, $attachment_id);
     }
 
     private static function get_generated_midi_json(int $post_id): string
@@ -1516,6 +1856,45 @@ class Vault extends BaseWidget
             self::persist_midi_derivative_from_request($post_id, $_POST);
         }
 
+        if (function_exists('wp_read_audio_metadata')) {
+            $audio_meta = wp_read_audio_metadata($file_info['file']);
+            if (is_array($audio_meta)) {
+                $duration = isset($audio_meta['length']) ? (float) $audio_meta['length'] : 0.0;
+                if ($duration > 0) {
+                    update_post_meta($post_id, self::DURATION_META_KEY, (string) $duration);
+                }
+                if (!empty($audio_meta['artist'])) {
+                    update_post_meta($post_id, '_sd_vault_attachment_artist', sanitize_text_field((string) $audio_meta['artist']));
+                }
+                if (!empty($audio_meta['album'])) {
+                    update_post_meta($post_id, '_sd_vault_attachment_album', sanitize_text_field((string) $audio_meta['album']));
+                }
+
+                $embedded_artwork = self::extract_embedded_artwork_from_audio_meta($audio_meta);
+                if (is_array($embedded_artwork)) {
+                    $artwork = self::create_vault_owned_artwork_attachment_from_binary(
+                        $post_id,
+                        (string) ($embedded_artwork['binary'] ?? ''),
+                        (string) ($embedded_artwork['mime'] ?? 'image/jpeg')
+                    );
+                    if (is_array($artwork)) {
+                        $artwork_attachment_id = max(0, (int) ($artwork['attachment_id'] ?? 0));
+                        $artwork_url = (string) ($artwork['url'] ?? '');
+                        $artwork_path = (string) ($artwork['path'] ?? '');
+                        $artwork_authority = (string) ($artwork['authority'] ?? '');
+                        $artwork_source_id = max(0, (int) ($artwork['source_id'] ?? 0));
+                        $artwork_hash = (string) ($artwork['hash'] ?? '');
+                        update_post_meta($post_id, self::ARTWORK_ATTACHMENT_ID_META_KEY, $artwork_attachment_id > 0 ? $artwork_attachment_id : '');
+                        update_post_meta($post_id, self::ARTWORK_URL_META_KEY, $artwork_url);
+                        update_post_meta($post_id, self::ARTWORK_PATH_META_KEY, $artwork_path);
+                        update_post_meta($post_id, self::ARTWORK_AUTHORITY_META_KEY, $artwork_authority);
+                        update_post_meta($post_id, self::ARTWORK_SOURCE_ID_META_KEY, $artwork_source_id > 0 ? (string) $artwork_source_id : '');
+                        update_post_meta($post_id, self::ARTWORK_HASH_META_KEY, $artwork_hash);
+                    }
+                }
+            }
+        }
+
         if ($scope === 'pinned' && $workspace_id) {
             update_post_meta($post_id, '_sd_vault_workspace_id', $workspace_id);
             update_post_meta($post_id, self::WORKSPACE_NAME_META_KEY, $workspace_name !== '' ? $workspace_name : self::resolve_workspace_name($workspace_id));
@@ -1578,22 +1957,44 @@ class Vault extends BaseWidget
         $attachment = null;
         $artist = $vault_artist;
         $album = $vault_album;
+        $source_authority = (string) get_post_meta($post_id, self::AUTHORITY_META_KEY, true);
+        $original_filename = (string) get_post_meta($post_id, '_sd_vault_original_filename', true);
+        $duration = (float) get_post_meta($post_id, self::DURATION_META_KEY, true);
+        $artwork_attachment_id = max(0, (int) get_post_meta($post_id, self::ARTWORK_ATTACHMENT_ID_META_KEY, true));
+        $artwork_url = (string) get_post_meta($post_id, self::ARTWORK_URL_META_KEY, true);
+        $artwork_path = VaultManager::normalize_vault_relative_path((string) get_post_meta($post_id, self::ARTWORK_PATH_META_KEY, true));
+        $artwork_authority = (string) get_post_meta($post_id, self::ARTWORK_AUTHORITY_META_KEY, true);
+        $artwork_source_id = max(0, (int) get_post_meta($post_id, self::ARTWORK_SOURCE_ID_META_KEY, true));
+        if ($artwork_url === '' && $artwork_path !== '' && $artwork_authority === 'vault_artwork' && $artwork_source_id === $post_id) {
+            $artwork_url = self::build_private_stream_url($post_id) . '&artwork=1';
+        }
+        $extension = $original_filename !== '' ? strtolower((string) pathinfo($original_filename, PATHINFO_EXTENSION)) : '';
+        $type = VaultManager::detect_media_type($mime, $original_filename);
 
         if ($linked_attachment_id > 0) {
             $attachment_post = get_post($linked_attachment_id);
             if ($attachment_post && $attachment_post->post_type === 'attachment') {
-                $attachment = function_exists('wp_prepare_attachment_for_js')
-                    ? wp_prepare_attachment_for_js($linked_attachment_id)
-                    : null;
+                $attachment_payload = VaultManager::build_attachment_media_payload($linked_attachment_id);
+                $attachment = $attachment_payload['attachment'] ?? null;
                 $edit_url = self::get_attachment_edit_url($linked_attachment_id);
+                if ($artwork_attachment_id <= 0) {
+                    $artwork_attachment_id = max(0, (int) ($attachment_payload['artwork_attachment_id'] ?? 0));
+                }
+                if ($artwork_url === '') {
+                    $artwork_url = (string) ($attachment_payload['artworkUrl'] ?? '');
+                }
+                $duration = (float) ($attachment_payload['duration'] ?? $duration);
+                $original_filename = (string) ($attachment_payload['filename'] ?? $original_filename);
+                $extension = (string) ($attachment_payload['extension'] ?? $extension);
+                $type = (string) ($attachment_payload['type'] ?? $type);
                 if ($storage_mode === 'media_public') {
                     $stream_url = (string) wp_get_attachment_url($linked_attachment_id);
                     $mime = (string) get_post_mime_type($linked_attachment_id);
                     $title = get_the_title($linked_attachment_id);
                     $content = (string) $attachment_post->post_content;
                     $caption = (string) $attachment_post->post_excerpt;
-                    $artist = (string) (($attachment['artist'] ?? $attachment['meta']['artist'] ?? '') ?: $vault_artist);
-                    $album = (string) (($attachment['album'] ?? $attachment['meta']['album'] ?? '') ?: $vault_album);
+                    $artist = (string) (($attachment_payload['artist'] ?? '') ?: $vault_artist);
+                    $album = (string) (($attachment_payload['album'] ?? '') ?: $vault_album);
                     $size_path = get_attached_file($linked_attachment_id);
                     $size_bytes = ($size_path && is_file($size_path)) ? (int) filesize($size_path) : $size_bytes;
                 } else {
@@ -1621,10 +2022,13 @@ class Vault extends BaseWidget
         $payload = [
             'id' => $post_id,
             'attachment_id' => $linked_attachment_id,
+            'linked_attachment_id' => $linked_attachment_id ?: null,
+            'linked_vault_id' => $post_id,
             'storage_mode' => $storage_mode,
             'vault_path' => $vault_path,
             'is_public' => $is_public,
             'origin' => $origin,
+            'authority' => $source_authority !== '' ? $source_authority : $origin,
             'title' => $title,
             'full_title' => $title,
             'description' => $content,
@@ -1633,6 +2037,16 @@ class Vault extends BaseWidget
             'artist' => $artist,
             'album' => $album,
             'mime' => $mime,
+            'type' => $type,
+            'mediaType' => $type,
+            'filename' => $original_filename,
+            'extension' => $extension,
+            'duration' => $duration,
+            'artwork_attachment_id' => $artwork_attachment_id > 0 ? $artwork_attachment_id : null,
+            'artwork' => $artwork_url !== '' ? $artwork_url : null,
+            'artworkUrl' => $artwork_url !== '' ? $artwork_url : null,
+            'thumbnail' => $artwork_url !== '' ? $artwork_url : null,
+            'cover' => $artwork_url !== '' ? $artwork_url : null,
             'size' => $size_bytes > 0 ? size_format($size_bytes) : '',
             'date' => get_the_date('m/d/Y', $post_id),
             'modified' => get_the_modified_date('m/d/Y', $post_id),
@@ -1648,9 +2062,33 @@ class Vault extends BaseWidget
             'author_url' => $author_url,
             'is_pinned' => $scope === 'pinned',
             'stream_url' => $stream_url,
+            'source' => $stream_url,
+            'url' => $stream_url,
             'edit_url' => $edit_url,
             'comment_count' => (int) get_comments_number($post_id),
         ];
+
+        $payload['metadata'] = array_filter([
+            'id' => $post_id,
+            'attachmentId' => $linked_attachment_id ?: null,
+            'vaultId' => $post_id,
+            'origin' => $origin,
+            'authority' => $source_authority !== '' ? $source_authority : $origin,
+            'filename' => $original_filename,
+            'extension' => $extension,
+            'duration' => $duration > 0 ? $duration : null,
+            'artworkAttachmentId' => $artwork_attachment_id > 0 ? $artwork_attachment_id : null,
+            'artwork' => $artwork_url !== '' ? $artwork_url : null,
+            'artworkUrl' => $artwork_url !== '' ? $artwork_url : null,
+            'thumbnail' => $artwork_url !== '' ? $artwork_url : null,
+            'cover' => $artwork_url !== '' ? $artwork_url : null,
+            'artist' => $artist,
+            'album' => $album,
+            'workspaceName' => $workspace_name,
+            'originWorkspaceName' => $origin_workspace_name,
+        ], static function ($value) {
+            return $value !== null && $value !== '';
+        });
 
 		if (is_array($attachment)) {
 			$payload['attachment'] = $attachment;
@@ -1660,6 +2098,10 @@ class Vault extends BaseWidget
 			$midi_payload = self::read_midi_editor_payload($post_id);
 			if ($midi_payload) {
 				$payload['active_derivative'] = $midi_payload['active_derivative'];
+                $payload['midi_derivative'] = $midi_payload['active_derivative'];
+                $payload['midi_derivative_meta'] = $midi_payload['summary'];
+                $payload['metadata']['midiDerivative'] = $midi_payload['active_derivative'];
+                $payload['metadata']['midiDerivativeMeta'] = $midi_payload['summary'];
 			}
 		}
 
@@ -1756,26 +2198,15 @@ class Vault extends BaseWidget
         }
 
         self::set_vault_path_value($post_id, $vault_relative_path);
-        update_post_meta($post_id, self::ATTACHMENT_ID_META_KEY, $attachment_id);
         update_post_meta($post_id, self::STORAGE_MODE_META_KEY, 'vault_private');
         update_post_meta($post_id, self::IS_PUBLIC_META_KEY, '0');
-        update_post_meta($post_id, self::ORIGIN_META_KEY, 'media');
         update_post_meta($post_id, '_sd_vault_storage_driver', 'vault_private');
-        update_post_meta($post_id, '_sd_vault_mime_type', $mime);
-        update_post_meta($post_id, '_sd_vault_file_size', $size_bytes);
-        update_post_meta($post_id, '_sd_vault_original_filename', $source_filename);
         update_post_meta($post_id, '_sd_vault_scope', $scope);
         update_post_meta($post_id, '_sd_vault_priority', $priority);
         if (get_post_meta($post_id, '_sd_vault_sticky', true) === '') {
             update_post_meta($post_id, '_sd_vault_sticky', '0');
         }
-        update_post_meta($post_id, '_sd_vault_attachment_caption', (string) $attachment->post_excerpt);
-        update_post_meta($post_id, '_sd_vault_attachment_description', $description);
-        update_post_meta($post_id, '_sd_vault_alt_text', (string) get_post_meta($attachment_id, '_wp_attachment_image_alt', true));
-        update_post_meta($post_id, '_sd_vault_attachment_artist', $attachment_artist);
-        update_post_meta($post_id, '_sd_vault_attachment_album', $attachment_album);
-        update_post_meta($post_id, '_sd_vault_last_media_sync', (string) current_time('mysql'));
-        update_post_meta($post_id, '_sd_vault_media_sync_direction', 'linked');
+        self::sync_attachment_metadata_to_vault_record($post_id, $attachment_id);
 
         if ($workspace_id !== '') {
             if (!get_post_meta($post_id, self::ORIGIN_WORKSPACE_ID_META_KEY, true)) {
@@ -1887,6 +2318,7 @@ class Vault extends BaseWidget
 
         // Do NOT delete linked/published Media Library attachments from Vault delete.
         // Publishing/exporting transfers public attachment ownership to WP Media Library.
+        self::maybe_delete_vault_generated_artwork_attachment($id);
         self::sync_vault_projection($id, 'private', '');
         wp_delete_post($id, true);
         return ['status' => 'success'];
@@ -2101,7 +2533,8 @@ class Vault extends BaseWidget
         }
 
         $icon = 'dashicons-media-default';
-        $mime = get_post_meta($file_id, '_sd_vault_mime_type', true);
+        $mime_meta = get_post_meta($file_id, '_sd_vault_mime_type', true);
+        $mime = is_string($mime_meta) ? $mime_meta : '';
         if (strpos($mime, 'image/') === 0)
             $icon = 'dashicons-format-image';
         elseif (strpos($mime, 'pdf') !== false)
@@ -2182,6 +2615,7 @@ class Vault extends BaseWidget
             return [
                 'status' => 'success',
                 'attachment_id' => $linked_attachment_id,
+                'media_attachment' => VaultManager::build_attachment_media_payload($linked_attachment_id),
                 'edit_url' => self::get_attachment_edit_url($linked_attachment_id),
                 'linked' => true,
             ];
@@ -2233,6 +2667,7 @@ class Vault extends BaseWidget
         return [
             'status' => 'success',
             'attachment_id' => $attach_id,
+            'media_attachment' => VaultManager::build_attachment_media_payload($attach_id),
             'edit_url' => self::get_attachment_edit_url($attach_id),
             'linked' => false,
         ];
@@ -2477,9 +2912,8 @@ class Vault extends BaseWidget
         update_post_meta($post_id, self::VAULT_PATH_META_KEY, VaultManager::normalize_vault_relative_path($vault_path));
         update_post_meta($post_id, self::AUTHORITY_META_KEY, $authority);
         update_post_meta($post_id, self::ORIGIN_META_KEY, 'media');
-        update_post_meta($post_id, self::ATTACHMENT_ID_META_KEY, $attachment_id);
         update_post_meta($post_id, self::STORAGE_MODE_META_KEY, 'vault_private');
-        update_post_meta($post_id, '_sd_vault_mime_type', get_post_mime_type($attachment_id));
+        self::sync_attachment_metadata_to_vault_record($post_id, $attachment_id);
 
         return $post_id;
     }
@@ -2507,15 +2941,14 @@ class Vault extends BaseWidget
         $attach_data = wp_generate_attachment_metadata($attach_id, $upload_data['path']);
         wp_update_attachment_metadata($attach_id, $attach_data);
 
-        // Authority tracking meta on attachment
-        update_post_meta($attach_id, self::VAULT_SOURCE_ID_META_KEY, $vault_id);
-        update_post_meta($attach_id, self::ORIGIN_META_KEY, 'vault');
+        self::sync_vault_record_metadata_to_attachment($vault_id, $attach_id);
 
         return $attach_id;
     }
 
     private static function delete_vault_record_only(int $vault_id): void
     {
+        self::maybe_delete_vault_generated_artwork_attachment($vault_id);
         self::sync_vault_projection($vault_id, 'private', '');
         wp_delete_post($vault_id, true);
     }

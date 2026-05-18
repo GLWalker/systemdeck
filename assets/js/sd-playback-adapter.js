@@ -38,14 +38,31 @@
 			this.pollInterval = null
 			this._lastEmittedSignature = ""
 			this._lastEmittedAt = 0
+			this._lastLifecyclePlayingPlaybackId = null
 			this._midiLoadToken = 0
 			this._activeRoute = "none"
 			this._lastTrackEndedSignature = ""
+			this._trackEndedCounter = 0
 			this._bindTrackEndedBridge()
+			this._bindPlayRequestBridge()
+		}
+
+		_emitLifecycle(name, detail = {}) {
+			if (window.SystemDeckAudioDebug === true) {
+				console.debug("[SystemDeckAudio:lifecycle]", name, detail || {})
+			}
+			document.dispatchEvent(
+				new CustomEvent(`systemdeck:${name}`, {
+					detail: {
+						...detail,
+						playbackId: this.playbackId,
+					},
+				}),
+			)
 		}
 
 		_bindTrackEndedBridge() {
-			document.addEventListener("systemdeck:audio-player-state", (event) => {
+			window.addEventListener("systemdeck:audio-player-state", (event) => {
 				const detail = event?.detail || {}
 				const reason = String(detail?.reason || "").toLowerCase()
 				if (reason !== "file:ended" && reason !== "midi:ended") return
@@ -59,12 +76,14 @@
 
 		_emitTrackEnded(detail = {}) {
 			const state = this.getState()
+			const endId = ++this._trackEndedCounter
 			const signature = [
 				String(detail?.source || "unknown"),
 				String(detail?.reason || ""),
 				String(state?.mode || this.mode || ""),
 				String(state?.currentIndex ?? this.currentIndex ?? -1),
 				String(this.playbackId || 0),
+				String(endId),
 			].join("|")
 			if (signature === this._lastTrackEndedSignature) return
 			this._lastTrackEndedSignature = signature
@@ -72,12 +91,40 @@
 				new CustomEvent("systemdeck:track-ended", {
 					detail: {
 						...detail,
+						endId,
 						playbackId: this.playbackId,
 						mode: state?.mode || this.mode || null,
 						currentIndex: Number(state?.currentIndex ?? this.currentIndex ?? -1),
 					},
 				}),
 			)
+		}
+
+		_bindPlayRequestBridge() {
+			const handler = async (event) => {
+				const detail = event?.detail || {}
+				const source = detail.url || detail.source || ""
+				const meta = detail.meta || detail.metadata || {}
+				const index = Number(detail.index)
+				const playlist = Array.isArray(detail.playlist)
+					? detail.playlist
+					: null
+				if (!window.SystemDeckPlayback) return
+				if (
+					playlist &&
+					playlist.length &&
+					Number.isInteger(index) &&
+					index >= 0 &&
+					index < playlist.length
+				) {
+					window.SystemDeckPlayback.setPlaylist(playlist, index)
+					await window.SystemDeckPlayback.playIndex(index)
+					return
+				}
+				if (!source) return
+				await window.SystemDeckPlayback.play(source, meta)
+			}
+			document.addEventListener("systemdeck:play-file", handler)
 		}
 
 		/**
@@ -429,6 +476,10 @@
 			this.currentIndex = idx
 			this._playingIndex = idx
 			const track = this.playlist[this.currentIndex]
+			this._emitLifecycle("track-requested", {
+				index: idx,
+				track: track || null,
+			})
 			
 			const metadata = {
 				...track,
@@ -440,6 +491,11 @@
 
 			// 3. Built-in Detection (Synthetic Engine)
 			if (track.type === "builtin" || track.origin === "builtin" || metadata.engine === "systemdeck") {
+				this._emitLifecycle("track-resolving", {
+					index: idx,
+					route: "builtin",
+					track: track || null,
+				})
 				this._activeRoute = "builtin"
 				if (window.SYSTEMDECK_DEBUG_AUDIO) {
 					console.log("[BUILTIN ROUTE]", {
@@ -457,6 +513,11 @@
 
 			// 4. MIDI Detection (Synthetic Engine)
 			if (track.type === "midi" || metadata.mime === "audio/midi") {
+				this._emitLifecycle("track-resolving", {
+					index: idx,
+					route: "midi",
+					track: track || null,
+				})
 				this._activeRoute = "midi"
 				this.mode = "systemdeck"
 				const durationHint = Number(
@@ -481,6 +542,11 @@
 
 			this.stopSystemDeckOnly()
 			this._activeRoute = "file"
+			this._emitLifecycle("track-resolving", {
+				index: idx,
+				route: "file",
+				track: track || null,
+			})
 			const source = this.resolveTrackSource(track)
 
 			if (!source || source === "[object Object]") {
@@ -492,7 +558,8 @@
 			this.emitPlaylistState()
 
 			try {
-				return await this.playNative(source, metadata)
+				const ok = await this.playNative(source, metadata, undefined, track)
+				return ok
 			} catch (e) {
 				this._playingIndex = -1
 				this.emitState("error", { error: e.message, title: metadata.title })
@@ -573,6 +640,19 @@
 						this.mode = "systemdeck"
 						this._activeRoute = "midi"
 						this.startPolling()
+						this._emitLifecycle("track-resolved", {
+							index: this.currentIndex,
+							route: "midi",
+							source: item.source || item.url || "",
+						})
+						this._emitLifecycle("track-ready", {
+							index: this.currentIndex,
+							route: "midi",
+							source: item.source || item.url || "",
+							track: item || {},
+							currentTrack: item || {},
+							meta: metadata || {},
+						})
 						const engineState = window.SystemDeckAudio.getState?.() || {}
 						const now = engineState.nowPlaying || {}
 						const duration = Number(now.duration || this.state.duration || 0)
@@ -613,6 +693,19 @@
 					this.mode = "systemdeck"
 					this._activeRoute = "midi"
 					this.startPolling()
+					this._emitLifecycle("track-resolved", {
+						index: this.currentIndex,
+						route: "midi",
+						source: item.source || item.url || "",
+					})
+					this._emitLifecycle("track-ready", {
+						index: this.currentIndex,
+						route: "midi",
+						source: item.source || item.url || "",
+						track: item || {},
+						currentTrack: item || {},
+						meta: metadata || {},
+					})
 					const engineState = window.SystemDeckAudio.getState?.() || {}
 					const now = engineState.nowPlaying || {}
 					const duration = Number(now.duration || this.state.duration || 0)
@@ -678,13 +771,25 @@
 				this.mode = "systemdeck"
 				this._activeRoute = "builtin"
 				this.startPolling()
+				this._emitLifecycle("track-resolved", {
+					index: this.currentIndex,
+					route: "builtin",
+					source: item.source || item.url || "",
+				})
+				this._emitLifecycle("track-ready", {
+					index: this.currentIndex,
+					route: "builtin",
+					source: item.source || item.url || "",
+					track: item || {},
+					currentTrack: item || {},
+					meta: metadata || {},
+				})
 				this.emitState("playing", {
 					title: item.title,
 					type: "builtin",
 					origin: "builtin",
 					metadata: metadata
 				})
-
 				return true
 			} catch (e) {
 				console.error("[SystemDeckPlayback] Builtin error", e)
@@ -706,6 +811,11 @@
 			
 			if (type === "native") {
 				const url = typeof source === "string" ? source : source.url
+				this._emitLifecycle("track-resolving", {
+					route: "file",
+					source: url,
+					meta,
+				})
 				return this.playNative(url, meta, currentId)
 			}
 
@@ -724,7 +834,7 @@
 		/**
 		 * Native Playback (Bypassing Tone for now to ensure stability)
 		 */
-		async playNative(url, meta, targetId) {
+		async playNative(url, meta, targetId, trackObj = null) {
 			try {
 				this._midiLoadToken++
 				this.resetPlayback()
@@ -751,7 +861,19 @@
 				}
 				if (this.playbackId !== pid) return false
 
+				this._emitLifecycle("track-resolved", {
+					index: this.currentIndex,
+					route: "file",
+					source: url,
+				})
 				this.startPolling()
+				this._emitLifecycle("track-ready", {
+					route: "file",
+					source: url,
+					meta,
+					track: trackObj || meta || {},
+					currentTrack: trackObj || meta || {},
+				})
 				this.emitState("playing", {
 					...meta,
 					title: meta?.title || "Audio Track",
@@ -867,6 +989,13 @@
 				})
 
 				this.startPolling()
+				this._emitLifecycle("track-ready", {
+					route: "systemdeck",
+					source: typeof source === "string" ? source : source?.url || "",
+					meta,
+					track: source && typeof source === "object" ? source : meta || {},
+					currentTrack: source && typeof source === "object" ? source : meta || {},
+				})
 
 				this.emitState("playing", {
 					...meta,
@@ -1060,6 +1189,7 @@
 		 * Helper to emit standardized playback state events
 		 */
 		emitState(status, detail = {}) {
+			const previousStatus = String(this.state?.status || "").toLowerCase()
 			this.state = {
 				...this.state,
 				status,
@@ -1089,6 +1219,22 @@
 			}
 			this._lastEmittedSignature = signature
 			this._lastEmittedAt = now
+			const nextStatus = String(status).toLowerCase()
+			if (
+				nextStatus === "playing" &&
+				previousStatus !== "playing" &&
+				this._lastLifecyclePlayingPlaybackId !== this.playbackId
+			) {
+				this._lastLifecyclePlayingPlaybackId = this.playbackId
+				this._emitLifecycle("playback-started", {
+					mode: state.mode,
+					currentIndex: state.currentIndex,
+					nowPlaying: state.nowPlaying || null,
+				})
+			}
+			if (nextStatus !== "playing") {
+				this._lastLifecyclePlayingPlaybackId = null
+			}
 			document.dispatchEvent(new CustomEvent("systemdeck:playback-state", {
 				detail: state
 			}))

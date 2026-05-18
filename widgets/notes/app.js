@@ -35,8 +35,8 @@
 			this.editor = null // CodeMirror instance
 
 			// Scoped elements
-			this.modal = this.wrapper.find(".sd-note-edit-modal")
-			this.readModal = this.wrapper.find(".sd-note-read-modal")
+			this.modal = this.wrapper.find(".sd-note-edit-modal").addClass("systemdeck-scope")
+			this.readModal = this.wrapper.find(".sd-note-read-modal").addClass("systemdeck-scope")
 			this.list = this.wrapper.find(".sd-notes-list")
 			this.table = this.wrapper.find(".sd-notes-table")
 			this.pagination = this.wrapper.find(".sd-notes-pagination")

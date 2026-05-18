@@ -24,89 +24,78 @@ jQuery(function ($) {
 
 	const BRIDGE_BUTTON_ID = "sd-vault-import-btn"
 	const BRIDGE_BUTTON_SELECTOR = `#${BRIDGE_BUTTON_ID}`
-	let playbackStateBound = false
-
-	function formatTime(seconds) {
-		const value = Math.max(0, Number(seconds) || 0)
-		const min = Math.floor(value / 60)
-		const sec = Math.floor(value % 60)
-		return `${min}:${String(sec).padStart(2, "0")}`
-	}
-
-	function renderModalPlayerSurfaceHTML({ id, url, title, type }) {
+	function renderModalPlayerSurfaceHTML({ id, url, title, type, artworkUrl }) {
 		const safeId = String(id || "")
 		const safeUrl = String(url || "")
 		const safeTitle = String(title || "Media Attachment")
+		const safeArtworkUrl = String(artworkUrl || "")
 		const isMidi = String(type || "") === "midi"
 		return `
-			<div class="sd-vault-modal-player-surface sd-vault-midi-player-bridge"
+			<div class="sd-vault-modal-player-surface"
 				data-track-id="${safeId}"
 				data-track-url="${safeUrl}"
 				data-track-title="${safeTitle}"
+				data-track-artwork-url="${safeArtworkUrl}"
 				data-track-type="${isMidi ? "midi" : "audio"}">
-				<div class="sd-midi-bridge-visual">
-					<span class="dashicons ${
-						isMidi ? "dashicons-performance" : "dashicons-format-audio"
-					}"></span>
-					<div class="sd-midi-bridge-status">${
-						isMidi ? "MIDI Ready" : "Audio Ready"
-					}</div>
-				</div>
-				<div class="sd-midi-bridge-controls">
-					<button type="button" class="button sd-midi-bridge-play" title="Play/Pause">
-						<span class="dashicons dashicons-play"></span>
-					</button>
-					<button type="button" class="button sd-midi-bridge-stop" title="Stop">
-						<span class="dashicons dashicons-media-stop"></span>
-					</button>
-					<div class="sd-midi-bridge-progress-wrap">
-						<div class="sd-midi-bridge-progress-bar" style="width:0%"></div>
-					</div>
-					<div class="sd-midi-bridge-time">0:00 / 0:00</div>
-				</div>
+				<div class="sd-player-modal-mount"
+					data-context="media-modal"
+					data-track-id="${safeId}"
+					data-track-url="${safeUrl}"
+					data-track-title="${safeTitle}"
+					data-track-artwork-url="${safeArtworkUrl}"
+					data-track-type="${isMidi ? "midi" : "audio"}"></div>
 			</div>
 		`
 	}
 
-	function bindPlayerSurfaceStateSync() {
-		if (playbackStateBound) return
-		playbackStateBound = true
-		document.addEventListener("systemdeck:playback-state", function (e) {
-			const state = e?.detail || {}
-			$(".sd-vault-modal-player-surface").each(function () {
-				const surface = $(this)
-				const trackId = String(surface.data("trackId") || "")
-				const activeId = String(state.nowPlaying?.id || state.id || "")
-				const isCurrent = trackId && trackId === activeId
-				const statusText = surface.find(".sd-midi-bridge-status")
-				const playBtn = surface.find(".sd-midi-bridge-play .dashicons")
-				if (!isCurrent) {
-					const type = String(surface.data("trackType") || "")
-					statusText.text(type === "midi" ? "MIDI Ready" : "Audio Ready")
-					playBtn.attr("class", "dashicons dashicons-play")
-					surface.find(".sd-midi-bridge-progress-bar").css("width", "0%")
-					surface.find(".sd-midi-bridge-time").text("0:00 / 0:00")
-					return
-				}
-				const status = String(state.status || "ready")
-				statusText.text(status.charAt(0).toUpperCase() + status.slice(1))
-				playBtn.attr(
-					"class",
-					status === "playing"
-						? "dashicons dashicons-pause"
-						: "dashicons dashicons-play",
-				)
-				const duration = Number(state.duration || 0)
-				const currentTime = Number(state.currentTime || 0)
-				const percent =
-					duration > 0
-						? Math.max(0, Math.min(100, (currentTime / duration) * 100))
-						: 0
-				surface.find(".sd-midi-bridge-progress-bar").css("width", `${percent}%`)
-				surface
-					.find(".sd-midi-bridge-time")
-					.text(`${formatTime(currentTime)} / ${formatTime(duration)}`)
+	function mountCanonicalModalSurface(surface) {
+		const mountEl = surface?.find(".sd-player-modal-mount")?.get(0)
+		if (!mountEl) return
+		if (mountEl.dataset.sdMountedTrackId === String(surface.data("trackId") || "")) return
+		const detail = {
+			context: "media-modal",
+			host: mountEl,
+			trackId: String(surface.data("trackId") || ""),
+			url: String(surface.data("trackUrl") || ""),
+			title: String(surface.data("trackTitle") || "Media Attachment"),
+			artworkUrl: String(surface.data("trackArtworkUrl") || ""),
+			artwork: String(surface.data("trackArtworkUrl") || ""),
+			type: String(surface.data("trackType") || "audio"),
+		}
+		mountEl.dataset.sdMountedTrackId = detail.trackId
+		if (window.SystemDeckAudioDebug === true) {
+			console.debug("[SystemDeckPlayer:modal]", {
+				stage: "media-dispatch-mount",
+				context: detail.context,
+				trackId: detail.trackId,
+				url: detail.url,
+				title: detail.title,
+				artworkUrl: detail.artworkUrl,
+				type: detail.type,
 			})
+		}
+		document.dispatchEvent(
+			new CustomEvent("systemdeck:player-modal-mount", { detail }),
+		)
+	}
+
+	function unmountCanonicalModalSurface(root, context = "media-modal") {
+		const $root = root && root.length ? root : $(document)
+		$root.find(".sd-player-modal-mount").each(function () {
+			if (window.SystemDeckAudioDebug === true) {
+				console.debug("[SystemDeckPlayer:modal]", {
+					stage: "media-dispatch-unmount",
+					context,
+					trackId: String(this.dataset.sdMountedTrackId || ""),
+				})
+			}
+			delete this.dataset.sdMountedTrackId
+			document.dispatchEvent(
+				new CustomEvent("systemdeck:player-modal-unmount", {
+					detail: { context, host: this },
+				}),
+			)
+			this.innerHTML = ""
 		})
 	}
 
@@ -126,11 +115,64 @@ jQuery(function ($) {
 		}
 	}
 
+	function sdAdvancedMediaModalEnabled() {
+		return (
+			window.sd_vars?.audio?.advancedMediaModal === true ||
+			window.SYSTEMDECK_BOOTSTRAP?.config?.audio?.advancedMediaModal === true ||
+			window.SYSTEMDECK_ENV?.audio?.advancedMediaModal === true
+		)
+	}
+
 	function normalizeError(data) {
 		if (data?.error) return String(data.error)
 		if (data?.message) return String(data.message)
 		if (typeof data === "string") return data
 		return "Unknown error"
+	}
+
+	function sdFixDoubleOriginUrl() {
+		const origin = String(window.location.origin || "").replace(/\/+$/, "")
+		const href = String(window.location.href || "")
+		if (!origin || !href) return false
+		const badPrefix = `${origin}/${origin}`
+		if (!href.includes(badPrefix)) return false
+		const fixed = href.replace(badPrefix, origin)
+		try {
+			window.history.replaceState(window.history.state, document.title, fixed)
+			return true
+		} catch (_error) {
+			return false
+		}
+	}
+
+	function coerceArtworkUrl(value) {
+		if (!value) return ""
+		if (typeof value === "string") {
+			const candidate = value.trim()
+			if (!candidate || candidate === "[object Object]") return ""
+			return candidate
+		}
+		if (typeof value === "object") {
+			return coerceArtworkUrl(
+				value.url ||
+					value.src ||
+					value.full?.url ||
+					value.sizes?.full?.url ||
+					value.sizes?.large?.url ||
+					value.sizes?.medium?.url ||
+					value.sizes?.thumbnail?.url ||
+					"",
+			)
+		}
+		return ""
+	}
+
+	function extractBackgroundImageUrl($node) {
+		if (!$node || !$node.length) return ""
+		const cssValue = String($node.css("background-image") || "")
+		if (!cssValue || cssValue === "none") return ""
+		const match = cssValue.match(/url\((['"]?)(.*?)\1\)/i)
+		return match && match[2] ? String(match[2]).trim() : ""
 	}
 
 	function getAttachmentIdFromDetailsView(view) {
@@ -254,6 +296,7 @@ jQuery(function ($) {
 	}
 
 	function injectIntoDetailsView(view) {
+		sdFixDoubleOriginUrl()
 		const id = getAttachmentIdFromDetailsView(view)
 		const model = view?.model
 		if (!id || !$ || !model) return
@@ -271,28 +314,60 @@ jQuery(function ($) {
 		const filename = String(model.get("filename") || "").toLowerCase()
 		const isAudio = mime.startsWith("audio/") || filename.endsWith(".mp3") || filename.endsWith(".wav")
 		const isMidi = mime.includes("midi") || filename.endsWith(".mid") || filename.endsWith(".midi")
+		const isAudioLike = isAudio || isMidi
+		const hasPlayer = sdAdvancedMediaModalEnabled()
+		const thumbnailShell = sidebar
+			.find(".thumbnail, .details-image, .attachment-preview")
+			.first()
+		const artworkUrl =
+			coerceArtworkUrl(model.get("thumb")) ||
+			coerceArtworkUrl(model.get("image")) ||
+			coerceArtworkUrl(model.get("thumbnail")) ||
+			coerceArtworkUrl(model.get("icon")) ||
+			coerceArtworkUrl(
+				sidebar.find(".thumbnail img, .details-image img").first().attr("src"),
+			) ||
+			extractBackgroundImageUrl(thumbnailShell) ||
+			coerceArtworkUrl($el.find(".attachment-details .thumbnail img").first().attr("src")) ||
+			coerceArtworkUrl(sidebar.find("img").first().attr("src"))
 
-		if (!isAudio && !isMidi) {
+		if (!isAudioLike) {
 			if (mediaHost.length) {
 				mediaHost.removeClass("sd-vault-has-systemdeck-player")
+				unmountCanonicalModalSurface(mediaHost)
 				mediaHost.find(".sd-vault-modal-player-surface").remove()
 			}
 			const actions = sidebar.find(".actions").first()
 			injectButtonIntoActions(actions, id)
 			return
 		}
+
+		if (!hasPlayer) {
+			if (mediaHost.length) {
+				mediaHost.removeClass("sd-vault-has-systemdeck-player")
+				unmountCanonicalModalSurface(mediaHost)
+				mediaHost.find(".sd-vault-modal-player-surface").remove()
+			}
+			const actions = sidebar.find(".actions").first()
+			injectButtonIntoActions(actions, id)
+			return
+		}
+
 		if (mediaHost.length) {
 			mediaHost.addClass("sd-vault-has-systemdeck-player")
+			unmountCanonicalModalSurface(mediaHost)
 			mediaHost.find(".sd-vault-modal-player-surface").remove()
-			mediaHost.prepend(
+			const surface = $(
 				renderModalPlayerSurfaceHTML({
 					id: id,
 					url: model.get("url"),
 					title: model.get("title") || filename,
+					artworkUrl,
 					type: isMidi ? "midi" : "audio",
 				}),
 			)
-			bindPlayerSurfaceStateSync()
+			mediaHost.prepend(surface)
+			mountCanonicalModalSurface(surface)
 		}
 
 		// Build Extension Panel
@@ -311,6 +386,7 @@ jQuery(function ($) {
 		} else {
 			sidebar.find(".actions").first().before(html)
 		}
+		sdFixDoubleOriginUrl()
 	}
 
 	function patchDetailsView(ViewClass) {
@@ -364,55 +440,13 @@ jQuery(function ($) {
 		},
 	)
 
-	// Pro-level Delegation: Bind once at document level
 	$(document).on(
-		"click.sdVaultBridge",
-		".sd-vault-modal-player-surface .sd-midi-bridge-play",
-		async function (e) {
-		e.preventDefault()
-		const surface = $(this).closest(".sd-vault-modal-player-surface")
-		const url = String(surface.data("trackUrl") || "")
-		const title = String(surface.data("trackTitle") || "Media Attachment")
-		const type = String(surface.data("trackType") || "audio")
-		const mime = type === "midi" ? "audio/midi" : "audio/mpeg"
-		const id = String(surface.data("trackId") || "")
-
-		if (window.SystemDeckPlayback) {
-			try {
-				await window.SystemDeckAudio?.resume?.()
-			} catch (_err) {}
-			const state = window.SystemDeckPlayback.getState()
-			const activeId = String(state.nowPlaying?.id || state.id || "")
-			const isCurrent = id && activeId === id
-			if (isCurrent && state.status === "playing") {
-				window.SystemDeckPlayback.pause()
-				return
-			}
-			if (isCurrent && state.status === "paused") {
-				window.SystemDeckPlayback.resume()
-				return
-			}
-			const item = {
-				id: id || `media-${Date.now()}`,
-				title: title,
-				url: url,
-				source: url,
-				mime: mime,
-				type: type,
-				origin: "media",
-				metadata: { title: title, mime: mime, mediaType: type }
-			}
-			window.SystemDeckPlayback.setPlaylist([item], 0)
-			window.SystemDeckPlayback.playIndex(0)
-		}
-	})
-
-	$(document).on(
-		"click.sdVaultBridge",
-		".sd-vault-modal-player-surface .sd-midi-bridge-stop",
-		function (e) {
-			e.preventDefault()
-			window.SystemDeckPlayback?.stop()
+		"click.sdVaultBridgeModalUnmount",
+		".media-modal-close, .media-modal-backdrop",
+		function () {
+			sdFixDoubleOriginUrl()
+			const modal = $(".media-modal:visible").last()
+			unmountCanonicalModalSurface(modal, "media-modal")
 		},
 	)
 

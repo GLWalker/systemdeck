@@ -331,7 +331,7 @@ final class DashboardTunnel
             wp_dequeue_script($handle);
         }
 
-        $sd_styles = ['sd-core', 'sd-common', 'sd-grid', 'sd-legacy-common', 'sd-screen-meta', 'systemdeck-shell', 'systemdeck-runtime-style'];
+        $sd_styles = ['sd-core', 'sd-common', 'sd-grid', 'sd-screen-meta', 'systemdeck-shell', 'systemdeck-runtime-style'];
         foreach ($sd_styles as $handle) {
             wp_deregister_style($handle);
             wp_dequeue_style($handle);
@@ -405,7 +405,6 @@ final class DashboardTunnel
             'sd-core',
             'sd-common',
             'sd-grid',
-            'sd-legacy-common',
             'sd-screen-meta',
             'systemdeck-shell',
             'systemdeck-runtime-style',

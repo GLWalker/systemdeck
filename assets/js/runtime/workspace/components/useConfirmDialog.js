@@ -46,7 +46,7 @@ export default function useConfirmDialog() {
 		<Modal
 			title={dialog.title}
 			onRequestClose={closeDialog}
-			className='sd-confirm-modal'>
+			className='sd-confirm-modal systemdeck-scope'>
 			<p>{dialog.message}</p>
 			<div className='sd-confirm-modal__footer'>
 				<button
