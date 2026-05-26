@@ -2379,16 +2379,28 @@ window.SystemDeckAudio = (() => {
 			this.toneReady = false
 		}
 
-		ensureContext() {
-			if (!this.Tone) {
-				console.warn("SystemDeckAudio: Tone.js is not available.")
-				return
-			}
-			if (this.toneReady) return
+			ensureContext() {
+				this.Tone = window.Tone || this.Tone || null
+				if (!this.Tone) {
+					return
+				}
+				if (this.toneReady) return
 
-			const Tone = this.Tone
+				const Tone = this.Tone
+				const toneContext =
+					Tone.getContext?.()?.rawContext ||
+					Tone.context?.rawContext ||
+					Tone.context ||
+					null
+				const toneState = String(toneContext?.state || "").toLowerCase()
+				if (toneState && toneState !== "running") {
+					if (window.__sdAudioUnlocked !== true) return
+					try {
+						toneContext?.resume?.()
+					} catch (_err) {}
+				}
 
-			this.audioContext = Tone.getContext().rawContext
+				this.audioContext = Tone.getContext().rawContext
 
 			this.master = this.trackDisposable(new Tone.Gain(1))
 			this.masterBus = this.trackDisposable(new Tone.Gain(1))
@@ -2559,9 +2571,18 @@ window.SystemDeckAudio = (() => {
 			this.toneReady = true
 		}
 
-		initToneInstruments() {
-			const Tone = this.Tone
-			if (!Tone) return
+			initToneInstruments() {
+				const Tone = window.Tone || this.Tone || null
+				if (!Tone) return
+				this.Tone = Tone
+				const toneContext =
+					Tone.getContext?.()?.rawContext ||
+					Tone.context?.rawContext ||
+					Tone.context ||
+					null
+				const toneState = String(toneContext?.state || "").toLowerCase()
+				const canStartToneNodes =
+					window.__sdAudioUnlocked === true && toneState === "running"
 
 			const bassDrive = this.trackDisposable(new Tone.Distortion(0.25))
 			const bassComp = this.trackDisposable(
@@ -2585,14 +2606,18 @@ window.SystemDeckAudio = (() => {
 					wet: 0.12,
 				}),
 			)
-			const synthChorus = this.trackDisposable(
-				new Tone.Chorus({
+				const synthChorusNode = new Tone.Chorus({
 					frequency: 1.5,
 					delayTime: 2.5,
 					depth: 0.2,
 					wet: 0.1,
-				}).start(),
-			)
+				})
+				if (canStartToneNodes && typeof synthChorusNode.start === "function") {
+					try {
+						synthChorusNode.start()
+					} catch (_err) {}
+				}
+				const synthChorus = this.trackDisposable(synthChorusNode)
 			const synthDrive = this.trackDisposable(new Tone.Distortion(0.14))
 			synthDrive.connect(synthChorus)
 			synthChorus.connect(synthDelay)
@@ -2848,24 +2873,42 @@ window.SystemDeckAudio = (() => {
 			}
 		}
 
-		async resume() {
-			try {
-				await this.ensureAudioLibraries()
+			async resume() {
+				try {
+					await this.ensureAudioLibraries()
 			} catch (error) {
 				this.setPlaybackError(
 					error?.message || "Audio libraries failed to load.",
 				)
 				throw error
 			}
-			if (!this.Tone) return
-			if (!this.toneStarted) {
-				try {
-					await this.Tone.start()
-				} catch (_err) {}
-				this.toneStarted = true
+				this.Tone = window.Tone || this.Tone || null
+				if (!this.Tone) return
+				if (!this.toneStarted) {
+					const toneContext =
+						this.Tone.getContext?.()?.rawContext ||
+						this.Tone.context?.rawContext ||
+						this.Tone.context ||
+						null
+					const toneState = String(toneContext?.state || "").toLowerCase()
+					if (
+						window.__sdAudioUnlocked === true &&
+						toneState !== "running"
+					) {
+						try {
+							await this.Tone.start()
+						} catch (_err) {}
+					}
+					const nextToneState = String(
+						(this.Tone.getContext?.()?.rawContext ||
+							this.Tone.context?.rawContext ||
+							this.Tone.context ||
+							null)?.state || "",
+					).toLowerCase()
+					this.toneStarted = nextToneState === "running"
+				}
+				this.ensureContext()
 			}
-			this.ensureContext()
-		}
 
 		async ensureAudioGraphReady() {
 			try {

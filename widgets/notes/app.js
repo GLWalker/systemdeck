@@ -32,6 +32,7 @@
 			this.workspaceId = String(this.wrapper.data("workspace-id") || "")
 			this.currentPage = 1
 			this.totalPages = 1
+			this.viewMode = "mine"
 			this.editor = null // CodeMirror instance
 
 			// Scoped elements
@@ -132,6 +133,49 @@
 					self.editNote(noteId)
 				}
 			})
+
+			document.addEventListener(
+				"systemdeck:comments:count-updated",
+				function (e) {
+					const detail = e?.detail || {}
+					const targetType = String(
+						detail.targetType || "",
+					).toLowerCase()
+					if (targetType !== "note" && targetType !== "notes") return
+					const noteId = Number(detail.targetId || 0)
+					const count = Number(detail.count || 0)
+					if (!noteId) return
+					self.sdNotesUpdateCommentCount(noteId, count)
+				},
+			)
+		}
+
+		sdNotesUpdateCommentCount(noteId, newCount) {
+			const safeNoteId = Number(noteId || 0)
+			if (!safeNoteId) return
+			const safeCount = Math.max(0, Number(newCount || 0))
+			const row = this.wrapper.find(
+				`.sd-note-item[data-id="${safeNoteId}"], .sd-note-item[data-note-id="${safeNoteId}"]`,
+			)
+			if (!row.length) return
+
+			const commentsLink = row.find(".column-comments a").first()
+			const badgeWrap = row.find(".post-com-count").first()
+			const approved = row.find(".comment-count-approved").first()
+
+			if (commentsLink.length) {
+				commentsLink.attr("data-count", String(safeCount))
+			}
+			if (approved.length) {
+				approved.text(String(safeCount))
+			} else if (badgeWrap.length) {
+				badgeWrap.text(String(safeCount))
+			}
+
+			row.addClass("sd-note-comments-updated")
+			setTimeout(() => {
+				row.removeClass("sd-note-comments-updated")
+			}, 800)
 		}
 
 		bindEvents() {
@@ -181,13 +225,30 @@
 			// View Note
 			wrapper.on(
 				"click.sdNotesView",
-				".sd-note-item .sd-action-view, .sd-note-item .column-title .row-title, .sd-note-item .column-comments a, .sd-note-item .post-com-count",
+				".sd-note-item .sd-action-view, .sd-note-item .column-title .row-title",
 				function (e) {
 					e.preventDefault()
 					e.stopPropagation()
 					self.openReadModal(
 						$(this).closest(".sd-note-item").data("id"),
 					)
+				},
+			)
+
+			// Open shared comments modal
+			wrapper.on(
+				"click.sdNotesComments",
+				".sd-note-item .column-comments a, .sd-note-item .post-com-count",
+				function (e) {
+					e.preventDefault()
+					e.stopPropagation()
+					const row = $(this).closest(".sd-note-item")
+					const noteId = Number(row.data("id") || 0)
+					const noteTitle =
+						String(row.data("full-title") || "").trim() ||
+						String(row.find(".row-title").text() || "").trim() ||
+						"Notes"
+					self.openCommentsModal(noteId, noteTitle)
 				},
 			)
 
@@ -262,6 +323,20 @@
 				self.loadNotes()
 			})
 
+			wrapper.on("click.sdNotes", ".sd-notes-view-mode", function (e) {
+				e.preventDefault()
+				const mode = String(
+					$(this).data("view-mode") || "mine",
+				).toLowerCase()
+				self.viewMode = mode === "shared" ? "shared" : "mine"
+				wrapper
+					.find(".sd-notes-view-mode")
+					.removeClass("is-primary")
+				$(this).addClass("is-primary")
+				self.currentPage = 1
+				self.loadNotes()
+			})
+
 			// Sticky Toggle reveal
 			modal.on(
 				"change.sdNotesProjected",
@@ -281,23 +356,6 @@
 					self.updateEditPriorityBadge()
 				},
 			)
-
-			// Save Comment
-			readModal.on("click", ".sd-note-save-comment", function () {
-				const noteId = readModal.data("note-id")
-				self.saveComment(noteId)
-			})
-
-			// Reply to Comment
-			readModal.on("click", ".sd-reply-btn", function (e) {
-				e.preventDefault()
-				const parentId = $(this).data("id")
-				readModal.find(".sd-note-parent-comment").val(parentId)
-				readModal
-					.find(".sd-note-new-comment")
-					.attr("placeholder", "Replying to thread...")
-					.focus()
-			})
 
 			// Modal close
 			wrapper.on("click.sdModalClose", ".sd-modal-close", function () {
@@ -370,10 +428,8 @@
 			`
 
 			const title = escHtml(note.title || "(Untitled)")
-			const commentHtml =
-				note.comment_count > 0
-					? `<div class="post-com-count-wrapper"><a href="#" class="post-com-count" title="View Comments"><span class="comment-count-approved">${note.comment_count}</span><span class="screen-reader-text">Comments</span></a></div>`
-					: `<span title="No Comments" class="sd-no-comments">&mdash;</span>`
+			const safeCommentCount = Math.max(0, Number(note.comment_count || 0))
+			const commentHtml = `<div class="post-com-count-wrapper"><a href="#" class="post-com-count" title="View Comments"><span class="comment-count-approved">${safeCommentCount}</span><span class="screen-reader-text">Comments</span></a></div>`
 
 			const contextHtml = note.context
 				? `<a href="${escHtml(note.context)}" target="_blank" class="sd-note-context-link" title="${escHtml(note.context)}">
@@ -527,8 +583,6 @@
 						} else {
 							modal.find(".sd-note-comment-form-container").hide()
 						}
-
-						self.loadComments(noteId)
 					} else {
 						const msg =
 							res.data?.error ||
@@ -560,105 +614,15 @@
 			badge.html(this.getStatusBadge(level))
 		}
 
-		renderCommentHTML(comment, isReply = false) {
-			const wrapperClass = isReply
-				? "dashboard-comment-wrap sd-note-comment-thread sd-note-reply"
-				: "dashboard-comment-wrap sd-note-comment-thread"
-			const replyBtn = isReply
-				? ""
-				: `<button class="button-link sd-reply-btn" data-id="${comment.id}">Reply</button>`
-
-			let repliesHtml = ""
-			if (comment.replies && comment.replies.length > 0) {
-				repliesHtml += '<div class="sd-note-comment-replies">'
-				comment.replies.forEach((reply) => {
-					repliesHtml += this.renderCommentHTML(reply, true)
-				})
-				repliesHtml += "</div>"
-			}
-
-			return `
-				<div class="${wrapperClass}">
-					<div class="comment-meta">
-						<img class="avatar" src="${comment.avatar}" alt="${comment.author}" width="24" height="24">
-						<cite>${comment.author}</cite>
-						<span class="sd-note-comment-date">${comment.date}</span>
-						${replyBtn}
-					</div>
-					<div class="comment-content">${comment.content}</div>
-					${repliesHtml}
-				</div>
-			`
-		}
-
-		loadComments(noteId) {
-			const self = this
-			const list = this.readModal.find(".sd-note-comments-list")
-			list.html('<span class="spinner is-active"></span>')
-
-			$.post(
-				window.sd_vars?.ajaxurl || window.ajaxurl,
-				{
-					action: "sd_get_note_comments",
-					note_id: noteId,
-					nonce: getNonce(),
-				},
-				function (res) {
-					if (res.success) {
-						list.empty()
-						if (
-							!res.data.comments ||
-							res.data.comments.length === 0
-						) {
-							list.append(
-								'<div class="sd-empty-state">No discussion yet.</div>',
-							)
-							return
-						}
-
-						res.data.comments.forEach((comment) => {
-							list.append(self.renderCommentHTML(comment))
-						})
-					}
-				},
-			)
-		}
-
-		saveComment(noteId) {
-			const self = this
-			const input = this.readModal.find(".sd-note-new-comment")
-			const content = input.val().trim()
-			const parentId =
-				this.readModal.find(".sd-note-parent-comment").val() || 0
-			if (!content) return
-
-			this.readModal.find(".sd-note-save-comment").prop("disabled", true)
-
-			$.post(
-				window.sd_vars?.ajaxurl || window.ajaxurl,
-				{
-					action: "sd_add_note_comment",
-					note_id: noteId,
-					content: content,
-					parent_id: parentId,
-					nonce: getNonce(),
-				},
-				function (res) {
-					self.readModal
-						.find(".sd-note-save-comment")
-						.prop("disabled", false)
-					if (res.success) {
-						input.val("")
-						self.readModal.find(".sd-note-parent-comment").val("0")
-						input.attr("placeholder", "Write a comment...")
-						self.loadComments(noteId)
-					} else {
-						alert(
-							"Failed to post comment: " +
-								(res.data?.error || "Unknown error"),
-						)
-					}
-				},
+		openCommentsModal(noteId, noteTitle) {
+			document.dispatchEvent(
+				new CustomEvent("systemdeck:comments:open", {
+					detail: {
+						targetType: "note",
+						targetId: Number(noteId || 0),
+						title: noteTitle || "Notes",
+					},
+				}),
 			)
 		}
 
@@ -762,6 +726,7 @@
 				limit: 5,
 				paged: this.currentPage,
 				context: context,
+				view_mode: this.viewMode === "shared" ? "shared" : "mine",
 				workspace_id:
 					localStorage.getItem("sd_active_workspace") ||
 					window.sd_vars?.active_workspace ||

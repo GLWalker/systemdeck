@@ -22,6 +22,40 @@ final class VaultManager
 {
     private const VAULT_DIR_NAME = 'systemdeck-vault';
 
+    private static function is_metadata_value_empty(mixed $value): bool
+    {
+        if ($value === null) {
+            return true;
+        }
+        if (is_string($value)) {
+            return trim($value) === '';
+        }
+        return $value === '';
+    }
+
+    /**
+     * Keep destination authority for non-empty fields, fill only missing fields from source.
+     *
+     * @param array<string,mixed> $destination
+     * @param array<string,mixed> $source
+     * @param array<int,string> $fields
+     * @return array<string,mixed>
+     */
+    public static function merge_authoritative_metadata(array $destination, array $source, array $fields): array
+    {
+        $merged = $destination;
+        foreach ($fields as $field) {
+            if (!self::is_metadata_value_empty($merged[$field] ?? null)) {
+                continue;
+            }
+            if (!array_key_exists($field, $source)) {
+                continue;
+            }
+            $merged[$field] = $source[$field];
+        }
+        return $merged;
+    }
+
     public static function detect_media_type(string $mime, string $filename = ''): string
     {
         $mime_lc = strtolower($mime);
@@ -69,6 +103,33 @@ final class VaultManager
         ];
     }
 
+    /**
+     * @return array{artist:string,album:string}
+     */
+    private static function get_attachment_artist_album(int $attachment_id, ?array $attachment_js = null): array
+    {
+        $artist = '';
+        $album = '';
+        if (is_array($attachment_js)) {
+            $artist = (string) ($attachment_js['artist'] ?? $attachment_js['meta']['artist'] ?? '');
+            $album = (string) ($attachment_js['album'] ?? $attachment_js['meta']['album'] ?? '');
+        }
+        $metadata = wp_get_attachment_metadata($attachment_id);
+        if (is_array($metadata)) {
+            if ($artist === '') {
+                $artist = (string) ($metadata['artist'] ?? '');
+            }
+            if ($album === '') {
+                $album = (string) ($metadata['album'] ?? '');
+            }
+        }
+
+        return [
+            'artist' => $artist,
+            'album' => $album,
+        ];
+    }
+
     public static function get_attachment_duration(int $attachment_id, ?array $attachment_js = null): float
     {
         $metadata = wp_get_attachment_metadata($attachment_id);
@@ -106,6 +167,8 @@ final class VaultManager
         $origin = (string) (get_post_meta($attachment_id, '_sd_vault_origin', true) ?: 'media');
         $authority = (string) (get_post_meta($attachment_id, '_sd_vault_authority', true) ?: 'media');
 
+        $artist_album = self::get_attachment_artist_album($attachment_id, is_array($attachment_js) ? $attachment_js : null);
+
         return [
             'id' => $attachment_id,
             'attachment_id' => $attachment_id,
@@ -119,8 +182,8 @@ final class VaultManager
             'filename' => $filename,
             'extension' => $filename !== '' ? strtolower((string) pathinfo($filename, PATHINFO_EXTENSION)) : '',
             'duration' => $duration,
-            'artist' => is_array($attachment_js) ? (string) ($attachment_js['artist'] ?? $attachment_js['meta']['artist'] ?? '') : '',
-            'album' => is_array($attachment_js) ? (string) ($attachment_js['album'] ?? $attachment_js['meta']['album'] ?? '') : '',
+            'artist' => (string) ($artist_album['artist'] ?? ''),
+            'album' => (string) ($artist_album['album'] ?? ''),
             'alt_text' => (string) get_post_meta($attachment_id, '_wp_attachment_image_alt', true),
             'description' => (string) $attachment->post_content,
             'caption' => (string) $attachment->post_excerpt,
@@ -135,8 +198,8 @@ final class VaultManager
                 'filename' => $filename,
                 'extension' => $filename !== '' ? strtolower((string) pathinfo($filename, PATHINFO_EXTENSION)) : '',
                 'duration' => $duration > 0 ? $duration : null,
-                'artist' => is_array($attachment_js) ? (string) ($attachment_js['artist'] ?? $attachment_js['meta']['artist'] ?? '') : '',
-                'album' => is_array($attachment_js) ? (string) ($attachment_js['album'] ?? $attachment_js['meta']['album'] ?? '') : '',
+                'artist' => (string) ($artist_album['artist'] ?? ''),
+                'album' => (string) ($artist_album['album'] ?? ''),
                 'origin' => $origin,
                 'authority' => $authority,
                 'midiDerivative' => get_post_meta($attachment_id, '_sd_midi_derivative_json', true) ?: null,
@@ -149,6 +212,169 @@ final class VaultManager
                 return $value !== null && $value !== '';
             }),
         ] + $artwork;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private static function build_vault_workspace_pin_data(int $file_id): array
+    {
+        $post = get_post($file_id);
+        $mime = (string) get_post_meta($file_id, '_sd_vault_mime_type', true);
+        $title = $post ? (string) $post->post_title : ('Vault File ' . $file_id);
+        $stream_url = site_url('?sd_vault_stream=' . $file_id);
+        $artwork_url = (string) get_post_meta($file_id, '_sd_vault_artwork_url', true);
+        $mime_icon_url = (string) wp_mime_type_icon($mime ?: 'application/octet-stream');
+
+        return [
+            'id' => 'vault.' . $file_id,
+            'type' => 'audio_tile',
+            'size' => '1x1',
+            'renderer' => 'dom',
+            'title' => $title,
+            'data' => [
+                'type' => 'audio_tile',
+                'fileId' => $file_id,
+                'track_id' => $file_id,
+                'source' => 'vault',
+                'url' => $stream_url,
+                'title' => $title,
+                'artworkUrl' => $artwork_url,
+                'mime' => $mime,
+                'mime_icon_url' => $mime_icon_url,
+                'pin_kind' => 'audio_tile',
+                'label' => $title,
+                'action' => 'open_vault_file',
+            ],
+            'settings' => [
+                'label' => $title,
+                'type' => 'audio_tile',
+                'fileId' => $file_id,
+                'track_id' => $file_id,
+                'source' => 'vault',
+                'url' => $stream_url,
+                'title' => $title,
+                'artworkUrl' => $artwork_url,
+                'mime' => $mime,
+                'mime_icon_url' => $mime_icon_url,
+                'pin_kind' => 'audio_tile',
+                'action' => 'open_vault_file',
+                'grid_span' => '1x1',
+                'renderer' => 'dom',
+                'design_template' => 'default',
+            ],
+            'x' => 0,
+            'y' => 0,
+            'w' => 1,
+            'h' => 1,
+            'is_pinned' => 1,
+        ];
+    }
+
+    public static function pin_to_workspace(int $file_id, string $workspace_id): bool
+    {
+        $workspace_id = sanitize_key($workspace_id);
+        if ($file_id <= 0 || $workspace_id === '') {
+            return false;
+        }
+        $user_id = (int) get_current_user_id();
+        if ($user_id <= 0) {
+            return false;
+        }
+        $context = new Context($user_id, $workspace_id);
+        $pins = StorageEngine::get('pins', $context);
+        $pins = is_array($pins) ? $pins : [];
+        $pin_id = 'vault.' . $file_id;
+        $pin_data = self::build_vault_workspace_pin_data($file_id);
+        $replaced = false;
+        foreach ($pins as $idx => $pin) {
+            if (!is_array($pin)) {
+                continue;
+            }
+            if ((string) ($pin['id'] ?? '') !== $pin_id) {
+                continue;
+            }
+            $pins[$idx] = array_merge($pin, $pin_data);
+            $replaced = true;
+            break;
+        }
+        if (!$replaced) {
+            $pins[] = $pin_data;
+        }
+
+        return StorageEngine::save('pins', $pins, $context);
+    }
+
+    public static function unpin_from_workspace(int $file_id, string $workspace_id): bool
+    {
+        $workspace_id = sanitize_key($workspace_id);
+        if ($file_id <= 0 || $workspace_id === '') {
+            return false;
+        }
+        $user_id = (int) get_current_user_id();
+        if ($user_id <= 0) {
+            return false;
+        }
+        $context = new Context($user_id, $workspace_id);
+        $pins = StorageEngine::get('pins', $context);
+        $pins = is_array($pins) ? $pins : [];
+        $pin_id = 'vault.' . $file_id;
+        $filtered = [];
+        foreach ($pins as $pin) {
+            if (!is_array($pin)) {
+                continue;
+            }
+            if ((string) ($pin['id'] ?? '') === $pin_id) {
+                continue;
+            }
+            $filtered[] = $pin;
+        }
+
+        return StorageEngine::save('pins', $filtered, $context);
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function get_file_pinned_workspace_ids(int $file_id): array
+    {
+        if ($file_id <= 0) {
+            return [];
+        }
+        $user_id = (int) get_current_user_id();
+        if ($user_id <= 0) {
+            return [];
+        }
+        $workspaces = \SystemDeck\Core\AjaxHandler::get_user_workspaces($user_id);
+        $workspace_ids = [];
+        $pin_id = 'vault.' . $file_id;
+        foreach ($workspaces as $workspace) {
+            if (!is_array($workspace)) {
+                continue;
+            }
+            $workspace_id = sanitize_key((string) ($workspace['id'] ?? ''));
+            if ($workspace_id === '') {
+                continue;
+            }
+            if (function_exists('systemdeck_user_meets_workspace_access') && !systemdeck_user_meets_workspace_access($user_id, $workspace_id)) {
+                continue;
+            }
+            $context = new Context($user_id, $workspace_id);
+            $pins = StorageEngine::get('pins', $context);
+            $pins = is_array($pins) ? $pins : [];
+            foreach ($pins as $pin) {
+                if (!is_array($pin)) {
+                    continue;
+                }
+                $id = (string) ($pin['id'] ?? '');
+                $pin_file_id = (int) (($pin['data']['fileId'] ?? $pin['settings']['fileId'] ?? 0));
+                if ($id === $pin_id || $pin_file_id === $file_id) {
+                    $workspace_ids[] = $workspace_id;
+                    break;
+                }
+            }
+        }
+        return array_values(array_unique($workspace_ids));
     }
 
     public static function init(): void

@@ -1,0 +1,20 @@
+# Packaging exclusions for SystemDeck plugin distribution
+
+# Source and Tooling (Keep out of the final zip!)
+/src/
+/tests/
+/devtools/
+/scratch/
+webpack.config.js
+postcss.config.js
+package.json
+package-lock.json
+.browserslistrc
+*.bak
+
+# Runtime and OS
+/node_modules/
+.DS_Store
+.idea/
+.vscode/
+*.zip

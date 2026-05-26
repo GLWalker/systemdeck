@@ -1,0 +1,36 @@
+{
+    "name": "systemdeck",
+    "version": "1.7.0",
+    "description": "SystemDeck React Canvas Runtime",
+    "main": "assets/runtime/systemdeck-runtime.js",
+    "scripts": {
+        "start": "wp-scripts start",
+        "build": "wp-scripts build",
+        "registry:build": "wp systemdeck registry:build",
+        "assetpack": "assetpack --config .assetpack.mjs",
+        "assetpack:watch": "assetpack --config .assetpack.mjs --watch"
+    },
+    "keywords": [
+        "wordpress",
+        "react",
+        "gutenberg"
+    ],
+    "author": "SystemDeck",
+    "license": "GPL-2.0-or-later",
+    "dependencies": {
+        "@pixi/ui": "^2.3.2",
+        "@wordpress/components": "^19.0.0",
+        "@wordpress/dom-ready": "^3.0.0",
+        "@wordpress/element": "^4.0.0",
+        "@wordpress/i18n": "^4.0.0",
+        "motion": "^12.36.0",
+        "pixi.js": "^8.17.0",
+        "react": "^16.14.0",
+        "react-dom": "^16.14.0",
+        "react-grid-layout": "^2.2.2"
+    },
+    "devDependencies": {
+        "@assetpack/core": "^1.7.0",
+        "@wordpress/scripts": "^23.0.0"
+    }
+}

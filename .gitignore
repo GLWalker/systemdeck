@@ -1,27 +1,23 @@
 node_modules/
-
 .DS_Store
-
+__MACOSX
 *.zip
-
 dist/
 build/
 coverage/
 
+# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+*.log
 
-tests/
-devtools/
-docs/
-src/
+# IDE
+.idea/
+.vscode/
 
-webpack.config.js
-postcss.config.js
-package.json
-package-lock.json
-.browserslistrc
-
-assets/css/sd-common.css
-*.bak
+# Docs hiding (Ignore everything in docs except the specified paths)
+docs/*
+!docs/agents/
+!docs/contracts/
+!docs/START.md

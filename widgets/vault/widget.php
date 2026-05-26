@@ -15,6 +15,8 @@ declare(strict_types=1);
 
 namespace SystemDeck\Widgets;
 
+use SystemDeck\Core\Context;
+use SystemDeck\Core\StorageEngine;
 use SystemDeck\Core\VaultManager;
 
 if (!defined('ABSPATH')) {
@@ -39,6 +41,7 @@ class Vault extends BaseWidget
     private const ORIGIN_WORKSPACE_ID_META_KEY = '_sd_vault_origin_workspace_id';
     private const ORIGIN_WORKSPACE_NAME_META_KEY = '_sd_vault_origin_workspace_name';
     private const WORKSPACE_NAME_META_KEY = '_sd_vault_workspace_name';
+    private const SHARED_WORKSPACE_IDS_META_KEY = '_sd_vault_shared_workspace_ids';
     private const MIDI_ACTIVE_DERIVATIVE_META_KEY = '_sd_midi_derivative_json';
     private const MIDI_GENERATED_DERIVATIVE_META_KEY = '_sd_midi_generated_derivative_json';
     private const MIDI_SOURCE_HASH_META_KEY = '_sd_midi_source_hash';
@@ -67,8 +70,8 @@ class Vault extends BaseWidget
     public static function assets(): array
     {
         return [
-            'css' => ['style.css', 'sd-vault-media.css', 'sd-player-style', 'dashicons'],
-            'js' => ['sd-audio-engine', 'sd-player-app', 'app.js', 'media-bridge.js']
+            'css' => ['style.css', 'sd-vault-media.css', 'dashicons'],
+            'js' => ['app.js', 'media-bridge.js']
         ];
     }
 
@@ -109,6 +112,26 @@ class Vault extends BaseWidget
                     'design_template' => 'default',
                 ],
             ],
+            [
+                'id' => 'pin_mini_player',
+                'label' => 'Mini Player',
+                'type' => 'custom',
+                'source' => [
+                    'kind' => 'widget',
+                    'authority' => 'systemdeck',
+                    'id' => self::ID,
+                ],
+                'category' => 'vault',
+                'renderer' => 'dom',
+                'description' => 'Workspace mini player for pinned Vault audio tiles.',
+                'icon' => 'dashicons-controls-play',
+                'tags' => ['vault', 'audio'],
+                'pin_safe' => true,
+                'defaults' => [
+                    'size' => '3x1',
+                    'design_template' => 'default',
+                ],
+            ],
         ];
     }
 
@@ -122,6 +145,18 @@ class Vault extends BaseWidget
 
     public static function pin_render(string $pin_id, array $context = []): string
     {
+        $workspace_id = sanitize_key((string) ($context['workspace_id'] ?? ''));
+        $instance_id = sanitize_html_class((string) ($context['instance_id'] ?? $pin_id));
+        if ($workspace_id !== '' && function_exists('systemdeck_user_meets_workspace_access')) {
+            if (!systemdeck_user_meets_workspace_access(get_current_user_id(), $workspace_id)) {
+                return '';
+            }
+        }
+
+        if ($pin_id === 'pin_mini_player' || str_starts_with($pin_id, 'pin_mini_player.')) {
+            return self::render_pin_mini_player($pin_id, $workspace_id, $instance_id);
+        }
+
         // $pin_id is likely "vault.123"
         $parts = explode('.', $pin_id);
         $file_id = intval(end($parts));
@@ -134,15 +169,6 @@ class Vault extends BaseWidget
             return '';
         }
 
-        // ObjectAccessGate: ideally we'd check access here if it's a workspace pin
-        $workspace_id = sanitize_key((string) ($context['workspace_id'] ?? ''));
-        if ($workspace_id !== '' && function_exists('systemdeck_user_meets_workspace_access')) {
-            if (!systemdeck_user_meets_workspace_access(get_current_user_id(), $workspace_id)) {
-                return '';
-            }
-        }
-
-        $instance_id = sanitize_html_class((string) ($context['instance_id'] ?? $pin_id));
         $level = get_post_meta($file_id, '_sd_vault_priority', true) ?: 'low';
 
         $status_map = [
@@ -163,30 +189,162 @@ class Vault extends BaseWidget
         elseif (strpos((string) $mime, 'audio/') === 0)
             $icon = 'dashicons-media-audio';
 
+        $pin_settings = self::find_workspace_pin_settings($workspace_id, $pin_id);
+        $pin_type = strtolower((string) ($pin_settings['type'] ?? $pin_settings['pin_kind'] ?? 'vault'));
+        if ($pin_type === 'audio_tile' || $pin_type === 'sd_audio_tile') {
+            return self::render_audio_tile_pin($pin_id, $workspace_id, $instance_id, $file_id, $post, (string) $mime, (string) $status_class, $pin_settings);
+        }
+
+        $mime = (string) $mime;
+        $major = self::sanitize_mime_class_token(self::mime_major($mime));
+        $subtype = self::sanitize_mime_class_token(self::mime_subtype($mime));
+        $visual_url = '';
+        if (strpos($mime, 'image/') === 0) {
+            $visual_url = self::build_private_stream_url($file_id);
+        } else {
+            $visual_url = (string) wp_mime_type_icon($mime ?: 'application/octet-stream');
+        }
         ob_start();
         ?>
-        <article class="postbox sd-pin <?php echo esc_attr($status_class); ?>" data-pin-action="open_vault_file"
-            data-file-id="<?php echo esc_attr((string) $file_id); ?>"
-            data-workspace-id="<?php echo esc_attr($workspace_id); ?>">
-            <div class="sd-media-wrap">
-                <div class="sd-media-figure">
-                    <span class="sd-pin-icon dashicons <?php echo esc_attr($icon); ?>"></span>
-                </div>
-                <div class="sd-media-content">
-                    <div class="sd-pin-label">
-                        <?php echo esc_html__('File', 'systemdeck'); ?>
-                    </div>
-                    <h4 class="sd-pin-title"><?php echo esc_html($post->post_title); ?></h4>
-                    <div class="sd-pin-meta">
-                        <span class="sd-pin-description"><?php echo esc_html($mime); ?></span>
-                        <span class="sd-pin-edit-link"> | <button type="button" class="sd-pin-edit-btn"
-                                data-mode="edit"><?php echo esc_html__('Edit', 'systemdeck'); ?></button></span>
-                    </div>
-                </div>
+<article class="postbox sd-pin attachment landscape sd-pin-file-tile type-<?php echo esc_attr($major); ?> subtype-<?php echo esc_attr($subtype); ?> <?php echo esc_attr($status_class); ?>"
+    tabindex="0" data-pin-root="1" data-pin-id="<?php echo esc_attr($pin_id); ?>" data-pin-type="vault"
+    data-pin-kind="pinned_file" data-pin-action="open_vault_file" data-file-id="<?php echo esc_attr((string) $file_id); ?>"
+    data-workspace-id="<?php echo esc_attr($workspace_id); ?>">
+    <div class="inside">
+        <div class="thumbnail">
+            <div class="centered">
+                <img src="<?php echo esc_url($visual_url); ?>" class="thumbnail" draggable="false" alt="" />
             </div>
-        </article>
-        <?php
+            <div class="filename"><div><?php echo esc_html($post->post_title); ?></div></div>
+        </div>
+    </div>
+</article>
+<?php
         return (string) ob_get_clean();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private static function find_workspace_pin_settings(string $workspace_id, string $pin_id): array
+    {
+        if ($workspace_id === '' || $pin_id === '') {
+            return [];
+        }
+        $context = new Context((int) get_current_user_id(), $workspace_id);
+        $pins = StorageEngine::get('pins', $context);
+        if (!is_array($pins)) {
+            return [];
+        }
+        foreach ($pins as $pin) {
+            $candidate = sanitize_key((string) ($pin['id'] ?? ''));
+            if ($candidate !== sanitize_key($pin_id)) {
+                continue;
+            }
+            $settings = is_array($pin['settings'] ?? null) ? $pin['settings'] : [];
+            $data = is_array($settings['data'] ?? null) ? $settings['data'] : [];
+            return array_merge($settings, $data);
+        }
+        return [];
+    }
+
+    /**
+     * @param array<string,mixed> $pin_settings
+     */
+    private static function render_audio_tile_pin(string $pin_id, string $workspace_id, string $instance_id, int $file_id, \WP_Post $post, string $mime, string $status_class, array $pin_settings): string
+    {
+        $artwork_url = (string) ($pin_settings['artworkUrl'] ?? $pin_settings['artwork_url'] ?? get_post_meta($file_id, self::ARTWORK_URL_META_KEY, true));
+        $artwork_url = trim($artwork_url);
+        $mime_icon_url = trim((string) ($pin_settings['mime_icon_url'] ?? wp_mime_type_icon($mime ?: 'application/octet-stream')));
+        $stream_url = trim((string) ($pin_settings['url'] ?? $pin_settings['stream_url'] ?? self::build_private_stream_url($file_id)));
+        $is_image = strpos($mime, 'image/') === 0;
+        $is_audio = strpos($mime, 'audio/') === 0 || strpos($mime, 'midi') !== false;
+        $visual_url = '';
+        if ($is_audio) {
+            $visual_url = $artwork_url;
+        } elseif ($is_image) {
+            $visual_url = $stream_url;
+        } else {
+            $visual_url = $mime_icon_url;
+        }
+        if ($visual_url === '') {
+            $visual_url = $is_audio ? (string) wp_mime_type_icon('audio/mpeg') : $mime_icon_url;
+        }
+        $major = self::sanitize_mime_class_token(self::mime_major($mime));
+        $subtype = self::sanitize_mime_class_token(self::mime_subtype($mime));
+        $tile_title = (string) ($pin_settings['title'] ?? $post->post_title);
+
+        ob_start();
+        ?>
+<article class="postbox sd-pin sd-pin-audio-tile attachment landscape type-<?php echo esc_attr($major); ?> subtype-<?php echo esc_attr($subtype); ?> <?php echo esc_attr($status_class); ?>" tabindex="0" data-pin-root="1"
+    data-pin-id="<?php echo esc_attr($pin_id); ?>" data-pin-type="audio_tile" data-pin-kind="audio_tile"
+    data-pin-action="open_vault_file" data-file-id="<?php echo esc_attr((string) $file_id); ?>"
+    data-workspace-id="<?php echo esc_attr($workspace_id); ?>" data-track-id="<?php echo esc_attr((string) $file_id); ?>"
+    data-track-url="<?php echo esc_url($stream_url); ?>" data-track-title="<?php echo esc_attr($tile_title); ?>"
+    data-track-artwork-url="<?php echo esc_url($artwork_url); ?>" data-track-type="<?php echo esc_attr($mime); ?>"
+    data-source-kind="vault">
+    <div class="inside">
+        <div class="thumbnail">
+            <div class="centered">
+                <img src="<?php echo esc_url($visual_url); ?>" class="thumbnail" draggable="false" alt="" />
+            </div>
+            <div class="filename"><div><?php echo esc_html($tile_title); ?></div></div>
+        </div>
+    </div>
+</article>
+<?php
+        return (string) ob_get_clean();
+    }
+
+    private static function render_pin_mini_player(string $pin_id, string $workspace_id, string $instance_id): string
+    {
+        ob_start();
+        ?>
+<article class="postbox sd-pin sd-pin-mini-player-shell" tabindex="0" data-pin-root="1"
+    data-pin-id="<?php echo esc_attr($pin_id); ?>" data-pin-type="pin_mini_player" data-pin-kind="pin_mini_player"
+    data-workspace-id="<?php echo esc_attr($workspace_id); ?>" data-empty-title="<?php echo esc_attr__('No track selected', 'systemdeck'); ?>">
+    <div class="inside">
+        <div class="sd-pin-mini-player" role="group" aria-label="<?php echo esc_attr__('Pin mini player', 'systemdeck'); ?>">
+            <div class="sd-pin-mini-player-art" aria-hidden="true">
+                <span class="dashicons dashicons-format-audio sd-pin-mini-player-placeholder-icon"></span>
+            </div>
+            <div class="sd-pin-mini-player-title" id="sd-pin-title-<?php echo esc_attr($instance_id); ?>">
+                <?php echo esc_html__('No track selected', 'systemdeck'); ?>
+            </div>
+            <div class="sd-pin-mini-player-controls">
+                <button type="button" class="button button-small" data-role="mini-prev">
+                    <span class="dashicons dashicons-controls-back" aria-hidden="true"></span>
+                </button>
+                <button type="button" class="button button-small" data-role="mini-play">
+                    <span class="dashicons dashicons-controls-play" aria-hidden="true"></span>
+                </button>
+                <button type="button" class="button button-small" data-role="mini-next">
+                    <span class="dashicons dashicons-controls-forward" aria-hidden="true"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+</article>
+<?php
+        return (string) ob_get_clean();
+    }
+
+    private static function mime_major(string $mime): string
+    {
+        $parts = explode('/', strtolower(trim($mime)), 2);
+        return $parts[0] !== '' ? $parts[0] : 'application';
+    }
+
+    private static function mime_subtype(string $mime): string
+    {
+        $parts = explode('/', strtolower(trim($mime)), 2);
+        return $parts[1] ?? 'octet-stream';
+    }
+
+    private static function sanitize_mime_class_token(string $token): string
+    {
+        $normalized = preg_replace('/[^a-z0-9_-]+/', '-', strtolower(trim($token)));
+        return trim((string) $normalized, '-') ?: 'unknown';
     }
 
 
@@ -216,29 +374,9 @@ class Vault extends BaseWidget
 
     public static function register_ajax_hooks(): void
     {
-        add_action('wp_ajax_sd_core_vault_ajax_upload_file', [self::class, 'handle_ajax_upload_file']);
-        add_action('wp_ajax_sd_core_vault_ajax_link_attachment', [self::class, 'handle_ajax_link_attachment']);
-        add_action('wp_ajax_sd_core_vault_ajax_get_files', [self::class, 'handle_ajax_get_files']);
-        add_action('wp_ajax_sd_core_vault_ajax_delete_file', [self::class, 'handle_ajax_delete_file']);
-        add_action('wp_ajax_sd_core_vault_ajax_import_from_media_library', [self::class, 'handle_ajax_import_from_media_library']);
-        add_action('wp_ajax_sd_core_vault_ajax_export_to_media_library', [self::class, 'handle_ajax_export_to_media_library']);
-        add_action('wp_ajax_sd_core_vault_ajax_make_private', [self::class, 'handle_ajax_make_private']);
-        add_action('wp_ajax_sd_core_vault_ajax_get_file_details', [self::class, 'handle_ajax_get_file_details']);
-        add_action('wp_ajax_sd_core_vault_ajax_save_file_details', [self::class, 'handle_ajax_save_file_details']);
-        add_action('wp_ajax_sd_core_vault_ajax_get_midi_editor_payload', [self::class, 'handle_ajax_get_midi_editor_payload']);
-        add_action('wp_ajax_sd_core_vault_ajax_validate_midi_derivative', [self::class, 'handle_ajax_validate_midi_derivative']);
-        add_action('wp_ajax_sd_core_vault_ajax_save_midi_derivative', [self::class, 'handle_ajax_save_midi_derivative']);
-        add_action('wp_ajax_sd_core_vault_ajax_rebuild_midi_derivative', [self::class, 'handle_ajax_rebuild_midi_derivative']);
-        add_action('wp_ajax_sd_core_vault_ajax_get_file_comments', [self::class, 'handle_ajax_get_file_comments']);
-        add_action('wp_ajax_sd_core_vault_ajax_add_file_comment', [self::class, 'handle_ajax_add_file_comment']);
-        add_action('wp_ajax_sd_core_vault_ajax_attach_existing_vault_file', [self::class, 'handle_ajax_attach_existing_vault_file']);
-        add_action('wp_ajax_sd_toggle_vault_sticky', [self::class, 'handle_ajax_toggle_vault_sticky']);
-
-        // Phase 2F: Authority Actions
-        add_action('wp_ajax_sd_core_vault_ajax_copy_from_media_library', [self::class, 'handle_ajax_copy_from_media_library']);
-        add_action('wp_ajax_sd_core_vault_ajax_publish_to_vault', [self::class, 'handle_ajax_publish_to_vault']);
-        add_action('wp_ajax_sd_core_vault_ajax_copy_to_media_library', [self::class, 'handle_ajax_copy_to_media_library']);
-        add_action('wp_ajax_sd_core_vault_ajax_publish_to_media_library', [self::class, 'handle_ajax_publish_to_media_library']);
+        // Deprecated in Phase A extraction:
+        // Vault AJAX hooks are now registered from core/Services/ModuleBootstrap.php
+        // via core/Ajax/VaultAjaxController.php.
     }
 
     public static function enqueue_media_modal_assets(string $hook_suffix): void
@@ -255,16 +393,32 @@ class Vault extends BaseWidget
         if (function_exists('wp_enqueue_media')) {
             wp_enqueue_media();
         }
+        wp_enqueue_style('wp-mediaelement');
+        wp_enqueue_script('wp-mediaelement');
 
-        wp_enqueue_style('sd-player-style');
+        if (!wp_style_is('dashicons', 'registered')) {
+            wp_register_style(
+                'dashicons',
+                includes_url('css/dashicons.min.css'),
+                [],
+                get_bloginfo('version')
+            );
+        }
         wp_enqueue_style('dashicons');
-        wp_enqueue_script('sd-audio-engine');
-        wp_enqueue_script('sd-player-app');
+        $advanced_media_modal = get_user_meta(get_current_user_id(), 'sd_advanced_audio_media_modal', true) === '1';
+        $advanced_vault_modal = get_user_meta(get_current_user_id(), 'sd_advanced_audio_vault_modal', true) === '1';
+        if ($advanced_media_modal || $advanced_vault_modal) {
+            wp_enqueue_style('sd-player-style');
+            wp_enqueue_script('tone');
+            wp_enqueue_script('sd-audio-engine');
+            wp_enqueue_script('sd-playback-adapter');
+            wp_enqueue_script('sd-player-app');
+        }
         if (!wp_script_is('sd-widget-vault-media-bridge', 'registered')) {
             wp_register_script(
                 'sd-widget-vault-media-bridge',
                 SYSTEMDECK_URL . 'widgets/vault/media-bridge.js',
-                ['jquery', 'media-views', 'sd-player-app'],
+                ['jquery', 'media-views'],
                 SYSTEMDECK_VERSION,
                 true
             );
@@ -477,6 +631,66 @@ class Vault extends BaseWidget
         }
     }
 
+    public static function handle_ajax_pin_to_workspace()
+    {
+        self::check_vault_nonce();
+        try {
+            wp_send_json_success(self::ajax_pin_to_workspace($_POST));
+        } catch (\Exception $e) {
+            wp_send_json_error(['message' => $e->getMessage()]);
+        }
+    }
+
+    public static function handle_ajax_unpin_from_workspace()
+    {
+        self::check_vault_nonce();
+        try {
+            wp_send_json_success(self::ajax_unpin_from_workspace($_POST));
+        } catch (\Exception $e) {
+            wp_send_json_error(['message' => $e->getMessage()]);
+        }
+    }
+
+    public static function handle_ajax_get_pinned_workspaces()
+    {
+        self::check_vault_nonce();
+        try {
+            wp_send_json_success(self::ajax_get_pinned_workspaces($_POST));
+        } catch (\Exception $e) {
+            wp_send_json_error(['message' => $e->getMessage()]);
+        }
+    }
+
+    public static function handle_ajax_share_to_workspace()
+    {
+        self::check_vault_nonce();
+        try {
+            wp_send_json_success(self::ajax_share_to_workspace($_POST));
+        } catch (\Exception $e) {
+            wp_send_json_error(['message' => $e->getMessage()]);
+        }
+    }
+
+    public static function handle_ajax_unshare_from_workspace()
+    {
+        self::check_vault_nonce();
+        try {
+            wp_send_json_success(self::ajax_unshare_from_workspace($_POST));
+        } catch (\Exception $e) {
+            wp_send_json_error(['message' => $e->getMessage()]);
+        }
+    }
+
+    public static function handle_ajax_get_share_state()
+    {
+        self::check_vault_nonce();
+        try {
+            wp_send_json_success(self::ajax_get_share_state($_POST));
+        } catch (\Exception $e) {
+            wp_send_json_error(['message' => $e->getMessage()]);
+        }
+    }
+
     public static function ajax_copy_from_media_library(array $request): array
     {
         $attachment_id = max(0, (int) ($request['attachment_id'] ?? 0));
@@ -576,6 +790,270 @@ class Vault extends BaseWidget
             'media_attachment' => VaultManager::build_attachment_media_payload($attachment_id),
             'message' => 'File published to Media Library and removed from Vault.'
         ];
+    }
+
+    public static function ajax_pin_to_workspace(array $request): array
+    {
+        $file_id = max(0, (int) ($request['file_id'] ?? 0));
+        if ($file_id <= 0) {
+            throw new \Exception('Missing file id.');
+        }
+        self::get_editable_file_post($file_id);
+
+        $workspace_id = sanitize_key((string) ($request['workspace_id'] ?? ''));
+        if ($workspace_id === '') {
+            throw new \Exception('Missing workspace id.');
+        }
+        $workspace_name = sanitize_text_field((string) ($request['workspace_name'] ?? self::resolve_workspace_name($workspace_id)));
+        if (function_exists('systemdeck_user_meets_workspace_access') && !systemdeck_user_meets_workspace_access(get_current_user_id(), $workspace_id)) {
+            throw new \Exception('Access denied.');
+        }
+
+        if (!VaultManager::pin_to_workspace($file_id, $workspace_id)) {
+            throw new \Exception('Could not persist workspace pin.');
+        }
+        self::add_shared_workspace_for_file($file_id, $workspace_id);
+        update_post_meta($file_id, '_sd_vault_scope', 'pinned');
+        update_post_meta($file_id, '_sd_vault_workspace_id', $workspace_id);
+        update_post_meta($file_id, self::WORKSPACE_NAME_META_KEY, $workspace_name !== '' ? $workspace_name : self::resolve_workspace_name($workspace_id));
+        self::sync_vault_projection($file_id, 'pinned', $workspace_id);
+
+        $workspace_ids = VaultManager::get_file_pinned_workspace_ids($file_id);
+        $pinned_workspaces = array_map(static function (string $id): array {
+            return [
+                'id' => $id,
+                'name' => self::resolve_workspace_name($id),
+            ];
+        }, $workspace_ids);
+
+        return [
+            'status' => 'success',
+            'file_id' => $file_id,
+            'workspace_id' => $workspace_id,
+            'workspace_name' => $workspace_name,
+            'workspace_ids' => $workspace_ids,
+            'pinned_workspaces' => $pinned_workspaces,
+            'shared_workspace_ids' => self::get_shared_workspace_ids_for_file($file_id),
+            'shared' => self::is_file_shared_to_workspace($file_id, $workspace_id),
+        ];
+    }
+
+    public static function ajax_unpin_from_workspace(array $request): array
+    {
+        $file_id = max(0, (int) ($request['file_id'] ?? 0));
+        if ($file_id <= 0) {
+            throw new \Exception('Missing file id.');
+        }
+        self::get_editable_file_post($file_id);
+
+        $workspace_id = sanitize_key((string) ($request['workspace_id'] ?? ''));
+        if ($workspace_id === '') {
+            throw new \Exception('Missing workspace id.');
+        }
+        if (function_exists('systemdeck_user_meets_workspace_access') && !systemdeck_user_meets_workspace_access(get_current_user_id(), $workspace_id)) {
+            throw new \Exception('Access denied.');
+        }
+
+        if (!VaultManager::unpin_from_workspace($file_id, $workspace_id)) {
+            throw new \Exception('Could not persist workspace pin removal.');
+        }
+        self::remove_vault_projection_for_workspace($file_id, $workspace_id);
+
+        $workspace_ids = VaultManager::get_file_pinned_workspace_ids($file_id);
+        if (empty($workspace_ids)) {
+            update_post_meta($file_id, '_sd_vault_scope', 'private');
+            delete_post_meta($file_id, '_sd_vault_workspace_id');
+            delete_post_meta($file_id, self::WORKSPACE_NAME_META_KEY);
+        } else {
+            update_post_meta($file_id, '_sd_vault_scope', 'pinned');
+            $primary_workspace_id = (string) ($workspace_ids[0] ?? '');
+            if ($primary_workspace_id !== '') {
+                update_post_meta($file_id, '_sd_vault_workspace_id', $primary_workspace_id);
+                update_post_meta($file_id, self::WORKSPACE_NAME_META_KEY, self::resolve_workspace_name($primary_workspace_id));
+            }
+        }
+        $pinned_workspaces = array_map(static function (string $id): array {
+            return [
+                'id' => $id,
+                'name' => self::resolve_workspace_name($id),
+            ];
+        }, $workspace_ids);
+
+        return [
+            'status' => 'success',
+            'file_id' => $file_id,
+            'workspace_id' => $workspace_id,
+            'workspace_ids' => $workspace_ids,
+            'pinned_workspaces' => $pinned_workspaces,
+            'shared_workspace_ids' => self::get_shared_workspace_ids_for_file($file_id),
+            'shared' => self::is_file_shared_to_workspace($file_id, $workspace_id),
+        ];
+    }
+
+    public static function ajax_get_pinned_workspaces(array $request): array
+    {
+        $file_id = max(0, (int) ($request['file_id'] ?? 0));
+        if ($file_id <= 0) {
+            throw new \Exception('Missing file id.');
+        }
+        self::get_editable_file_post($file_id);
+        $workspace_ids = VaultManager::get_file_pinned_workspace_ids($file_id);
+        $workspaces = [];
+        foreach ($workspace_ids as $workspace_id) {
+            $workspaces[] = [
+                'id' => $workspace_id,
+                'name' => self::resolve_workspace_name($workspace_id),
+            ];
+        }
+        return [
+            'file_id' => $file_id,
+            'workspace_ids' => $workspace_ids,
+            'pinned_workspaces' => $workspaces,
+            'workspaces' => $workspaces,
+            'shared_workspace_ids' => self::get_shared_workspace_ids_for_file($file_id),
+        ];
+    }
+
+    public static function ajax_share_to_workspace(array $request): array
+    {
+        $file_id = max(0, (int) ($request['file_id'] ?? 0));
+        if ($file_id <= 0) {
+            throw new \Exception('Missing file id.');
+        }
+        self::get_editable_file_post($file_id);
+
+        $workspace_id = sanitize_key((string) ($request['workspace_id'] ?? ''));
+        if ($workspace_id === '') {
+            throw new \Exception('Missing workspace id.');
+        }
+        if (function_exists('systemdeck_user_meets_workspace_access') && !systemdeck_user_meets_workspace_access(get_current_user_id(), $workspace_id)) {
+            throw new \Exception('Access denied.');
+        }
+
+        self::add_shared_workspace_for_file($file_id, $workspace_id);
+
+        return [
+            'status' => 'success',
+            'file_id' => $file_id,
+            'workspace_id' => $workspace_id,
+            'shared' => true,
+            'shared_workspace_ids' => self::get_shared_workspace_ids_for_file($file_id),
+            'workspace_ids' => VaultManager::get_file_pinned_workspace_ids($file_id),
+        ];
+    }
+
+    public static function ajax_unshare_from_workspace(array $request): array
+    {
+        $file_id = max(0, (int) ($request['file_id'] ?? 0));
+        if ($file_id <= 0) {
+            throw new \Exception('Missing file id.');
+        }
+        self::get_editable_file_post($file_id);
+
+        $workspace_id = sanitize_key((string) ($request['workspace_id'] ?? ''));
+        if ($workspace_id === '') {
+            throw new \Exception('Missing workspace id.');
+        }
+        if (function_exists('systemdeck_user_meets_workspace_access') && !systemdeck_user_meets_workspace_access(get_current_user_id(), $workspace_id)) {
+            throw new \Exception('Access denied.');
+        }
+
+        self::remove_shared_workspace_for_file($file_id, $workspace_id);
+
+        return [
+            'status' => 'success',
+            'file_id' => $file_id,
+            'workspace_id' => $workspace_id,
+            'shared' => self::is_file_shared_to_workspace($file_id, $workspace_id),
+            'shared_workspace_ids' => self::get_shared_workspace_ids_for_file($file_id),
+            'workspace_ids' => VaultManager::get_file_pinned_workspace_ids($file_id),
+        ];
+    }
+
+    public static function ajax_get_share_state(array $request): array
+    {
+        $file_id = max(0, (int) ($request['file_id'] ?? 0));
+        if ($file_id <= 0) {
+            throw new \Exception('Missing file id.');
+        }
+        self::get_editable_file_post($file_id);
+
+        $workspace_id = sanitize_key((string) ($request['workspace_id'] ?? ''));
+        $shared_workspace_ids = self::get_shared_workspace_ids_for_file($file_id);
+
+        return [
+            'status' => 'success',
+            'file_id' => $file_id,
+            'workspace_id' => $workspace_id,
+            'shared' => $workspace_id !== '' ? in_array($workspace_id, $shared_workspace_ids, true) : false,
+            'shared_workspace_ids' => $shared_workspace_ids,
+            'workspace_ids' => VaultManager::get_file_pinned_workspace_ids($file_id),
+        ];
+    }
+
+    /**
+     * Read authoritative pinned workspace IDs for a Vault file from projection rows.
+     *
+     * @return array<int,string>
+     */
+    private static function get_pinned_workspace_ids_for_file(int $file_id): array
+    {
+        return VaultManager::get_file_pinned_workspace_ids($file_id);
+    }
+
+    private static function get_shared_workspace_ids_for_file(int $file_id): array
+    {
+        $raw = get_post_meta($file_id, self::SHARED_WORKSPACE_IDS_META_KEY, true);
+        if (!is_array($raw)) {
+            $raw = [];
+        }
+        $ids = [];
+        foreach ($raw as $value) {
+            $id = sanitize_key((string) $value);
+            if ($id !== '') {
+                $ids[] = $id;
+            }
+        }
+        return array_values(array_unique($ids));
+    }
+
+    private static function is_file_shared_to_workspace(int $file_id, string $workspace_id): bool
+    {
+        $workspace_id = sanitize_key($workspace_id);
+        if ($workspace_id === '') {
+            return false;
+        }
+        return in_array($workspace_id, self::get_shared_workspace_ids_for_file($file_id), true);
+    }
+
+    private static function add_shared_workspace_for_file(int $file_id, string $workspace_id): void
+    {
+        $workspace_id = sanitize_key($workspace_id);
+        if ($workspace_id === '') {
+            return;
+        }
+        $ids = self::get_shared_workspace_ids_for_file($file_id);
+        if (!in_array($workspace_id, $ids, true)) {
+            $ids[] = $workspace_id;
+        }
+        update_post_meta($file_id, self::SHARED_WORKSPACE_IDS_META_KEY, array_values(array_unique($ids)));
+    }
+
+    private static function remove_shared_workspace_for_file(int $file_id, string $workspace_id): void
+    {
+        $workspace_id = sanitize_key($workspace_id);
+        if ($workspace_id === '') {
+            return;
+        }
+        $ids = array_values(array_filter(
+            self::get_shared_workspace_ids_for_file($file_id),
+            static fn (string $id): bool => $id !== $workspace_id
+        ));
+        if (empty($ids)) {
+            delete_post_meta($file_id, self::SHARED_WORKSPACE_IDS_META_KEY);
+            return;
+        }
+        update_post_meta($file_id, self::SHARED_WORKSPACE_IDS_META_KEY, $ids);
     }
 
     public static function handle_ajax_get_file_details()
@@ -760,6 +1238,14 @@ class Vault extends BaseWidget
                         <span class="dashicons dashicons-admin-media sd-button-icon" aria-hidden="true"></span>
                         <?php _e('Add from Media Library', 'systemdeck'); ?>
                     </button>
+                    <div class="sd-vault-view-toggle" role="group" aria-label="<?php esc_attr_e('Vault view mode', 'systemdeck'); ?>">
+                        <button type="button" class="button button-small is-primary sd-vault-view-mode" data-view-mode="mine">
+                            <?php _e('Mine', 'systemdeck'); ?>
+                        </button>
+                        <button type="button" class="button button-small sd-vault-view-mode" data-view-mode="shared">
+                            <?php _e('Shared', 'systemdeck'); ?>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="sd-table-container">
@@ -1400,16 +1886,36 @@ class Vault extends BaseWidget
         $attachment_artist = (string) ($attachment_payload['artist'] ?? '');
         $attachment_album = (string) ($attachment_payload['album'] ?? '');
 
+        $existing = [
+            'caption' => (string) get_post_meta($post_id, '_sd_vault_attachment_caption', true),
+            'description' => (string) get_post_meta($post_id, '_sd_vault_attachment_description', true),
+            'alt_text' => (string) get_post_meta($post_id, '_sd_vault_alt_text', true),
+            'artist' => (string) get_post_meta($post_id, '_sd_vault_attachment_artist', true),
+            'album' => (string) get_post_meta($post_id, '_sd_vault_attachment_album', true),
+        ];
+        $source = [
+            'caption' => (string) $attachment->post_excerpt,
+            'description' => (string) $attachment->post_content,
+            'alt_text' => (string) get_post_meta($attachment_id, '_wp_attachment_image_alt', true),
+            'artist' => $attachment_artist,
+            'album' => $attachment_album,
+        ];
+        $merged = VaultManager::merge_authoritative_metadata(
+            $existing,
+            $source,
+            ['caption', 'description', 'alt_text', 'artist', 'album']
+        );
+
         update_post_meta($post_id, self::ATTACHMENT_ID_META_KEY, $attachment_id);
         update_post_meta($post_id, self::ORIGIN_META_KEY, 'media');
         update_post_meta($post_id, '_sd_vault_mime_type', $mime);
         update_post_meta($post_id, '_sd_vault_file_size', $attached_file && is_file($attached_file) ? (int) filesize($attached_file) : 0);
         update_post_meta($post_id, '_sd_vault_original_filename', $source_filename);
-        update_post_meta($post_id, '_sd_vault_attachment_caption', (string) $attachment->post_excerpt);
-        update_post_meta($post_id, '_sd_vault_attachment_description', (string) $attachment->post_content);
-        update_post_meta($post_id, '_sd_vault_alt_text', (string) get_post_meta($attachment_id, '_wp_attachment_image_alt', true));
-        update_post_meta($post_id, '_sd_vault_attachment_artist', $attachment_artist);
-        update_post_meta($post_id, '_sd_vault_attachment_album', $attachment_album);
+        update_post_meta($post_id, '_sd_vault_attachment_caption', (string) ($merged['caption'] ?? ''));
+        update_post_meta($post_id, '_sd_vault_attachment_description', (string) ($merged['description'] ?? ''));
+        update_post_meta($post_id, '_sd_vault_alt_text', (string) ($merged['alt_text'] ?? ''));
+        update_post_meta($post_id, '_sd_vault_attachment_artist', (string) ($merged['artist'] ?? ''));
+        update_post_meta($post_id, '_sd_vault_attachment_album', (string) ($merged['album'] ?? ''));
         update_post_meta($post_id, self::ARTWORK_ATTACHMENT_ID_META_KEY, $artwork_attachment_id > 0 ? $artwork_attachment_id : '');
         update_post_meta($post_id, self::ARTWORK_URL_META_KEY, $artwork_url);
         update_post_meta($post_id, self::ARTWORK_PATH_META_KEY, $artwork_path);
@@ -1466,17 +1972,30 @@ class Vault extends BaseWidget
             return null;
         }
 
-        $vault_dir = VaultManager::ensure_user_vault_exists($vault_owner_id);
+        $vault_root_dir = VaultManager::get_vault_path();
+        if (!is_dir($vault_root_dir)) {
+            wp_mkdir_p($vault_root_dir);
+        }
+        $artwork_dir = trailingslashit($vault_root_dir) . 'artwork';
+        if (!is_dir($artwork_dir)) {
+            wp_mkdir_p($artwork_dir);
+        }
         $extension = self::guess_artwork_extension_from_mime($mime);
-        $base_name = sanitize_file_name(get_the_title($vault_id) ?: 'vault-artwork');
-        $target_filename = wp_unique_filename($vault_dir, "{$base_name}-{$label}.{$extension}");
-        $target_path = trailingslashit($vault_dir) . $target_filename;
-        if (file_put_contents($target_path, $binary) === false) {
-            return null;
+        $artwork_hash = hash('sha256', $binary);
+        $existing_matches = glob(trailingslashit($artwork_dir) . $artwork_hash . '.*') ?: [];
+        if (!empty($existing_matches) && is_file((string) $existing_matches[0])) {
+            $target_path = (string) $existing_matches[0];
+        } else {
+            $target_filename = $artwork_hash . '.' . $extension;
+            $target_path = trailingslashit($artwork_dir) . $target_filename;
+            if (file_put_contents($target_path, $binary) === false) {
+                return null;
+            }
         }
 
-        $relative_path = VaultManager::normalize_vault_relative_path($vault_owner_id . '/' . $target_filename);
-        $artwork_hash = hash('sha256', $binary);
+        $relative_path = VaultManager::normalize_vault_relative_path(
+            ltrim(str_replace($vault_root_dir, '', $target_path), '/')
+        );
 
         return [
             'attachment_id' => 0,
@@ -1538,20 +2057,60 @@ class Vault extends BaseWidget
         $album = (string) get_post_meta($vault_id, '_sd_vault_attachment_album', true);
         $artwork_attachment_id = max(0, (int) get_post_meta($vault_id, self::ARTWORK_ATTACHMENT_ID_META_KEY, true));
 
+        $attachment_post = get_post($attachment_id);
+        if (!$attachment_post || $attachment_post->post_type !== 'attachment') {
+            return;
+        }
+        $attachment_js = function_exists('wp_prepare_attachment_for_js')
+            ? wp_prepare_attachment_for_js($attachment_id)
+            : null;
+        $existing = [
+            'title' => (string) $attachment_post->post_title,
+            'content' => (string) $attachment_post->post_content,
+            'excerpt' => (string) $attachment_post->post_excerpt,
+            'alt_text' => (string) get_post_meta($attachment_id, '_wp_attachment_image_alt', true),
+            'artist' => is_array($attachment_js) ? (string) ($attachment_js['artist'] ?? $attachment_js['meta']['artist'] ?? '') : '',
+            'album' => is_array($attachment_js) ? (string) ($attachment_js['album'] ?? $attachment_js['meta']['album'] ?? '') : '',
+        ];
+        $source = [
+            'title' => (string) $vault_post->post_title,
+            'content' => (string) $vault_post->post_content,
+            'excerpt' => (string) get_post_meta($vault_id, '_sd_vault_attachment_caption', true),
+            'alt_text' => $alt_text,
+            'artist' => $artist,
+            'album' => $album,
+        ];
+        $merged = VaultManager::merge_authoritative_metadata(
+            $existing,
+            $source,
+            ['title', 'content', 'excerpt', 'alt_text', 'artist', 'album']
+        );
+
         wp_update_post([
             'ID' => $attachment_id,
-            'post_title' => $vault_post->post_title,
-            'post_content' => $vault_post->post_content,
-            'post_excerpt' => (string) get_post_meta($vault_id, '_sd_vault_attachment_caption', true),
+            'post_title' => (string) ($merged['title'] ?? ''),
+            'post_content' => (string) ($merged['content'] ?? ''),
+            'post_excerpt' => (string) ($merged['excerpt'] ?? ''),
         ]);
 
-        update_post_meta($attachment_id, '_wp_attachment_image_alt', $alt_text);
-        if ($artist !== '') {
-            update_post_meta($attachment_id, '_sd_vault_attachment_artist', $artist);
+        update_post_meta($attachment_id, '_wp_attachment_image_alt', (string) ($merged['alt_text'] ?? ''));
+        if ((string) ($merged['artist'] ?? '') !== '') {
+            update_post_meta($attachment_id, '_sd_vault_attachment_artist', (string) $merged['artist']);
         }
-        if ($album !== '') {
-            update_post_meta($attachment_id, '_sd_vault_attachment_album', $album);
+        if ((string) ($merged['album'] ?? '') !== '') {
+            update_post_meta($attachment_id, '_sd_vault_attachment_album', (string) $merged['album']);
         }
+        $attachment_metadata = wp_get_attachment_metadata($attachment_id);
+        if (!is_array($attachment_metadata)) {
+            $attachment_metadata = [];
+        }
+        if ((string) ($merged['artist'] ?? '') !== '') {
+            $attachment_metadata['artist'] = (string) $merged['artist'];
+        }
+        if ((string) ($merged['album'] ?? '') !== '') {
+            $attachment_metadata['album'] = (string) $merged['album'];
+        }
+        wp_update_attachment_metadata($attachment_id, $attachment_metadata);
         update_post_meta($attachment_id, self::VAULT_SOURCE_ID_META_KEY, $vault_id);
         update_post_meta($attachment_id, self::ORIGIN_META_KEY, 'vault');
         update_post_meta($attachment_id, self::AUTHORITY_META_KEY, (string) get_post_meta($vault_id, self::AUTHORITY_META_KEY, true));
@@ -2066,7 +2625,15 @@ class Vault extends BaseWidget
             'url' => $stream_url,
             'edit_url' => $edit_url,
             'comment_count' => (int) get_comments_number($post_id),
+            'allow_comments' => (string) get_post_field('comment_status', $post_id) === 'open',
         ];
+
+        $payload['pinned_workspace_ids'] = self::get_pinned_workspace_ids_for_file($post_id);
+        $payload['shared_workspace_ids'] = self::get_shared_workspace_ids_for_file($post_id);
+        $payload['is_shared'] = !empty($payload['shared_workspace_ids']);
+        if (!empty($payload['pinned_workspace_ids'])) {
+            $payload['is_pinned'] = true;
+        }
 
         $payload['metadata'] = array_filter([
             'id' => $post_id,
@@ -2242,10 +2809,26 @@ class Vault extends BaseWidget
         $paged = isset($request['paged']) ? max(1, intval($request['paged'])) : 1;
 
         $workspace_id = sanitize_key($request['workspace_id'] ?? '');
+        $view_mode = sanitize_key((string) ($request['view_mode'] ?? 'mine'));
+        if ($view_mode !== 'shared') {
+            $view_mode = 'mine';
+        }
+
+        if (
+            $workspace_id !== '' &&
+            function_exists('systemdeck_user_meets_workspace_access') &&
+            !systemdeck_user_meets_workspace_access($user_id, $workspace_id)
+        ) {
+            return [
+                'files' => [],
+                'total' => 0,
+                'max_pages' => 0,
+                'paged' => $paged,
+            ];
+        }
 
         $args = [
             'post_type' => self::CPT,
-            'author' => $user_id,
             'posts_per_page' => $limit,
             'paged' => $paged,
             'post_status' => ['publish', 'private', 'inherit'],
@@ -2267,7 +2850,35 @@ class Vault extends BaseWidget
             ],
         ];
 
-        if (!empty($workspace_id)) {
+        if ($view_mode === 'mine') {
+            $args['author'] = $user_id;
+        } else {
+            if ($workspace_id === '') {
+                return [
+                    'files' => [],
+                    'total' => 0,
+                    'max_pages' => 0,
+                    'paged' => $paged,
+                ];
+            }
+            $workspace_owner_id = self::resolve_workspace_owner_id($workspace_id, $user_id);
+            $is_collaborative = self::is_collaborative_workspace($workspace_id, $workspace_owner_id > 0 ? $workspace_owner_id : $user_id);
+            if (!$is_collaborative && $workspace_owner_id === $user_id) {
+                return [
+                    'files' => [],
+                    'total' => 0,
+                    'max_pages' => 0,
+                    'paged' => $paged,
+                ];
+            }
+            if (!$is_collaborative && $workspace_owner_id > 0) {
+                $args['author'] = $workspace_owner_id;
+            } else {
+                $args['author__not_in'] = [$user_id];
+            }
+        }
+
+        if (!empty($workspace_id) && $view_mode === 'mine') {
             $args['meta_query'] = [
                 'relation' => 'AND',
                 $args['meta_query'],
@@ -2283,6 +2894,25 @@ class Vault extends BaseWidget
                         'compare' => 'NOT EXISTS'
                     ]
                 ]
+            ];
+        }
+        if (!empty($workspace_id) && $view_mode === 'shared') {
+            $args['meta_query'] = [
+                'relation' => 'AND',
+                $args['meta_query'],
+                [
+                    'relation' => 'OR',
+                    [
+                        'key' => '_sd_vault_workspace_id',
+                        'value' => $workspace_id,
+                        'compare' => '=',
+                    ],
+                    [
+                        'key' => self::SHARED_WORKSPACE_IDS_META_KEY,
+                        'value' => '"' . $workspace_id . '"',
+                        'compare' => 'LIKE',
+                    ],
+                ],
             ];
         }
 
@@ -2304,6 +2934,46 @@ class Vault extends BaseWidget
             'max_pages' => $max_pages,
             'paged' => $paged,
         ];
+    }
+
+    private static function resolve_workspace_owner_id(string $workspace_id, int $fallback_user_id): int
+    {
+        $workspace_id = sanitize_key($workspace_id);
+        if ($workspace_id === '' || $workspace_id === 'default' || !class_exists('\\SystemDeck\\Core\\Services\\CanvasRepository')) {
+            return $fallback_user_id;
+        }
+
+        $posts = get_posts([
+            'post_type' => \SystemDeck\Core\Services\CanvasRepository::CPT,
+            'post_status' => ['publish', 'private', 'draft', 'pending'],
+            'posts_per_page' => 1,
+            'meta_query' => [
+                [
+                    'key' => \SystemDeck\Core\Services\CanvasRepository::META_WORKSPACE,
+                    'value' => $workspace_id,
+                    'compare' => '=',
+                ],
+            ],
+            'orderby' => 'ID',
+            'order' => 'DESC',
+            'no_found_rows' => true,
+        ]);
+
+        if (empty($posts) || !($posts[0] instanceof \WP_Post)) {
+            return $fallback_user_id;
+        }
+        $owner_id = (int) $posts[0]->post_author;
+        return $owner_id > 0 ? $owner_id : $fallback_user_id;
+    }
+
+    private static function is_collaborative_workspace(string $workspace_id, int $user_id = 0): bool
+    {
+        $workspace_id = sanitize_key($workspace_id);
+        if ($workspace_id === '' || $workspace_id === 'default' || !class_exists('\\SystemDeck\\Core\\Services\\CanvasRepository')) {
+            return false;
+        }
+
+        return \SystemDeck\Core\Services\CanvasRepository::get_workspace_collaboration_mode($workspace_id, $user_id) === 'collaborative';
     }
 
     public static function ajax_delete_file($request): array
@@ -2365,10 +3035,8 @@ class Vault extends BaseWidget
         $alt_text = sanitize_text_field((string) ($request['alt_text'] ?? ''));
         $artist = sanitize_text_field((string) ($request['artist'] ?? ''));
         $album = sanitize_text_field((string) ($request['album'] ?? ''));
-        $scope = self::normalize_scope_value(sanitize_text_field((string) ($request['scope'] ?? 'private')));
-        $workspace_id = sanitize_key($request['workspace_id'] ?? '');
-        $workspace_name = sanitize_text_field((string) ($request['workspace_name'] ?? self::resolve_workspace_name($workspace_id)));
         $priority = sanitize_key($request['priority'] ?? 'low');
+        $allow_comments = !empty($request['allow_comments']);
         $storage_mode = self::get_storage_mode($id);
 
         if ($storage_mode !== 'media_public') {
@@ -2379,29 +3047,21 @@ class Vault extends BaseWidget
             ]);
         }
 
-        update_post_meta($id, '_sd_vault_scope', $scope);
         update_post_meta($id, '_sd_vault_priority', $priority);
         update_post_meta($id, '_sd_vault_attachment_caption', $caption);
         update_post_meta($id, '_sd_vault_alt_text', $alt_text);
         update_post_meta($id, '_sd_vault_attachment_artist', $artist);
         update_post_meta($id, '_sd_vault_attachment_album', $album);
-        if ($scope === 'pinned' && $workspace_id) {
-            // Workspace write gate — delegates to core ObjectAccessGate.
-            \SystemDeck\Core\Services\ObjectAccessGate::require_workspace_write(get_current_user_id(), $workspace_id);
-            update_post_meta($id, '_sd_vault_workspace_id', $workspace_id);
-            update_post_meta($id, self::WORKSPACE_NAME_META_KEY, $workspace_name !== '' ? $workspace_name : self::resolve_workspace_name($workspace_id));
-            if (!get_post_meta($id, self::ORIGIN_WORKSPACE_ID_META_KEY, true)) {
-                update_post_meta($id, self::ORIGIN_WORKSPACE_ID_META_KEY, $workspace_id);
-            }
-            if (!get_post_meta($id, self::ORIGIN_WORKSPACE_NAME_META_KEY, true) && $workspace_name !== '') {
-                update_post_meta($id, self::ORIGIN_WORKSPACE_NAME_META_KEY, $workspace_name);
-            }
-        } else {
-            delete_post_meta($id, '_sd_vault_workspace_id');
-            delete_post_meta($id, self::WORKSPACE_NAME_META_KEY);
+        wp_update_post([
+            'ID' => $id,
+            'comment_status' => $allow_comments ? 'open' : 'closed',
+        ]);
+        // Save-details is pin-neutral: update metadata only, never pin membership.
+        // Refresh projections for currently pinned workspaces without changing scope/workspace truth.
+        $pinned_workspace_ids = \SystemDeck\Core\VaultManager::get_file_pinned_workspace_ids($id);
+        foreach ($pinned_workspace_ids as $pinned_workspace_id) {
+            self::sync_vault_projection($id, 'pinned', (string) $pinned_workspace_id);
         }
-
-        self::sync_vault_projection($id, $scope, $workspace_id);
 
         return ['status' => 'success'];
     }
@@ -2547,16 +3207,22 @@ class Vault extends BaseWidget
             $icon = 'dashicons-editor-alignleft';
 
         $stream_url = self::build_private_stream_url($file_id);
+        $is_audio_like = (strpos($mime, 'audio/') === 0 || strpos($mime, 'midi') !== false);
+        $artwork_url = (string) get_post_meta($file_id, '_sd_vault_artwork_url', true);
+        $mime_icon_url = (string) wp_mime_type_icon($mime ?: 'application/octet-stream');
+        $workspace_name = self::resolve_workspace_name($workspace_id);
         $payload = [
-            'type' => 'vault',
+            'type' => $is_audio_like ? 'audio_tile' : 'vault',
             'object_id' => $file_id,
             'workspace_id' => $workspace_id,
             'title' => $title,
             'data' => [
                 'file_type' => (string) $mime,
                 'url' => $stream_url,
+                'artworkUrl' => $artwork_url,
+                'mime_icon_url' => $mime_icon_url,
             ],
-            'grid_span' => '2x1',
+            'grid_span' => $is_audio_like ? '1x1' : '2x1',
             'renderer' => 'dom',
         ];
         error_log('[VAULT PROJECTION] sync start: ' . wp_json_encode([
@@ -2568,24 +3234,40 @@ class Vault extends BaseWidget
 
         $settings = [
             'fileId' => $file_id,
-            'type' => 'vault',
-            'pin_kind' => 'pinned_file',
+            'type' => $is_audio_like ? 'audio_tile' : 'vault',
+            'pin_kind' => $is_audio_like ? 'audio_tile' : 'pinned_file',
             'label' => $title,
             'title' => $title,
             'icon' => $icon,
-            'grid_span' => '2x1',
-            'size' => '2x1',
+            'grid_span' => $is_audio_like ? '1x1' : '2x1',
+            'size' => $is_audio_like ? '1x1' : '2x1',
             'renderer' => 'dom',
             'design_template' => 'default',
             'sticky_level' => get_post_meta($file_id, '_sd_vault_priority', true) ?: 'low',
+            'track_id' => $file_id,
+            'source' => 'vault',
+            'url' => $stream_url,
+            'artworkUrl' => $artwork_url,
+            'mime' => (string) $mime,
+            'mime_icon_url' => $mime_icon_url,
+            'workspace_id' => (string) $workspace_id,
+            'workspace_name' => (string) $workspace_name,
             'data' => [
                 'fileId' => $file_id,
-                'type' => 'vault',
-                'pin_kind' => 'pinned_file',
+                'type' => $is_audio_like ? 'audio_tile' : 'vault',
+                'pin_kind' => $is_audio_like ? 'audio_tile' : 'pinned_file',
                 'label' => $title,
                 'icon' => $icon,
                 'file_type' => (string) $mime,
                 'url' => $stream_url,
+                'track_id' => $file_id,
+                'source' => 'vault',
+                'title' => $title,
+                'artworkUrl' => $artwork_url,
+                'mime' => (string) $mime,
+                'mime_icon_url' => $mime_icon_url,
+                'workspace_id' => (string) $workspace_id,
+                'workspace_name' => (string) $workspace_name,
                 'sticky_level' => get_post_meta($file_id, '_sd_vault_priority', true) ?: 'low',
             ],
         ];
@@ -2599,6 +3281,30 @@ class Vault extends BaseWidget
             'pinned'
         );
         error_log('[VAULT PROJECTION] sync complete');
+    }
+
+    private static function remove_vault_projection_for_workspace(int $file_id, string $workspace_id): void
+    {
+        global $wpdb;
+        $workspace_id = sanitize_key($workspace_id);
+        if ($file_id <= 0 || $workspace_id === '') {
+            return;
+        }
+        $table_items = $wpdb->prefix . 'sd_items';
+        $widget_id = 'vault.' . $file_id;
+        $context = new Context((int) get_current_user_id(), $workspace_id);
+        $effective_workspace_id = StorageEngine::resolve_item_workspace_key_for_context($context, 'pins');
+        if ($effective_workspace_id === '') {
+            $effective_workspace_id = $workspace_id;
+        }
+        $wpdb->delete(
+            $table_items,
+            [
+                'widget_id' => $widget_id,
+                'workspace_id' => $effective_workspace_id,
+            ],
+            ['%s', '%s']
+        );
     }
 
     public static function ajax_export_to_media_library($request): array
@@ -2758,7 +3464,12 @@ class Vault extends BaseWidget
             'pinned'
         );
 
-        return ['comments' => \SystemDeck\Core\Services\CommentService::get_comment_tree($file_id)];
+        $comments = \SystemDeck\Core\Services\CommentService::get_comment_tree($file_id);
+        return [
+            'comments' => $comments,
+            'html' => \SystemDeck\Core\Services\CommentService::render_comment_tree_html($comments),
+            'count' => \SystemDeck\Core\Services\CommentService::count_comment_nodes($comments),
+        ];
     }
 
     public static function ajax_add_file_comment($request): array
@@ -2766,7 +3477,7 @@ class Vault extends BaseWidget
         $file_id = intval($request['file_id'] ?? 0);
         $content = $request['content'] ?? '';
         $user_id = get_current_user_id();
-        $parent_id = intval($request['parent_id'] ?? 0);
+        $parent_id = intval($request['comment_parent'] ?? ($request['parent_id'] ?? 0));
         self::get_scope_value($file_id);
 
         $comment_id = \SystemDeck\Core\Services\CommentService::add_comment(

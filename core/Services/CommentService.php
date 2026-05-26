@@ -1,4 +1,5 @@
 <?php
+
 /**
  * SystemDeck - CommentService
  *
@@ -46,7 +47,7 @@ final class CommentService
                 'author'    => $comment->comment_author,
                 'content'   => wpautop(wp_kses_post($comment->comment_content)),
                 'date'      => human_time_diff(strtotime($comment->comment_date), current_time('timestamp')) . ' ' . __('ago', 'systemdeck'),
-                'avatar'    => get_avatar_url($comment->user_id, ['size' => 32]),
+                'avatar'    => get_avatar_url($comment->user_id, ['size' => 44]),
                 'parent_id' => (int) $comment->comment_parent,
                 'replies'   => [],
             ];
@@ -82,6 +83,51 @@ final class CommentService
         }
 
         return array_values($comment_tree);
+    }
+
+    /**
+     * Render nested comment thread HTML from a comment tree payload.
+     *
+     * @param array $comments Tree from get_comment_tree().
+     * @return string
+     */
+    public static function render_comment_tree_html(array $comments): string
+    {
+        if (empty($comments)) {
+            return '<p class="description sd-comments-empty">' . esc_html__('No comments yet.', 'systemdeck') . '</p>';
+        }
+
+        $html = '<ol class="comment-list sd-thread-list">';
+        foreach ($comments as $comment) {
+            if (!is_array($comment)) {
+                continue;
+            }
+            $html .= self::render_comment_node_html($comment, false);
+        }
+        $html .= '</ol>';
+        return $html;
+    }
+
+    /**
+     * Count all nodes in a threaded comment array.
+     *
+     * @param array $comments
+     * @return int
+     */
+    public static function count_comment_nodes(array $comments): int
+    {
+        $count = 0;
+        foreach ($comments as $comment) {
+            if (!is_array($comment)) {
+                continue;
+            }
+            $count++;
+            $replies = isset($comment['replies']) && is_array($comment['replies']) ? $comment['replies'] : [];
+            if (!empty($replies)) {
+                $count += self::count_comment_nodes($replies);
+            }
+        }
+        return $count;
     }
 
     /**
@@ -136,5 +182,51 @@ final class CommentService
         }
 
         return (int) $comment_id;
+    }
+
+    private static function render_comment_node_html(array $comment, bool $is_reply): string
+    {
+        $wrapper_class = $is_reply
+            ? 'sd-thread-item sd-thread-comment sd-thread-reply'
+            : 'sd-thread-item sd-thread-comment';
+
+        $avatar = esc_url((string) ($comment['avatar'] ?? ''));
+        $author = esc_html((string) ($comment['author'] ?? 'User'));
+        $date = esc_html((string) ($comment['date'] ?? ''));
+        $content = wp_kses_post((string) ($comment['content'] ?? ''));
+        $comment_id = (int) ($comment['id'] ?? 0);
+        $reply_btn = $comment_id <= 0
+            ? ''
+            : '<button class="button-link button-small sd-reply-btn" data-id="' . esc_attr((string) $comment_id) . '">' . esc_html__('Reply', 'systemdeck') . '</button>';
+
+        $html = '<li class="' . esc_attr($wrapper_class) . '" data-comment-id="' . esc_attr((string) $comment_id) . '">';
+        $html .= '<div class="sd-thread-row">';
+        $html .= '<img class="sd-thread-avatar avatar" src="' . $avatar . '" alt="' . $author . '" width="44" height="44">';
+        $html .= '<div class="sd-thread-main">';
+        $html .= '<div class="sd-thread-head comment-meta">';
+        $html .= '<span class="sd-thread-author">' . $author . '</span>';
+        $html .= '<span class="sd-thread-time sd-note-comment-date">' . $date . '</span>';
+        $html .= '</div>';
+        $html .= '<div class="sd-thread-body sd-thread-content comment-content">' . $content . '</div>';
+        if ($reply_btn !== '') {
+            $html .= '<div class="sd-thread-actions">' . $reply_btn . '</div>';
+        }
+        $html .= '</div>';
+        $html .= '</div>';
+
+        $replies = isset($comment['replies']) && is_array($comment['replies']) ? $comment['replies'] : [];
+        if (!empty($replies)) {
+            $html .= '<ol class="sd-thread-children sd-thread-replies">';
+            foreach ($replies as $reply) {
+                if (!is_array($reply)) {
+                    continue;
+                }
+                $html .= self::render_comment_node_html($reply, true);
+            }
+            $html .= '</ol>';
+        }
+
+        $html .= '</li>';
+        return $html;
     }
 }

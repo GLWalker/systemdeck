@@ -519,7 +519,7 @@ class Assets
 
     public static function enqueue_frontend_assets(): void
     {
-        if (!current_user_can('manage_options')) {
+        if (function_exists('systemdeck_user_can_boot') && !systemdeck_user_can_boot()) {
             return;
         }
         self::enqueue_admin_assets();

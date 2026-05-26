@@ -58,7 +58,10 @@
 	clear: both;
 	width: 100%;
 	margin: 20px 0;
-	text-align: right;
+	text-align: left;
+	display: flex;
+	align-items: center;
+	gap: 12px;
 }
 
 .sd-vault-media-extension {

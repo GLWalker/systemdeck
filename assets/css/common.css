@@ -659,21 +659,6 @@ body.sd-visual-mode-active {
     display: none;
 }
 
-.sd-modal-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background-color: rgba(0, 0, 0, 0.35);
-    z-index: 100000;
-    align-items: center;
-    justify-content: center;
-}
-
-.sd-modal-overlay[style*="display: block"],
-.sd-modal-overlay[style*="display:block"] {
-    display: flex !important;
-}
-
 /* ==========================================================================
    2. SystemDeck widget shell extensions
    ========================================================================== */
@@ -1177,6 +1162,57 @@ body.sd-visual-mode-active {
 /* ==========================================================================
    7. Comment, activity, and discussion patterns
    ========================================================================== */
+
+/* WP Core Parity: Comment Bubbles */
+:is(#systemdeck, .systemdeck-scope) .post-com-count-wrapper {
+    white-space: nowrap;
+    word-wrap: normal;
+}
+
+:is(#systemdeck, .systemdeck-scope) .post-com-count-wrapper strong {
+    font-weight: 400;
+}
+
+:is(#systemdeck, .systemdeck-scope) .post-com-count {
+    display: inline-block;
+    vertical-align: top;
+    margin-top: 5px;
+    text-decoration: none;
+}
+
+:is(#systemdeck, .systemdeck-scope) .comment-count-approved {
+    box-sizing: border-box;
+    display: block;
+    padding: 0 8px;
+    min-width: 24px;
+    height: 2em;
+    border-radius: 5px;
+    background-color: #646970;
+    color: #fff;
+    font-size: 11px;
+    line-height: 1.90909090;
+    text-align: center;
+}
+
+:is(#systemdeck, .systemdeck-scope) .post-com-count:after {
+    content: "";
+    display: block;
+    margin-left: 8px;
+    width: 0;
+    height: 0;
+    border-top: 5px solid #646970;
+    border-right: 5px solid transparent;
+}
+
+:is(#systemdeck, .systemdeck-scope) a.post-com-count:hover .comment-count-approved,
+:is(#systemdeck, .systemdeck-scope) a.post-com-count:focus .comment-count-approved {
+    background: #2271b1;
+}
+
+:is(#systemdeck, .systemdeck-scope) a.post-com-count:hover:after,
+:is(#systemdeck, .systemdeck-scope) a.post-com-count:focus:after {
+    border-top-color: #2271b1;
+}
 
 :is(#systemdeck, .systemdeck-scope) .dashboard-comment-wrap {
     display: flex;

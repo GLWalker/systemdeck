@@ -159,6 +159,29 @@ function systemdeck_register_infrastructure(): void
         }
     }, 1);
 
+    // Re-assert dashicons late in admin style lifecycle when advanced modal
+    // audio is enabled. Some stacks deregister/dequeue it after enqueue hooks.
+    add_action('admin_print_styles', static function () {
+        $user_id = get_current_user_id();
+        if ($user_id <= 0) {
+            return;
+        }
+        $advanced_media_modal = get_user_meta($user_id, 'sd_advanced_audio_media_modal', true) === '1';
+        $advanced_vault_modal = get_user_meta($user_id, 'sd_advanced_audio_vault_modal', true) === '1';
+        if (!$advanced_media_modal && !$advanced_vault_modal) {
+            return;
+        }
+        if (!wp_style_is('dashicons', 'registered')) {
+            wp_register_style(
+                'dashicons',
+                includes_url('css/dashicons.min.css'),
+                [],
+                get_bloginfo('version')
+            );
+        }
+        wp_enqueue_style('dashicons');
+    }, 1000);
+
     if (class_exists('\\SystemDeck\\Core\\Logo')) {
         \SystemDeck\Core\Logo::init();
     }
@@ -553,6 +576,37 @@ function systemdeck_user_can(string $permission, string $workspace_id = ''): boo
 
 class SystemDeck_Assets
 {
+    private static function should_enqueue_advanced_audio_assets_for_admin(): bool
+    {
+        if (!is_admin()) {
+            return false;
+        }
+
+        static $cached = null;
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $user_id = get_current_user_id();
+        if ($user_id <= 0) {
+            $cached = false;
+            return $cached;
+        }
+
+        $advanced_media_modal = get_user_meta($user_id, 'sd_advanced_audio_media_modal', true) === '1';
+        $advanced_vault_modal = get_user_meta($user_id, 'sd_advanced_audio_vault_modal', true) === '1';
+        if (!$advanced_media_modal && !$advanced_vault_modal) {
+            $cached = false;
+            return $cached;
+        }
+
+        // Toggle-controlled authority: when either advanced-audio toggle is ON,
+        // modal-capable admin surfaces must have the core player stack available
+        // regardless of workspace layout or widget activation.
+        $cached = true;
+
+        return $cached;
+    }
 
     /**
      * Boot the System.
@@ -637,20 +691,28 @@ class SystemDeck_Assets
         $playback_adapter_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'assets/js/sd-playback-adapter.js') ?: SYSTEMDECK_VERSION);
         $audio_identity_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'assets/js/sd-audio-identity.js') ?: SYSTEMDECK_VERSION);
         $audio_memory_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'assets/js/sd-audio-memory.js') ?: SYSTEMDECK_VERSION);
-        $player_style_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'widgets/player/style.css') ?: SYSTEMDECK_VERSION);
-        $player_app_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'widgets/player/app.js') ?: SYSTEMDECK_VERSION);
+        $player_style_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'assets/css/systemdeck-player.css') ?: SYSTEMDECK_VERSION);
+        $player_app_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'assets/js/sd-player-app.js') ?: SYSTEMDECK_VERSION);
+        $modal_shell_js_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'modals/modal-shell.js') ?: SYSTEMDECK_VERSION);
+        $modal_shell_css_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'modals/modal-shell.css') ?: SYSTEMDECK_VERSION);
+        $modal_comments_js_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'modals/comments-modal.js') ?: SYSTEMDECK_VERSION);
+        $modal_comments_css_ver = (string) (@filemtime(SYSTEMDECK_PATH . 'modals/comments-modal.css') ?: SYSTEMDECK_VERSION);
 
         wp_register_script('tone', SYSTEMDECK_URL . 'assets/vendor/tone.min.js', [], $tone_ver, true);
         wp_register_script('sd-tonejs-midi', SYSTEMDECK_URL . 'assets/vendor/tonejs-midi.min.js', [], $tonejs_midi_ver, true);
-        wp_register_script('sd-audio-engine', SYSTEMDECK_URL . 'assets/js/sd-audio-engine.js', [], $audio_engine_ver, true);
+        wp_register_script('sd-audio-engine', SYSTEMDECK_URL . 'assets/js/sd-audio-engine.js', ['tone'], $audio_engine_ver, true);
         wp_register_script('sd-playback-adapter', SYSTEMDECK_URL . 'assets/js/sd-playback-adapter.js', ['jquery', 'sd-audio-engine'], $playback_adapter_ver, true);
         wp_register_script('sd-audio-identity', SYSTEMDECK_URL . 'assets/js/sd-audio-identity.js', [], $audio_identity_ver, true);
         wp_register_script('sd-audio-memory', SYSTEMDECK_URL . 'assets/js/sd-audio-memory.js', ['wp-api-fetch', 'sd-audio-identity'], $audio_memory_ver, true);
         if (class_exists('\\SystemDeck\\Core\\Assets')) {
             \SystemDeck\Core\Assets::register_all();
         }
-        wp_register_style('sd-player-style', SYSTEMDECK_URL . 'widgets/player/style.css', ['sd-common', 'dashicons'], $player_style_ver);
-        wp_register_script('sd-player-app', SYSTEMDECK_URL . 'widgets/player/app.js', ['jquery', 'sd-audio-engine'], $player_app_ver, true);
+        wp_register_style('sd-player-style', SYSTEMDECK_URL . 'assets/css/systemdeck-player.css', ['sd-common', 'dashicons'], $player_style_ver);
+        wp_register_script('sd-player-app', SYSTEMDECK_URL . 'assets/js/sd-player-app.js', ['jquery', 'sd-audio-engine', 'sd-playback-adapter'], $player_app_ver, true);
+        wp_register_style('sd-modal-shell-style', SYSTEMDECK_URL . 'modals/modal-shell.css', [], $modal_shell_css_ver);
+        wp_register_script('sd-modal-shell', SYSTEMDECK_URL . 'modals/modal-shell.js', ['wp-element'], $modal_shell_js_ver, true);
+        wp_register_style('sd-modal-comments-style', SYSTEMDECK_URL . 'modals/comments-modal.css', ['sd-modal-shell-style'], $modal_comments_css_ver);
+        wp_register_script('sd-modal-comments', SYSTEMDECK_URL . 'modals/comments-modal.js', ['wp-element', 'sd-modal-shell'], $modal_comments_js_ver, true);
         wp_add_inline_script(
             'sd-audio-engine',
             'window.SYSTEMDECK_AUDIO_ASSETS = Object.assign({}, window.SYSTEMDECK_AUDIO_ASSETS || {}, ' . wp_json_encode([
@@ -663,6 +725,38 @@ class SystemDeck_Assets
         );
         wp_register_style('systemdeck-shell', SYSTEMDECK_URL . 'assets/css/systemdeck-shell.css', ['dashicons'], SYSTEMDECK_VERSION);
         wp_register_script('systemdeck-shell', SYSTEMDECK_URL . 'assets/js/systemdeck-shell.js', ['jquery'], SYSTEMDECK_VERSION, true);
+
+        if (self::should_enqueue_advanced_audio_assets_for_admin()) {
+            if (!wp_style_is('dashicons', 'registered')) {
+                wp_register_style(
+                    'dashicons',
+                    includes_url('css/dashicons.min.css'),
+                    [],
+                    get_bloginfo('version')
+                );
+            }
+            wp_enqueue_style('dashicons');
+            wp_enqueue_style('sd-player-style');
+            wp_enqueue_script('tone');
+            wp_enqueue_script('sd-audio-engine');
+            wp_enqueue_script('sd-playback-adapter');
+            wp_enqueue_script('sd-player-app');
+        }
+
+        if (is_user_logged_in()) {
+            wp_enqueue_style('sd-modal-shell-style');
+            wp_enqueue_style('sd-modal-comments-style');
+            wp_enqueue_script('sd-modal-shell');
+            wp_enqueue_script('sd-modal-comments');
+            wp_add_inline_script(
+                'sd-modal-shell',
+                'window.SystemDeckModalEnv = Object.assign({}, window.SystemDeckModalEnv || {}, ' . wp_json_encode([
+                    'ajaxUrl' => admin_url('admin-ajax.php'),
+                    'nonce' => wp_create_nonce('systemdeck_runtime'),
+                ]) . ');',
+                'before'
+            );
+        }
 
         // Build Payload
         $user_id = get_current_user_id();

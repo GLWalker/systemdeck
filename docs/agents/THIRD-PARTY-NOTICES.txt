@@ -1,0 +1,4 @@
+PixiJS — MIT License
+Tone / tonejs-midi — MIT License
+
+These are the only bundled third-party libs introduced so far.

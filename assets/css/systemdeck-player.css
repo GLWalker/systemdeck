@@ -2,6 +2,72 @@
  * SystemDeck Player v2 (scoped)
  */
 
+/* Dashicons fallback for modal/player scopes where wp-admin styles may not
+ * reliably provide icon class mappings at render time.
+ */
+@font-face {
+    font-family: dashicons;
+    src: url("/wp-includes/fonts/dashicons.woff") format("woff");
+    font-weight: 400;
+    font-style: normal;
+}
+
+.sd-player-root .dashicons,
+.sd-player-root .dashicons-before:before {
+    font-family: dashicons !important;
+    display: inline-block;
+    line-height: 1;
+    font-weight: 400;
+    font-style: normal;
+    text-decoration: inherit;
+    text-transform: none;
+    text-rendering: auto;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    vertical-align: top;
+    text-align: center;
+}
+
+.sd-player-root .dashicons-format-audio:before {
+    content: "\f127";
+}
+
+.sd-player-root .dashicons-controls-back:before {
+    content: "\f518";
+}
+
+.sd-player-root .dashicons-controls-play:before {
+    content: "\f522";
+}
+
+.sd-player-root .dashicons-controls-pause:before {
+    content: "\f523";
+}
+
+.sd-player-root .dashicons-controls-forward:before {
+    content: "\f519";
+}
+
+.sd-player-root .dashicons-migrate:before {
+    content: "\f310";
+}
+
+.sd-player-root .dashicons-controls-repeat:before {
+    content: "\f515";
+}
+
+.sd-player-root .dashicons-controls-volumeoff:before {
+    content: "\f520";
+}
+
+.sd-player-root .dashicons-controls-volumeon:before {
+    content: "\f521";
+}
+
+.sd-player-root .dashicons-no:before {
+    content: "\f158";
+}
+
 /* Root / lifecycle */
 .sd-player-root {
     display: block;
@@ -310,16 +376,15 @@
 .sd-player-root .sd-player-transport {
     display: flex;
     justify-content: flex-end;
-    gap: 6px;
+    gap: 5px;
     align-items: center;
-    min-height: 32px;
+    min-height: 28px;
 }
 
 .sd-player-root .sd-player-transport .sd-transport-btn {
-    min-width: 32px;
-    width: 32px;
-    height: 32px;
-    padding: 0;
+    min-width: 28px;
+    width: 28px;
+    height: 28px;
     border-radius: 6px;
     display: inline-flex;
     align-items: center;
@@ -333,10 +398,12 @@
         background-color 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 
-.sd-player-root .sd-player-transport .sd-transport-btn .dashicons {
-    font-size: 16px !important;
-    width: 16px;
-    height: 16px;
+.sd-player-root .sd-player-transport .sd-transport-btn .sd-button-icon {
+    font-size: 18px !important;
+    width: 18px;
+    height: 18px;
+    margin: 0 auto !important;
+    margin-bottom: 4px !important;
 }
 
 .sd-player-root .sd-player-transport .sd-transport-btn:hover:not(:disabled) {
@@ -344,10 +411,6 @@
     border-color: #a7aaad;
     box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05), inset 0 -1px 0 rgba(0, 0, 0, 0.04);
     transform: translateY(-1px);
-}
-
-.sd-player-root .sd-player-transport .sd-transport-btn.sd-transport-btn-mode {
-    margin-left: 4px;
 }
 
 .sd-player-root .sd-player-transport .sd-transport-btn.is-active {
@@ -595,6 +658,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    width: 33%;
 }
 
 .sd-player-root .sd-player-eq-preamp-row label span {
@@ -618,8 +682,8 @@
 .sd-player-root .sd-player-eq-preamp-row input[type="range"]::-webkit-slider-thumb {
     appearance: none;
     -webkit-appearance: none;
-    width: 12px;
-    height: 12px;
+    width: 16px;
+    height: 16px;
     background: #2271b1;
     border-radius: 50%;
     border: 0;
@@ -731,7 +795,7 @@
 .sd-player-root .sd-player-eq-lane {
     position: relative;
     height: var(--sd-eq-rail-height);
-    width: 20px;
+    width: 18px;
     display: grid;
     place-items: center;
 }
@@ -741,7 +805,16 @@
 }
 
 .sd-player-root .sd-player-eq-rail {
-    display: none;
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 6px;
+    height: var(--sd-eq-rail-height);
+    transform: translateX(-50%);
+    background: #c3c4c7;
+    border-radius: 999px;
+    z-index: 1;
 }
 
 .sd-player-root .sd-player-eq-band span {
@@ -757,33 +830,34 @@
 
 /* EQ vertical sliders (scoped after generic range rules to win specificity) */
 .sd-player-root .sd-player-eq-band input[type="range"] {
+    position: relative;
+    z-index: 2;
     margin: 0;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    box-shadow: none;
+    width: 18px;
     height: var(--sd-eq-rail-height);
-    width: 6px;
     appearance: none;
     -webkit-appearance: none;
     writing-mode: vertical-lr;
     direction: rtl;
-    background: #c3c4c7;
-    position: relative;
-    z-index: 2;
+    background: transparent !important;
     accent-color: #2271b1;
-    border-radius: 999px;
 }
 
 .sd-player-root .sd-player-eq-band input[type="range"]::-webkit-slider-runnable-track {
-    -webkit-appearance: none;
-    background: #c3c4c7;
-    border: 0;
+
+    background: transparent;
     width: 6px;
-    border-radius: 999px;
+    border: 0;
 }
 
 .sd-player-root .sd-player-eq-band input[type="range"]::-moz-range-track {
-    background: #c3c4c7;
-    border: 0;
+    background: transparent;
     width: 6px;
-    border-radius: 999px;
+    border: 0;
 }
 
 .sd-player-root .sd-player-eq-band input[type="range"]::-moz-range-progress {
@@ -849,8 +923,8 @@
 .sd-player-root .sd-player-track-row input[type="range"]::-webkit-slider-thumb,
 .sd-player-root .sd-player-advanced-eq input[type="range"]::-webkit-slider-thumb {
     appearance: none;
-    width: 12px;
-    height: 12px;
+    width: 16px;
+    height: 16px;
     background: #2271b1;
     border-radius: 50%;
     border: 0;
@@ -1046,4 +1120,39 @@
         align-items: flex-start;
         flex-direction: column;
     }
+}
+
+/* Overrides for media library modal*/
+
+.media-modal-content .attachment-details {
+    position: relative !important;
+}
+
+.edit-attachment-frame .attachment-media-view .thumbnail {
+    padding: 0;
+}
+
+.sd-vault-details-preview-shell .sd-vault-modal-player-surface,
+.media-modal-content .sd-vault-modal-player-surface {
+    margin-top: 0;
+    border: none;
+    padding: 12px;
+}
+
+.media-modal-content .sd-player-transport .sd-transport-btn {
+    min-width: 28px;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+}
+
+.media-modal-content .sd-player-transport .sd-transport-btn .sd-button-icon {
+    margin-left: -3px !important;
+}
+
+.media-modal-content .sd-player-transport .sd-transport-btn[data-action="prev"],
+.media-modal-content .sd-player-transport .sd-transport-btn[data-action="next"],
+.media-modal-content .sd-player-transport .sd-transport-btn[data-action="autoplay"],
+.media-modal-content .sd-player-load-block {
+    display: none !important;
 }

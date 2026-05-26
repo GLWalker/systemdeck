@@ -69,10 +69,13 @@
 		externalEventsBound: false,
 		currentPage: 1,
 		totalPages: 1,
+		viewMode: "mine",
 		currentFiles: [],
 		wrapper: null,
 		currentDetailsFile: null,
 		detailsRequestToken: 0,
+		pendingWorkspacePins: {},
+		pinRefreshTimer: null,
 
 		init: function () {
 			if (this.interval) clearInterval(this.interval)
@@ -159,6 +162,49 @@
 					}
 				},
 			)
+
+			document.addEventListener(
+				"systemdeck:comments:count-updated",
+				function (e) {
+					const detail = e?.detail || {}
+					const targetType = String(
+						detail.targetType || "",
+					).toLowerCase()
+					if (targetType !== "vault_file" && targetType !== "vault") return
+					const fileId = Number(detail.targetId || 0)
+					const count = Number(detail.count || 0)
+					if (!fileId) return
+					self.sdVaultUpdateCommentCount(fileId, count)
+				},
+			)
+		},
+
+		sdVaultUpdateCommentCount: function (fileId, newCount) {
+			const safeFileId = Number(fileId || 0)
+			if (!safeFileId) return
+			const safeCount = Math.max(0, Number(newCount || 0))
+			const row = this.wrapper?.find(
+				`.sd-vault-item[data-id="${safeFileId}"]`,
+			)
+			if (!row || !row.length) return
+			const cell = row.find(".column-comments").first()
+			if (!cell.length) return
+			const allowComments = String(
+				row.attr("data-allow-comments") || "1",
+			) !== "0"
+
+			if (!allowComments) {
+				cell.html('<span class="sd-vault-no-comments sd-no-comments">&nbsp;</span>')
+			} else {
+				cell.html(
+					`<div class="post-com-count-wrapper"><a href="#" class="post-com-count" title="View Comments"><span class="comment-count-approved">${safeCount}</span><span class="screen-reader-text">Comments</span></a></div>`,
+				)
+			}
+
+			row.addClass("sd-vault-comments-updated")
+			setTimeout(() => {
+				row.removeClass("sd-vault-comments-updated")
+			}, 800)
 		},
 
 		bindEvents: function () {
@@ -203,6 +249,24 @@
 				function (e) {
 					e.preventDefault()
 					self.openMediaFrame()
+				},
+			)
+
+			wrapper.on(
+				"click.sdVault",
+				".sd-vault-view-mode",
+				function (e) {
+					e.preventDefault()
+					const mode = String(
+						$(this).data("view-mode") || "mine",
+					).toLowerCase()
+					self.viewMode = mode === "shared" ? "shared" : "mine"
+					wrapper
+						.find(".sd-vault-view-mode")
+						.removeClass("is-primary")
+					$(this).addClass("is-primary")
+					self.currentPage = 1
+					self.loadFiles()
 				},
 			)
 
@@ -267,19 +331,6 @@
 
 			wrapper.on(
 				"click.sdVault",
-				".sd-vault-item .sd-action-export",
-				function (e) {
-					e.preventDefault()
-					const id = $(this).closest(".sd-vault-item").data("id")
-					const isPublic =
-						String($(this).data("storage-mode") || "") ===
-						"media_public"
-					self.exportToggle(id, isPublic, $(this))
-				},
-			)
-
-			wrapper.on(
-				"click.sdVault",
 				".sd-vault-item .sd-action-trash",
 				function (e) {
 					e.preventDefault()
@@ -294,7 +345,13 @@
 						.then(() => {
 							self.loadFiles()
 							document.dispatchEvent(
-								new CustomEvent("systemdeck:refresh-pins"),
+								new CustomEvent("systemdeck:refresh-pins", {
+									detail: {
+										workspaceId: String(
+											self.getCurrentWorkspaceId() || "default",
+										),
+									},
+								}),
 							)
 						})
 						.catch((err) => alert("Delete failed: " + err))
@@ -528,6 +585,18 @@
 		},
 
 		getCurrentWorkspaceId: function () {
+			try {
+				const select = window?.wp?.data?.select
+				if (typeof select === "function") {
+					const store = select("systemdeck/core")
+					if (store && typeof store.getActiveWorkspaceId === "function") {
+						const runtimeId = String(
+							store.getActiveWorkspaceId() || "",
+						).trim()
+						if (runtimeId) return runtimeId
+					}
+				}
+			} catch (_error) {}
 			return (
 				this.wrapper?.data("workspace-id") ||
 				localStorage.getItem("sd_active_workspace") ||
@@ -535,6 +604,281 @@
 				window.SYSTEMDECK_BOOTSTRAP?.config?.activeWorkspace ||
 				"default"
 			)
+		},
+
+		normalizeWorkspaceIdForDisplay: function (workspaceId) {
+			const raw = String(workspaceId || "").trim()
+			if (!raw) return ""
+			const scoped = raw.match(/^u\d+_ws_(.+)$/)
+			if (scoped && scoped[1]) {
+				return `ws_${String(scoped[1]).trim()}`
+			}
+			return raw
+		},
+
+		getWorkspacePinsFromRuntime: function () {
+			try {
+				const select = window?.wp?.data?.select
+				if (typeof select !== "function") return []
+				const store = select("systemdeck/core")
+				if (!store || typeof store.getAllPins !== "function") return []
+				const allPins = store.getAllPins()
+				return Array.isArray(allPins) ? allPins : []
+			} catch (_error) {
+				return []
+			}
+		},
+
+		isVaultFilePinnedInWorkspace: function (fileId, workspaceId = "") {
+			const targetId = Number(fileId || 0)
+			if (targetId <= 0) return false
+			const wsId = String(workspaceId || this.getCurrentWorkspaceId() || "")
+			const expectedPinId = `vault.${targetId}`
+			const pins = this.getWorkspacePinsFromRuntime()
+			return pins.some((pin) => {
+				const pinWorkspaceId = String(
+					pin?.workspace_id ||
+						pin?.settings?.workspace_id ||
+						pin?.data?.workspace_id ||
+						"",
+				)
+				if (wsId && pinWorkspaceId && pinWorkspaceId !== wsId) {
+					return false
+				}
+				const pinId = String(pin?.id || "")
+				const pinFileId = Number(
+					pin?.data?.fileId ||
+						pin?.settings?.fileId ||
+						pin?.data?.track_id ||
+						pin?.settings?.track_id ||
+						0,
+				)
+				return pinId === expectedPinId || pinFileId === targetId
+			})
+		},
+
+		getAccessibleWorkspaces: function () {
+			let mapped = []
+			try {
+				const select = window?.wp?.data?.select
+				if (typeof select === "function") {
+					const store = select("systemdeck/core")
+					const runtimeWorkspaces =
+						store && typeof store.getAllWorkspaces === "function"
+							? store.getAllWorkspaces()
+							: []
+					if (Array.isArray(runtimeWorkspaces)) {
+						mapped = runtimeWorkspaces
+							.map((ws) => ({
+								id: String(
+									ws?.id || ws?.workspace_id || "",
+								).trim(),
+								name: String(
+									ws?.name || ws?.title || ws?.label || "",
+								).trim(),
+							}))
+							.filter((ws) => ws.id !== "")
+					}
+				}
+			} catch (_error) {}
+			if (!mapped.length) {
+				const configWorkspaces = Array.isArray(
+					window.SYSTEMDECK_BOOTSTRAP?.config?.workspaces,
+				)
+					? window.SYSTEMDECK_BOOTSTRAP.config.workspaces
+					: []
+				mapped = configWorkspaces
+					.map((ws) => ({
+						id: String(
+							ws?.id || ws?.workspace_id || "",
+						).trim(),
+						name: String(
+							ws?.title || ws?.name || ws?.label || "",
+						).trim(),
+					}))
+					.filter((ws) => ws.id !== "")
+			}
+			const currentId = String(this.getCurrentWorkspaceId() || "").trim()
+			const currentName = String(this.getCurrentWorkspaceName() || "").trim()
+			if (currentId && !mapped.some((ws) => ws.id === currentId)) {
+				mapped.push({ id: currentId, name: currentName || currentId })
+			}
+			const deduped = []
+			const seen = new Set()
+			mapped.forEach((ws) => {
+				const id = this.normalizeWorkspaceIdForDisplay(ws.id)
+				const name = String(ws.name || "").trim()
+				if (!id || !name || seen.has(id)) return
+				seen.add(id)
+				deduped.push({ id, name })
+			})
+			return deduped
+		},
+
+		fetchPinnedWorkspaces: function (fileId) {
+			return this.postAction("sd_core_vault_ajax_get_pinned_workspaces", {
+				file_id: Number(fileId || 0),
+			})
+		},
+
+		fetchShareState: function (fileId, workspaceId = "") {
+			return this.postAction("sd_core_vault_ajax_get_share_state", {
+				file_id: Number(fileId || 0),
+				workspace_id: this.normalizeWorkspaceIdForDisplay(workspaceId || ""),
+			})
+		},
+
+		extractPinnedWorkspaceIds: function (payload) {
+			if (!payload || typeof payload !== "object") return []
+			if (Array.isArray(payload.workspace_ids)) {
+				return Array.from(
+					new Set(
+						payload.workspace_ids
+							.map((id) => this.normalizeWorkspaceIdForDisplay(id))
+							.filter(Boolean),
+					),
+				)
+			}
+			if (Array.isArray(payload.pinned_workspaces)) {
+				return Array.from(
+					new Set(
+						payload.pinned_workspaces
+							.map((ws) =>
+								this.normalizeWorkspaceIdForDisplay(
+									typeof ws === "string" ? ws : ws?.id || "",
+								),
+							)
+							.filter(Boolean),
+					),
+				)
+			}
+			return []
+		},
+
+		extractSharedWorkspaceIds: function (payload) {
+			if (!payload || typeof payload !== "object") return []
+			if (Array.isArray(payload.shared_workspace_ids)) {
+				return Array.from(
+					new Set(
+						payload.shared_workspace_ids
+							.map((id) => this.normalizeWorkspaceIdForDisplay(id))
+							.filter(Boolean),
+					),
+				)
+			}
+			return []
+		},
+
+		renderWorkspacePinControls: function (
+			fileId,
+			pinnedWorkspaceIds = [],
+			sharedWorkspaceIds = [],
+		) {
+			const currentWorkspaceId = this.normalizeWorkspaceIdForDisplay(
+				this.getCurrentWorkspaceId(),
+			)
+			const pinnedSet = new Set(
+				(Array.isArray(pinnedWorkspaceIds) ? pinnedWorkspaceIds : []).map(
+					(id) => this.normalizeWorkspaceIdForDisplay(id),
+				),
+			)
+			const sharedSet = new Set(
+				(Array.isArray(sharedWorkspaceIds) ? sharedWorkspaceIds : []).map(
+					(id) => this.normalizeWorkspaceIdForDisplay(id),
+				),
+			)
+			const currentPinned = pinnedSet.has(currentWorkspaceId)
+			const currentShared = sharedSet.has(currentWorkspaceId) || currentPinned
+			const shareDisabled = currentPinned
+			return `
+				<span class="setting" data-setting="sd-vault-pin-media">
+					<label class="name">Pin Media</label>
+					<input type="checkbox" class="sd-vault-details-is-shared" ${
+						currentPinned ? "checked" : ""
+					} data-file-id="${Number(fileId || 0)}" data-workspace-id="${this.escapeHtml(
+				currentWorkspaceId,
+			)}">
+				</span>
+				<span class="setting" data-setting="sd-vault-share-media">
+					<label class="name">Share Media</label>
+					<input type="checkbox" class="sd-vault-details-share-media" ${
+						currentShared ? "checked" : ""
+					} ${shareDisabled ? "disabled" : ""} data-file-id="${Number(
+				fileId || 0,
+			)}" data-workspace-id="${this.escapeHtml(currentWorkspaceId)}">
+				</span>
+				<div class="sd-vault-workspace-pin-error" style="display:none;color:#b32d2e;font-size:12px;margin:4px 0;"></div>
+			`
+		},
+
+		setWorkspacePinError: function (detailsHost, message) {
+			const node = detailsHost
+				.find(".sd-vault-workspace-pin-error")
+				.first()
+			if (!node.length) return
+			if (message) {
+				node.text(String(message)).show()
+				return
+			}
+			node.text("").hide()
+		},
+
+		setWorkspacePinPending: function (workspaceId, pending) {
+			const ws = String(workspaceId || "")
+			if (!ws) return
+			if (pending) {
+				this.pendingWorkspacePins[ws] = true
+				return
+			}
+			delete this.pendingWorkspacePins[ws]
+		},
+
+		schedulePinGridRefresh: function (workspaceId = "") {
+			const wsId = this.normalizeWorkspaceIdForDisplay(
+				workspaceId || this.getCurrentWorkspaceId() || "",
+			)
+			if (this.pinRefreshTimer) {
+				clearTimeout(this.pinRefreshTimer)
+				this.pinRefreshTimer = null
+			}
+			this.pinRefreshTimer = setTimeout(() => {
+				document.dispatchEvent(
+					new CustomEvent("systemdeck:refresh-pins", {
+						detail: { workspaceId: wsId },
+					}),
+				)
+			}, 150)
+		},
+
+		applyPinnedWorkspaceStateToHost: function (
+			detailsHost,
+			pinnedIds = [],
+			sharedIds = [],
+		) {
+			const pinnedSet = new Set(
+				(Array.isArray(pinnedIds) ? pinnedIds : []).map((id) =>
+					this.normalizeWorkspaceIdForDisplay(id),
+				),
+			)
+			const sharedSet = new Set(
+				(Array.isArray(sharedIds) ? sharedIds : []).map((id) =>
+					this.normalizeWorkspaceIdForDisplay(id),
+				),
+			)
+			const currentWorkspaceId = this.normalizeWorkspaceIdForDisplay(
+				this.getCurrentWorkspaceId(),
+			)
+			if (!this.pendingWorkspacePins[currentWorkspaceId]) {
+				const isPinned = pinnedSet.has(currentWorkspaceId)
+				const isShared = sharedSet.has(currentWorkspaceId) || isPinned
+				detailsHost
+					.find(".sd-vault-details-is-shared")
+					.prop("checked", isPinned)
+				detailsHost
+					.find(".sd-vault-details-share-media")
+					.prop("checked", isShared)
+					.prop("disabled", isPinned)
+			}
 		},
 
 		getAudioRuntime: function () {
@@ -830,7 +1174,13 @@
 					self.loadFiles()
 					if (settings.isShared)
 						document.dispatchEvent(
-							new CustomEvent("systemdeck:refresh-pins"),
+							new CustomEvent("systemdeck:refresh-pins", {
+								detail: {
+									workspaceId: String(
+										self.getCurrentWorkspaceId() || "default",
+									),
+								},
+							}),
 						)
 					return data
 				})
@@ -1078,7 +1428,7 @@
 				.remove()
 			detailsHost
 				.find(
-					'.setting[data-setting="sd-vault-is-shared"], .setting[data-setting="sd-vault-priority"]',
+					'.setting[data-setting="sd-vault-is-shared"], .setting[data-setting="sd-vault-priority"], .sd-vault-workspace-pins, .sd-vault-workspace-pin-error',
 				)
 				.remove()
 
@@ -1108,49 +1458,68 @@
 				// 2. Settings Injection (Pin, Priority & Update Button)
 				const settings = detailsHost.find(".settings").first()
 				if (settings.length) {
-					const settingsHtml = `
-						<span class="setting" data-setting="sd-vault-is-shared">
-							<label class="name">Pin to Workspace</label>
-							<input type="checkbox" class="sd-vault-details-is-shared" ${
-								activeFile.storage_mode === "media_public"
-									? "checked"
-									: ""
-							}>
-						</span>
-						<span class="setting sd-vault-details-priority-wrap" data-setting="sd-vault-priority" style="${
-							activeFile.storage_mode === "media_public"
-								? ""
-								: "display:none;"
-						}">
-							<label class="name">Priority</label>
-							<span class="sd-vault-priority-radios setting">
-								<label><input type="radio" name="sd_vault_priority_${
-									activeFile.id
-								}" value="low" ${
-						activeFile.priority === "low" ? "checked" : ""
-					}> Low</label>
-								<label><input type="radio" name="sd_vault_priority_${
-									activeFile.id
-								}" value="moderate" ${
-						activeFile.priority === "moderate" ? "checked" : ""
-					}> Moderate</label>
-								<label><input type="radio" name="sd_vault_priority_${
-									activeFile.id
-								}" value="high" ${
-						activeFile.priority === "high" ? "checked" : ""
-					}> High</label>
-								<label><input type="radio" name="sd_vault_priority_${
-									activeFile.id
-								}" value="urgent" ${
-						activeFile.priority === "urgent" ? "checked" : ""
-					}> Urgent</label>
-							</span>
-						</span>
-					`
+					const currentWorkspaceId = this.normalizeWorkspaceIdForDisplay(
+						this.getCurrentWorkspaceId(),
+					)
+					const initialPinnedIds = Array.from(
+						new Set(
+							(Array.isArray(activeFile.pinned_workspace_ids)
+								? activeFile.pinned_workspace_ids
+							: []
+							).map((id) =>
+								this.normalizeWorkspaceIdForDisplay(id),
+							),
+						),
+					).filter(Boolean)
+					const initialSharedIds = Array.from(
+						new Set(
+							(Array.isArray(activeFile.shared_workspace_ids)
+								? activeFile.shared_workspace_ids
+								: []
+							).map((id) =>
+								this.normalizeWorkspaceIdForDisplay(id),
+							),
+						),
+					).filter(Boolean)
+					const settingsHtml = this.renderWorkspacePinControls(
+						activeFile.id,
+						initialPinnedIds,
+						initialSharedIds,
+					)
 					// Insert after the last native setting (usually Description or URL)
 					const lastSetting = settings.find(".setting").last()
 					if (lastSetting.length) lastSetting.after(settingsHtml)
 					else settings.prepend(settingsHtml)
+					settings.append(`
+						<span class="setting" data-setting="sd-vault-allow-comments">
+							<label class="name">Allow comments</label>
+							<input type="checkbox" class="sd-vault-details-allow-comments" ${
+								activeFile.allow_comments !== false ? "checked" : ""
+							}>
+						</span>
+					`)
+					Promise.all([
+						this.fetchPinnedWorkspaces(activeFile.id),
+						this.fetchShareState(activeFile.id, currentWorkspaceId),
+					])
+						.then(([pinPayload, sharePayload]) => {
+							const pinnedIds =
+								this.extractPinnedWorkspaceIds(pinPayload)
+							const sharedIds =
+								this.extractSharedWorkspaceIds(sharePayload)
+							this.applyPinnedWorkspaceStateToHost(
+								detailsHost,
+								pinnedIds,
+								sharedIds,
+							)
+							this.setWorkspacePinError(detailsHost, "")
+						})
+						.catch((err) => {
+							this.setWorkspacePinError(
+								detailsHost,
+								asError(err, "Unable to load pin state."),
+							)
+						})
 				}
 
 				// 3. Extension Injection (Comments Only)
@@ -1159,17 +1528,7 @@
 						<div class="sd-vault-media-extension" data-vault-file-id="${activeFile.id}">
 							<div class="sd-vault-details-save-row">
 								<button type="button" class="button button-primary sd-vault-save-details">Update Media Details</button>
-							</div>
-							<div class="sd-vault-details-comments-host">
-								<h4>Discussion</h4>
-								<div class="sd-vault-details-comments-list"></div>
-								<div class="sd-vault-details-comment-form">
-									<textarea class="widefat sd-vault-details-new-comment" rows="2" placeholder="Write a comment..."></textarea>
-									<input type="hidden" class="sd-vault-details-parent-comment" value="0">
-									<p class="submit">
-										<button type="button" class="button button-small sd-vault-details-save-comment">Post Comment</button>
-									</p>
-								</div>
+								<span class="sd-vault-save-status" aria-live="polite"></span>
 							</div>
 						</div>
 					</div>
@@ -1178,18 +1537,7 @@
 				if (settingsContainer.length)
 					settingsContainer.after(extensionHtml)
 
-				// Bind visibility toggle for Priority
-				detailsHost
-					.off("change.sdVaultPin")
-					.on(
-						"change.sdVaultPin",
-						".sd-vault-details-is-shared",
-						function () {
-							detailsHost
-								.find(".sd-vault-details-priority-wrap")
-								.toggle($(this).is(":checked"))
-						},
-					)
+				detailsHost.off("change.sdVaultPin")
 			} else {
 				// Import mode shell
 				const panelHtml = `
@@ -1232,6 +1580,143 @@
 			if (isItemMode && activeFile) {
 				this.loadComments(activeFile.id, "details")
 			}
+
+			// Authority Event Handlers
+			detailsHost
+				.off("change.sdVaultCurrentWorkspacePin")
+				.on(
+					"change.sdVaultCurrentWorkspacePin",
+					".sd-vault-details-is-shared",
+					function () {
+						const input = $(this)
+						const fileId = Number(input.data("file-id") || 0)
+						const workspaceId = self.normalizeWorkspaceIdForDisplay(
+							input.data("workspace-id") ||
+								self.getCurrentWorkspaceId() ||
+								"",
+						)
+						if (!workspaceId || fileId <= 0) {
+							input.prop("checked", !input.is(":checked"))
+							self.setWorkspacePinError(
+								detailsHost,
+								"Missing workspace context.",
+							)
+							return
+						}
+						const checked = input.is(":checked")
+						if (window.SYSTEMDECK_DEBUG === true) {
+							console.debug("pin_to_workspace", {
+								fileId,
+								workspaceId,
+								checked,
+							})
+						}
+						const action = checked
+							? "sd_core_vault_ajax_pin_to_workspace"
+							: "sd_core_vault_ajax_unpin_from_workspace"
+						self.setWorkspacePinError(detailsHost, "")
+						self.setWorkspacePinPending(workspaceId, true)
+						input.prop("disabled", true)
+						self.postAction(action, {
+							file_id: fileId,
+							workspace_id: workspaceId,
+							workspace_name: self.getCurrentWorkspaceName(),
+						})
+							.then((payload) => {
+								const pinnedIds =
+									self.extractPinnedWorkspaceIds(payload)
+								const sharedIds =
+									self.extractSharedWorkspaceIds(payload)
+								self.applyPinnedWorkspaceStateToHost(
+									detailsHost,
+									pinnedIds,
+									sharedIds,
+								)
+								self.schedulePinGridRefresh(workspaceId)
+							})
+							.catch((err) => {
+								input.prop("checked", !checked)
+								self.setWorkspacePinError(
+									detailsHost,
+									asError(err, "Unable to update pin state."),
+								)
+							})
+							.finally(() => {
+								self.setWorkspacePinPending(
+									workspaceId,
+									false,
+								)
+								input.prop("disabled", false)
+							})
+					},
+				)
+
+			// Share toggle handlers
+			detailsHost
+				.off("change.sdVaultShareMedia")
+				.on(
+					"change.sdVaultShareMedia",
+					".sd-vault-details-share-media",
+					function () {
+						const input = $(this)
+						const fileId = Number(input.data("file-id") || 0)
+						const workspaceId = self.normalizeWorkspaceIdForDisplay(
+							input.data("workspace-id") ||
+								self.getCurrentWorkspaceId() ||
+								"",
+						)
+						if (!workspaceId || fileId <= 0) {
+							input.prop("checked", !input.is(":checked"))
+							self.setWorkspacePinError(
+								detailsHost,
+								"Missing workspace context.",
+							)
+							return
+						}
+						const checked = input.is(":checked")
+						const action = checked
+							? "sd_core_vault_ajax_share_to_workspace"
+							: "sd_core_vault_ajax_unshare_from_workspace"
+						self.setWorkspacePinError(detailsHost, "")
+						self.setWorkspacePinPending(workspaceId, true)
+						input.prop("disabled", true)
+						self.postAction(action, {
+							file_id: fileId,
+							workspace_id: workspaceId,
+						})
+							.then((payload) => {
+								const pinnedIds =
+									self.extractPinnedWorkspaceIds(payload)
+								const sharedIds =
+									self.extractSharedWorkspaceIds(payload)
+								self.applyPinnedWorkspaceStateToHost(
+									detailsHost,
+									pinnedIds,
+									sharedIds,
+								)
+							})
+							.catch((err) => {
+								input.prop("checked", !checked)
+								self.setWorkspacePinError(
+									detailsHost,
+									asError(
+										err,
+										"Unable to update share state.",
+									),
+								)
+							})
+							.finally(() => {
+								self.setWorkspacePinPending(
+									workspaceId,
+									false,
+								)
+								const pinChecked = detailsHost
+									.find(".sd-vault-details-is-shared")
+									.is(":checked")
+								input.prop("disabled", pinChecked)
+							})
+					},
+				)
 
 			// Authority Event Handlers
 			detailsHost
@@ -1395,40 +1880,6 @@
 			})
 		},
 
-		exportToggle: function (id, isPublic, btn) {
-			const confirmText = isPublic
-				? "Return this file to private Vault mode?"
-				: "Publish this file to the global WordPress Media Library?"
-			if (!window.confirm(confirmText)) return
-			const oldText = btn?.text ? btn.text() : ""
-			if (btn?.text) btn.text("...")
-			this.postAction(
-				isPublic
-					? "sd_core_vault_ajax_make_private"
-					: "sd_core_vault_ajax_export_to_media_library",
-				{ id },
-			)
-				.then(() => {
-					this.loadFiles()
-					this.handleEditAction(id)
-					window.alert(
-						isPublic
-							? "File returned to private Vault mode."
-							: "File published to the WordPress Media Library.",
-					)
-				})
-				.catch((err) =>
-					window.alert(
-						(isPublic
-							? "Return to Vault failed: "
-							: "Publish failed: ") + err,
-					),
-				)
-				.finally(() => {
-					if (btn?.text) btn.text(oldText)
-				})
-		},
-
 		uploadSelectedFile: function (file) {
 			const self = this
 			const formData = new FormData()
@@ -1527,6 +1978,7 @@
 				limit: 5,
 				paged: this.currentPage,
 				workspace_id: workspaceId,
+				view_mode: this.viewMode === "shared" ? "shared" : "mine",
 			})
 				.then(function (data) {
 					tbody.empty()
@@ -1597,21 +2049,18 @@
 
 		renderFileRow: function (file) {
 			const icon = this.getFileIconClass(file)
-			const exportLabel =
-				file.storage_mode === "media_public"
-					? "Return to Vault"
-					: "Copy to Media Library"
-			const rowActions = `<div class="row-actions"><span class="edit"><a href="#" class="sd-action-edit">Edit</a> | </span><span class="view"><a href="#" class="sd-action-view">View</a> | </span><span class="export"><a href="#" class="sd-action-export" data-storage-mode="${this.escapeHtml(
-				file.storage_mode || "vault_private",
-			)}">${exportLabel}</a> | </span><span class="trash"><a href="#" class="sd-action-trash">Trash</a></span></div>`
-			const commentHtml =
-				file.comment_count > 0
-					? `<div class="post-com-count-wrapper"><a href="#" class="post-com-count" title="View Comments"><span class="comment-count-approved">${file.comment_count}</span><span class="screen-reader-text">Comments</span></a></div>`
-					: `<span class="sd-vault-no-comments sd-no-comments" title="No Comments">&mdash;</span>`
+			const rowActions = `<div class="row-actions"><span class="edit"><a href="#" class="sd-action-edit">Edit</a> | </span><span class="view"><a href="#" class="sd-action-view">View</a> | </span><span class="trash"><a href="#" class="sd-action-trash">Trash</a></span></div>`
+			const safeCommentCount = Math.max(0, Number(file.comment_count || 0))
+			const allowComments = file.allow_comments !== false
+			const commentHtml = allowComments
+				? `<div class="post-com-count-wrapper"><a href="#" class="post-com-count" title="View Comments"><span class="comment-count-approved">${safeCommentCount}</span><span class="screen-reader-text">Comments</span></a></div>`
+				: `<span class="sd-vault-no-comments sd-no-comments">&nbsp;</span>`
 			const stickyClass = file.is_sticky ? " is-sticky" : ""
 
 			return `
-				<tr class="sd-vault-item${stickyClass}" data-id="${this.escapeHtml(file.id)}">
+				<tr class="sd-vault-item${stickyClass}" data-id="${this.escapeHtml(file.id)}" data-allow-comments="${
+				allowComments ? "1" : "0"
+			}">
 					<th scope="row" class="check-column" data-colname="Sticky">
 						<span class="dashicons ${icon} sd-btn-icon sd-note-pin-btn ${
 				file.is_sticky ? "active" : ""
@@ -1645,6 +2094,7 @@
 		},
 
 		closeDetailsModal: function () {
+			if (this._sdDetailsSaving) return
 			const modal = this.detailsModal()
 			if (!modal.length) return
 
@@ -1808,9 +2258,16 @@
 
 			resolvedShell.append(
 				`<div class="sd-vault-audio-fallback">
-					<audio controls preload="metadata" src="${this.escapeHtml(streamUrl)}"></audio>
+					<audio class="wp-audio-shortcode" controls preload="metadata" src="${this.escapeHtml(streamUrl)}"></audio>
 				</div>`,
 			)
+			if (
+				window.wp &&
+				window.wp.mediaelement &&
+				typeof window.wp.mediaelement.initialize === "function"
+			) {
+				window.wp.mediaelement.initialize()
+			}
 		},
 
 		updateDetailsNavigation: function (id) {
@@ -2232,8 +2689,31 @@
 				.on(
 					"click.sdVaultSaveDetails",
 					".sd-vault-save-details, #sd-vault-save-details",
-					function () {
-						self.saveDetails()
+					function (e) {
+						e.preventDefault()
+						e.stopPropagation()
+						self.saveDetails(e)
+					},
+				)
+				.off("submit.sdVaultSaveDetails")
+				.on(
+					"submit.sdVaultSaveDetails",
+					".sd-vault-details-shell-modal form, #sd-vault-details-modal form",
+					function (e) {
+						e.preventDefault()
+						e.stopPropagation()
+						return false
+					},
+				)
+				.off("keydown.sdVaultSaveDetails")
+				.on(
+					"keydown.sdVaultSaveDetails",
+					".sd-vault-details-shell-modal input, .sd-vault-details-shell-modal select, .sd-vault-details-shell-modal textarea, #sd-vault-details-modal input, #sd-vault-details-modal select, #sd-vault-details-modal textarea",
+					function (e) {
+						if (e.key !== "Enter") return
+						e.preventDefault()
+						e.stopPropagation()
+						return false
 					},
 				)
 				.off("click.sdVaultDeleteDetails")
@@ -2255,7 +2735,13 @@
 							self.closeDetailsModal()
 							self.loadFiles()
 							document.dispatchEvent(
-								new CustomEvent("systemdeck:refresh-pins"),
+								new CustomEvent("systemdeck:refresh-pins", {
+									detail: {
+										workspaceId: String(
+											self.getCurrentWorkspaceId() || "default",
+										),
+									},
+								}),
 							)
 						})
 					},
@@ -2515,13 +3001,23 @@
 			return rows.join("")
 		},
 
-		saveDetails: function () {
+		saveDetails: function (event) {
+			if (event && typeof event.preventDefault === "function")
+				event.preventDefault()
+			if (event && typeof event.stopPropagation === "function")
+				event.stopPropagation()
+			if (this._saveDetailsPending) return
 			const self = this
 			const modal = this.detailsModal()
+			const wasOpen = modal.is(":visible")
 			const id = first(modal, [
 				".sd-vault-details-id",
 				"#sd-vault-details-id",
 			]).val()
+			const statusNode = first(modal, [
+				".sd-vault-save-status",
+				"#sd-vault-save-status",
+			])
 			const detailsPane = first(modal, [
 				".sd-vault-attachment-details",
 				"#sd-vault-attachment-details",
@@ -2534,6 +3030,16 @@
 				.trim()
 			if (!title) return
 
+			this._saveDetailsPending = true
+			this._sdDetailsSaving = true
+			if (this._saveStatusTimer) {
+				window.clearTimeout(this._saveStatusTimer)
+				this._saveStatusTimer = null
+			}
+			statusNode
+				.text("Saving...")
+				.removeClass("is-error is-success")
+				.addClass("is-saving")
 			detailsPane.removeClass("save-complete").addClass("save-waiting")
 			first(modal, [".sd-vault-save-details", "#sd-vault-save-details"])
 				.prop("disabled", true)
@@ -2572,150 +3078,108 @@
 				])
 					.val()
 					.trim(),
-				scope: first(modal, [
-					".sd-vault-details-is-shared",
-					"#sd-vault-details-is-shared",
+				allow_comments: first(modal, [
+					".sd-vault-details-allow-comments",
 				]).is(":checked")
-					? "pinned"
-					: "private",
+					? 1
+					: 0,
 				priority:
 					modal
 						.find('input[name^="sd_vault_priority"]:checked')
 						.val() || "low",
-				workspace_id: this.getCurrentWorkspaceId(),
-				workspace_name: this.getCurrentWorkspaceName(),
 			})
 				.then(function () {
 					detailsPane.addClass("save-complete")
-					self.cleanupAudioSubscriptions()
-					self.resetMidiEditor(modal)
-					modal.hide()
-					self.loadFiles()
+					if (!wasOpen) {
+						self.loadFiles()
+					} else {
+						const row = self.wrapper.find(
+							`.sd-vault-item[data-id="${String(id)}"]`,
+						)
+						if (row.length)
+							row.find(".row-title").text(title)
+						const allowCommentsNow = first(modal, [
+							".sd-vault-details-allow-comments",
+						]).is(":checked")
+						row.attr(
+							"data-allow-comments",
+							allowCommentsNow ? "1" : "0",
+						)
+						self.sdVaultUpdateCommentCount(
+							id,
+							Number(
+								row.find(".comment-count-approved").text() || 0,
+							),
+						)
+						if (self.currentDetailsFile) {
+							self.currentDetailsFile.title = title
+							self.currentDetailsFile.artist = first(modal, [
+								".sd-vault-details-artist",
+								"#sd-vault-details-artist",
+							])
+								.val()
+								.trim()
+							self.currentDetailsFile.album = first(modal, [
+								".sd-vault-details-album",
+								"#sd-vault-details-album",
+							])
+								.val()
+								.trim()
+							self.currentDetailsFile.allow_comments =
+								allowCommentsNow
+						}
+					}
+					statusNode
+						.text("Saved")
+						.removeClass("is-saving is-error")
+						.addClass("is-success")
+					self._saveStatusTimer = window.setTimeout(function () {
+						statusNode.text("").removeClass("is-success")
+						self._saveStatusTimer = null
+					}, 1500)
 					document.dispatchEvent(
-						new CustomEvent("systemdeck:refresh-pins"),
+						new CustomEvent("systemdeck:refresh-pins", {
+							detail: {
+								workspaceId: String(
+									self.getCurrentWorkspaceId() || "default",
+								),
+							},
+						}),
 					)
 				})
 				.catch(function (err) {
-					window.alert("Save failed: " + err)
+					statusNode
+						.text("Error saving: " + asError(err, "Unknown error"))
+						.removeClass("is-saving is-success")
+						.addClass("is-error")
 				})
 				.finally(function () {
+					self._saveDetailsPending = false
+					self._sdDetailsSaving = false
 					detailsPane.removeClass("save-waiting")
 					first(modal, [
 						".sd-vault-save-details",
 						"#sd-vault-save-details",
 					])
 						.prop("disabled", false)
-						.text("Update")
+						.text("Update Media Details")
 				})
 		},
 
 		openComments: async function (id, title) {
-			const modal = this.commentsModal()
-			first(modal, [
-				".sd-vault-comment-file-title",
-				"#sd-vault-comment-file-title",
-			]).text(title || "Loading...")
-			first(modal, [
-				".sd-vault-comment-file-id",
-				"#sd-vault-comment-file-id",
-			]).val(id)
-			first(modal, [
-				".sd-vault-comment-file-urgency",
-				"#sd-vault-comment-file-urgency",
-			])
-				.addClass("sd-hidden")
-				.text("")
-				.removeClass("is-urgent is-high is-moderate is-low")
-			first(modal, [
-				".sd-vault-read-preview",
-				"#sd-vault-read-preview",
-			]).html('<span class="spinner is-active sd-vault-spinner"></span>')
-			first(modal, [".sd-vault-read-meta", "#sd-vault-read-meta"]).html(
-				"",
-			)
-			first(modal, [
-				".sd-vault-comments-list",
-				"#sd-vault-comments-list",
-			]).html(
-				'<p class="description sd-vault-comments-loading">Loading discussion...</p>',
-			)
-			first(modal, [".sd-vault-new-comment", "#sd-vault-new-comment"])
-				.val("")
-				.attr("placeholder", "Write a comment...")
-			first(modal, [
-				".sd-vault-parent-comment",
-				"#sd-vault-parent-comment",
-			]).val("0")
-			modal.show()
-
-			try {
-				const file = await this.fetchFileDetails(id)
-				const details = this.getDetailsDisplayModel(file)
-				first(modal, [
-					".sd-vault-comment-file-title",
-					"#sd-vault-comment-file-title",
-				]).text(details.title || title || "Vault file")
-				first(modal, [
-					".sd-vault-read-preview",
-					"#sd-vault-read-preview",
-				]).html(this.renderReadPreview(file, details))
-				first(modal, [
-					".sd-vault-read-meta",
-					"#sd-vault-read-meta",
-				]).html(this.renderReadMeta(file, details))
-				const badge = first(modal, [
-					".sd-vault-comment-file-urgency",
-					"#sd-vault-comment-file-urgency",
-				])
-				if (String(file?.scope || "") === "pinned") {
-					const priority = String(
-						file?.priority || "low",
-					).toLowerCase()
-					const safePriority = [
-						"urgent",
-						"high",
-						"moderate",
-						"low",
-					].includes(priority)
-						? priority
-						: "low"
-					badge
-						.text(this.capitalize(safePriority))
-						.removeClass(
-							"is-urgent is-high is-moderate is-low sd-hidden",
-						)
-						.addClass(`is-${safePriority}`)
-				}
-				window.wp?.mediaelement?.initialize?.()
-			} catch (error) {
-				first(modal, [
-					".sd-vault-read-preview",
-					"#sd-vault-read-preview",
-				]).html(
-					'<p class="description sd-vault-comments-error">Unable to load preview.</p>',
-				)
-				first(modal, [
-					".sd-vault-read-meta",
-					"#sd-vault-read-meta",
-				]).html(
-					`<div class="sd-vault-read-meta-row sd-vault-comments-error">${this.escapeHtml(
-						String(
-							error?.message ||
-								error ||
-								"Unable to load file details.",
+			document.dispatchEvent(
+				new CustomEvent("systemdeck:comments:open", {
+					detail: {
+						targetType: "vault_file",
+						targetId: Number(id || 0),
+						workspaceId: String(
+							this.getCurrentWorkspaceId() || "default",
 						),
-					)}</div>`,
-				)
-			}
-
-			this.loadComments(id)
-			$(document)
-				.off("click.sdVaultSaveComment")
-				.on(
-					"click.sdVaultSaveComment",
-					".sd-vault-save-comment, #sd-vault-save-comment",
-					() => this.saveComment(),
-				)
+						title: title || "Comments",
+					},
+				}),
+			)
+			return
 		},
 
 		loadComments: function (fileId, mode = "legacy") {

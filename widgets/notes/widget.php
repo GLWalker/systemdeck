@@ -196,26 +196,29 @@ class Notes extends BaseWidget
             'urgent'   => 'is-urgent',
         ];
         $status_class = $status_map[$level] ?? 'is-low';
+        $published_date = get_the_date('m/d/Y', $note_id);
+        $modified_date = get_the_modified_date('m/d/Y', $note_id);
+        $is_updated = get_the_time('U', $note_id) !== get_the_modified_time('U', $note_id);
+        $meta_prefix = $is_updated ? __('Updated', 'systemdeck') : __('Published', 'systemdeck');
+        $meta_date = $is_updated ? $modified_date : $published_date;
 
         ob_start();
         ?>
         <article class="postbox sd-pin <?php echo esc_attr($status_class); ?>" 
                  data-pin-action="open_note" 
                  data-note-id="<?php echo esc_attr((string)$note_id); ?>"
+                 data-note-title="<?php echo esc_attr((string) $note->post_title); ?>"
                  data-workspace-id="<?php echo esc_attr($workspace_id); ?>">
             <div class="sd-media-wrap">
                 <div class="sd-media-figure">
                     <span class="sd-pin-icon dashicons dashicons-edit"></span>
                 </div>
                 <div class="sd-media-content">
-                    <div class="sd-pin-label" id="sd-pin-title-<?php echo esc_attr($instance_id); ?>">
-                        <?php echo esc_html__('Note', 'systemdeck'); ?>
-                    </div>
-                    <h4 class="sd-pin-title"><?php echo esc_html($note->post_title); ?></h4>
-                    <div class="sd-pin-meta">
-                        <span class="sd-pin-description">
-                            <?php echo esc_html(wp_trim_words($note->post_content, 12)); ?>
-                        </span>
+                    <h4 class="sd-pin-title sd-pin-title--ellipsis" id="sd-pin-title-<?php echo esc_attr($instance_id); ?>" title="<?php echo esc_attr((string) $note->post_title); ?>">
+                        <?php echo esc_html((string) $note->post_title); ?>
+                    </h4>
+                    <div class="sd-pin-subtext">
+                        <?php echo esc_html($meta_prefix . ' ' . (string) $meta_date); ?>
                     </div>
                 </div>
             </div>
@@ -448,6 +451,14 @@ class Notes extends BaseWidget
                     <span class="dashicons dashicons-filter sd-button-icon"></span>
                     <?php _e('This Page', 'systemdeck'); ?>
                 </button>
+                <div class="sd-notes-view-toggle" role="group" aria-label="<?php esc_attr_e('Notes view mode', 'systemdeck'); ?>">
+                    <button type="button" class="button button-small is-primary sd-notes-view-mode" data-view-mode="mine">
+                        <?php _e('Mine', 'systemdeck'); ?>
+                    </button>
+                    <button type="button" class="button button-small sd-notes-view-mode" data-view-mode="shared">
+                        <?php _e('Shared', 'systemdeck'); ?>
+                    </button>
+                </div>
             </div>
 
             <div class="sd-table-container">
@@ -659,15 +670,30 @@ class Notes extends BaseWidget
         $user_id = get_current_user_id();
         $limit = isset($request['limit']) ? intval($request['limit']) : 5;
         $workspace_id = sanitize_key($request['workspace_id'] ?? '');
+        $view_mode = sanitize_key((string) ($request['view_mode'] ?? 'mine'));
+        if ($view_mode !== 'shared') {
+            $view_mode = 'mine';
+        }
         $context_url = $request['context'] ?? '';
         $paged = isset($request['paged']) ? max(1, intval($request['paged'])) : 1;
+
+        if (
+            $workspace_id !== '' &&
+            function_exists('systemdeck_user_meets_workspace_access') &&
+            !systemdeck_user_meets_workspace_access((int) $user_id, $workspace_id)
+        ) {
+            return [
+                'notes' => [],
+                'max_pages' => 0,
+                'total' => 0,
+            ];
+        }
 
         $args = [
             'post_type' => self::CPT,
             'post_status' => ['publish', 'private'],
             'posts_per_page' => $limit,
             'paged' => $paged,
-            'author' => $user_id,
             'meta_query' => [
                 'relation' => 'OR',
                 'sticky_clause' => [
@@ -686,7 +712,33 @@ class Notes extends BaseWidget
             ],
         ];
 
-        if (!empty($workspace_id)) {
+        if ($view_mode === 'mine') {
+            $args['author'] = $user_id;
+        } else {
+            if ($workspace_id === '') {
+                return [
+                    'notes' => [],
+                    'max_pages' => 0,
+                    'total' => 0,
+                ];
+            }
+            $workspace_owner_id = self::resolve_workspace_owner_id($workspace_id, (int) $user_id);
+            $is_collaborative = self::is_collaborative_workspace($workspace_id, $workspace_owner_id > 0 ? $workspace_owner_id : (int) $user_id);
+            if (!$is_collaborative && $workspace_owner_id === (int) $user_id) {
+                return [
+                    'notes' => [],
+                    'max_pages' => 0,
+                    'total' => 0,
+                ];
+            }
+            if (!$is_collaborative && $workspace_owner_id > 0) {
+                $args['author'] = $workspace_owner_id;
+            } else {
+                $args['author__not_in'] = [(int) $user_id];
+            }
+        }
+
+        if (!empty($workspace_id) && $view_mode === 'mine') {
             $args['meta_query'] = [
                 'relation' => 'AND',
                 $args['meta_query'],
@@ -702,6 +754,17 @@ class Notes extends BaseWidget
                         'compare' => 'NOT EXISTS'
                     ]
                 ]
+            ];
+        }
+        if (!empty($workspace_id) && $view_mode === 'shared') {
+            $args['meta_query'] = [
+                'relation' => 'AND',
+                $args['meta_query'],
+                [
+                    'key' => '_sd_note_workspace_id',
+                    'value' => $workspace_id,
+                    'compare' => '=',
+                ],
             ];
         }
 
@@ -742,7 +805,7 @@ class Notes extends BaseWidget
             $display_title = mb_strlen($title) > 16 ? mb_substr($title, 0, 13) . '...' : $title;
 
             $notes[] = [
-                'is_author' => true,
+                'is_author' => ((int) get_post_field('post_author', $id) === (int) $user_id),
                 'id' => $id,
                 'title' => $display_title,
                 'full_title' => $title,
@@ -777,6 +840,46 @@ class Notes extends BaseWidget
             'max_pages' => $max_pages,
             'total' => $total
         ];
+    }
+
+    private static function resolve_workspace_owner_id(string $workspace_id, int $fallback_user_id): int
+    {
+        $workspace_id = sanitize_key($workspace_id);
+        if ($workspace_id === '' || $workspace_id === 'default' || !class_exists('\\SystemDeck\\Core\\Services\\CanvasRepository')) {
+            return $fallback_user_id;
+        }
+
+        $posts = get_posts([
+            'post_type' => \SystemDeck\Core\Services\CanvasRepository::CPT,
+            'post_status' => ['publish', 'private', 'draft', 'pending'],
+            'posts_per_page' => 1,
+            'meta_query' => [
+                [
+                    'key' => \SystemDeck\Core\Services\CanvasRepository::META_WORKSPACE,
+                    'value' => $workspace_id,
+                    'compare' => '=',
+                ],
+            ],
+            'orderby' => 'ID',
+            'order' => 'DESC',
+            'no_found_rows' => true,
+        ]);
+
+        if (empty($posts) || !($posts[0] instanceof \WP_Post)) {
+            return $fallback_user_id;
+        }
+        $owner_id = (int) $posts[0]->post_author;
+        return $owner_id > 0 ? $owner_id : $fallback_user_id;
+    }
+
+    private static function is_collaborative_workspace(string $workspace_id, int $user_id = 0): bool
+    {
+        $workspace_id = sanitize_key($workspace_id);
+        if ($workspace_id === '' || $workspace_id === 'default' || !class_exists('\\SystemDeck\\Core\\Services\\CanvasRepository')) {
+            return false;
+        }
+
+        return \SystemDeck\Core\Services\CanvasRepository::get_workspace_collaboration_mode($workspace_id, $user_id) === 'collaborative';
     }
 
     public static function ajax_save_note($request): array
@@ -1062,7 +1165,12 @@ class Notes extends BaseWidget
         // Access gate — throws on denial.
         self::resolve_sticky_access($note_id, $user_id);
 
-        return ['comments' => \SystemDeck\Core\Services\CommentService::get_comment_tree($note_id)];
+        $comments = \SystemDeck\Core\Services\CommentService::get_comment_tree($note_id);
+        return [
+            'comments' => $comments,
+            'html' => \SystemDeck\Core\Services\CommentService::render_comment_tree_html($comments),
+            'count' => \SystemDeck\Core\Services\CommentService::count_comment_nodes($comments),
+        ];
     }
 
     public static function ajax_add_note_comment($request): array

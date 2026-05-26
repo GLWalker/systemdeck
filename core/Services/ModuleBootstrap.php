@@ -82,7 +82,34 @@ class ModuleBootstrap
             add_action('admin_enqueue_scripts', [\SystemDeck\Widgets\Vault::class, 'enqueue_media_modal_assets']);
 
             // AJAX Handlers
-            \SystemDeck\Widgets\Vault::register_ajax_hooks();
+            add_action('wp_ajax_sd_core_vault_ajax_upload_file', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_upload_file']);
+            add_action('wp_ajax_sd_core_vault_ajax_link_attachment', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_link_attachment']);
+            add_action('wp_ajax_sd_core_vault_ajax_get_files', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_get_files']);
+            add_action('wp_ajax_sd_core_vault_ajax_delete_file', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_delete_file']);
+            add_action('wp_ajax_sd_core_vault_ajax_import_from_media_library', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_import_from_media_library']);
+            add_action('wp_ajax_sd_core_vault_ajax_export_to_media_library', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_export_to_media_library']);
+            add_action('wp_ajax_sd_core_vault_ajax_make_private', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_make_private']);
+            add_action('wp_ajax_sd_core_vault_ajax_get_file_details', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_get_file_details']);
+            add_action('wp_ajax_sd_core_vault_ajax_save_file_details', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_save_file_details']);
+            add_action('wp_ajax_sd_core_vault_ajax_get_midi_editor_payload', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_get_midi_editor_payload']);
+            add_action('wp_ajax_sd_core_vault_ajax_validate_midi_derivative', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_validate_midi_derivative']);
+            add_action('wp_ajax_sd_core_vault_ajax_save_midi_derivative', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_save_midi_derivative']);
+            add_action('wp_ajax_sd_core_vault_ajax_rebuild_midi_derivative', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_rebuild_midi_derivative']);
+            add_action('wp_ajax_sd_core_vault_ajax_get_file_comments', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_get_file_comments']);
+            add_action('wp_ajax_sd_core_vault_ajax_add_file_comment', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_add_file_comment']);
+            add_action('wp_ajax_sd_core_vault_ajax_attach_existing_vault_file', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_attach_existing_vault_file']);
+            add_action('wp_ajax_sd_toggle_vault_sticky', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_toggle_vault_sticky']);
+
+            add_action('wp_ajax_sd_core_vault_ajax_copy_from_media_library', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_copy_from_media_library']);
+            add_action('wp_ajax_sd_core_vault_ajax_publish_to_vault', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_publish_to_vault']);
+            add_action('wp_ajax_sd_core_vault_ajax_copy_to_media_library', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_copy_to_media_library']);
+            add_action('wp_ajax_sd_core_vault_ajax_publish_to_media_library', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_publish_to_media_library']);
+            add_action('wp_ajax_sd_core_vault_ajax_pin_to_workspace', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_pin_to_workspace']);
+            add_action('wp_ajax_sd_core_vault_ajax_unpin_from_workspace', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_unpin_from_workspace']);
+            add_action('wp_ajax_sd_core_vault_ajax_get_pinned_workspaces', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_get_pinned_workspaces']);
+            add_action('wp_ajax_sd_core_vault_ajax_share_to_workspace', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_share_to_workspace']);
+            add_action('wp_ajax_sd_core_vault_ajax_unshare_from_workspace', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_unshare_from_workspace']);
+            add_action('wp_ajax_sd_core_vault_ajax_get_share_state', [\SystemDeck\Core\Ajax\VaultAjaxController::class, 'handle_ajax_get_share_state']);
 
             // Dashboard & Admin Cleanup
             add_filter('dashboard_recent_comments_query_args', [\SystemDeck\Widgets\Vault::class, 'exclude_from_recent_comments']);

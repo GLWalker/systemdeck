@@ -1547,6 +1547,47 @@ class AjaxHandler
         $user_id      = (int) get_current_user_id();
         $context      = new Context($user_id, $workspace_id);
         $pins         = StorageEngine::get('pins', $context) ?: [];
+        $owner_id     = self::get_workspace_owner_id($workspace_id, $user_id);
+        $is_shared_non_owner = ($owner_id > 0 && $owner_id !== $user_id);
+        $is_collaborative = self::is_collaborative_workspace($workspace_id, $owner_id > 0 ? $owner_id : $user_id);
+
+        // Shared owner-only workspaces:
+        // - Everyone sees owner pins.
+        // - Non-owners also see their own local pins.
+        if ($is_shared_non_owner && !$is_collaborative) {
+            $owner_context = new Context($owner_id, $workspace_id);
+            $owner_pins = StorageEngine::get('pins', $owner_context) ?: [];
+            $local_pins = is_array($pins) ? $pins : [];
+
+            $merged = [];
+            $seen_ids = [];
+
+            foreach ($owner_pins as $pin) {
+                if (!is_array($pin)) {
+                    continue;
+                }
+                $pid = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($pin['id'] ?? ''));
+                if ($pid === '' || isset($seen_ids[$pid])) {
+                    continue;
+                }
+                $merged[] = $pin;
+                $seen_ids[$pid] = true;
+            }
+
+            foreach ($local_pins as $pin) {
+                if (!is_array($pin)) {
+                    continue;
+                }
+                $pid = \SystemDeck\Core\Services\PinRuntimeBridge::sanitize_pin_id((string) ($pin['id'] ?? ''));
+                if ($pid === '' || isset($seen_ids[$pid])) {
+                    continue;
+                }
+                $merged[] = $pin;
+                $seen_ids[$pid] = true;
+            }
+
+            $pins = $merged;
+        }
 
         // Apply per-user ordering preference (pin content stays canonical/shared).
         $order_key    = 'sd_pref_pin_order_' . sanitize_key($workspace_id);
@@ -1640,8 +1681,18 @@ class AjaxHandler
 
         $owner_id = self::get_workspace_owner_id($workspace_id, $current_user_id);
         $is_shared_non_owner = ($owner_id > 0 && $owner_id !== $current_user_id);
+        $is_collaborative = self::is_collaborative_workspace($workspace_id, $owner_id > 0 ? $owner_id : $current_user_id);
+
+        if ($is_shared_non_owner && !$is_collaborative) {
+            // Shared owner-only: ignore foreign-author pins in incoming payload.
+            // Non-owners can add/remove only their own local pins.
+            $normalized = array_values(array_filter($normalized, function ($pin) use ($current_user_id) {
+                $author_id = (int) ($pin['settings']['author_id'] ?? 0);
+                return $author_id <= 0 || $author_id === $current_user_id;
+            }));
+        }
         
-        if ($is_shared_non_owner) {
+        if ($is_shared_non_owner && !$is_collaborative) {
             foreach ($existing_pins_map as $ep_id => $ep) {
                 if (!isset($incoming_ids[$ep_id])) {
                     $ep_author = (int) ($ep['settings']['author_id'] ?? 0);

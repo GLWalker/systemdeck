@@ -1,4 +1,5 @@
 <?php
+
 /**
  * SystemDeck - Schema
  *
@@ -11,7 +12,25 @@
  * Database Schema and CSS Token Authority
  */
 
+/*
+:root{
+  --wp-admin-theme-color:#3858e9;
+  --wp-admin-theme-color--rgb:56, 88, 233;
+  --wp-admin-theme-color-darker-10:#2145e6;
+  --wp-admin-theme-color-darker-10--rgb:33.0384615385, 68.7307692308, 230.4615384615;
+  --wp-admin-theme-color-darker-20:#183ad6;
+  --wp-admin-theme-color-darker-20--rgb:23.6923076923, 58.1538461538, 214.3076923077;
+  --wp-admin-border-width-focus:2px;
+}
+@media (min-resolution:192dpi){
+  :root{
+    --wp-admin-border-width-focus:1.5px;
+  }
+}
+ */
+
 namespace SystemDeck\Core;
+
 /**
  * Return all schemes
  * 'admin' => [
@@ -20,8 +39,12 @@ namespace SystemDeck\Core;
  *      'menu-highlight-bg' => '#2271b1',
  *      'submenu-focus' => '#72aee6',],
  *
+ *
  * rename to wp-admin-scheme-color-1, wp-admin-scheme-color-2, wp-admin-scheme-color-3, wp-admin-scheme-color-4
  * wp-admin-icon-base, wp-admin-icon-focus, wp-admin-icon-current
+ *
+ * --wp-components-color-accent: #2271b1;
+ *
  *
  */
 final class Schema
@@ -32,10 +55,10 @@ final class Schema
             'fresh' => [
                 'label' => 'Default',
                 'admin' => [
-                    'admin-scheme-color-1' => '#1d2327',
-                    'admin-scheme-color-2' => '#2c3338',
-                    'admin-scheme-color-3' => '#2271b1',
-                    'admin-scheme-color-4' => '#72aee6',
+                    'menu-bg' => '#1d2327',
+                    'submenu-bg' => '#2c3338',
+                    'menu-highlight-bg' => '#2271b1',
+                    'submenu-focus' => '#72aee6',
                 ],
                 'icons' => [
                     'admin-icon-base' => '#a7aaad',
@@ -49,6 +72,9 @@ final class Schema
                     'admin-theme-color-darker-10--rgb' => '29, 95, 150',
                     'admin-theme-color-darker-20' => '#174e7a',
                     'admin-theme-color-darker-20--rgb' => '23, 78, 122',
+                    'admin-theme-color-accent' => '#72aee6',
+                    'admin-theme-color-bg' => '#1d2327',
+                    'admin-theme-color-bg-accent' => '#2c3338',
                 ],
             ],
             'light' => [
@@ -71,6 +97,9 @@ final class Schema
                     'admin-theme-color-darker-10--rgb' => '0, 115, 161',
                     'admin-theme-color-darker-20' => '#006187',
                     'admin-theme-color-darker-20--rgb' => '0, 97, 135',
+                    'admin-theme-color-accent' => '#72aee6',
+                    'admin-theme-color-bg' => '#1d2327',
+                    'admin-theme-color-bg-accent' => '#2c3338',
                 ],
             ],
             'modern' => [
@@ -93,6 +122,9 @@ final class Schema
                     'admin-theme-color-darker-10--rgb' => '33, 69, 230',
                     'admin-theme-color-darker-20' => '#183ad6',
                     'admin-theme-color-darker-20--rgb' => '24, 58, 214',
+                    'admin-theme-color-accent' => '#72aee6',
+                    'admin-theme-color-bg' => '#1d2327',
+                    'admin-theme-color-bg-accent' => '#2c3338',
                 ],
             ],
             'blue' => [
@@ -115,6 +147,9 @@ final class Schema
                     'admin-theme-color-darker-10--rgb' => '7, 82, 108',
                     'admin-theme-color-darker-20' => '#064054',
                     'admin-theme-color-darker-20--rgb' => '6, 64, 84',
+                    'admin-theme-color-accent' => '#72aee6',
+                    'admin-theme-color-bg' => '#1d2327',
+                    'admin-theme-color-bg-accent' => '#2c3338',
                 ],
             ],
             'midnight' => [
@@ -137,6 +172,9 @@ final class Schema
                     'admin-theme-color-darker-10--rgb' => '221, 56, 45',
                     'admin-theme-color-darker-20' => '#d02c21',
                     'admin-theme-color-darker-20--rgb' => '208, 44, 33',
+                    'admin-theme-color-accent' => '#72aee6',
+                    'admin-theme-color-bg' => '#1d2327',
+                    'admin-theme-color-bg-accent' => '#2c3338',
                 ],
             ],
             'sunrise' => [
@@ -159,6 +197,9 @@ final class Schema
                     'admin-theme-color-darker-10--rgb' => '217, 116, 38',
                     'admin-theme-color-darker-20' => '#c36922',
                     'admin-theme-color-darker-20--rgb' => '195, 105, 34',
+                    'admin-theme-color-accent' => '#72aee6',
+                    'admin-theme-color-bg' => '#1d2327',
+                    'admin-theme-color-bg-accent' => '#2c3338',
                 ],
             ],
             'ectoplasm' => [
@@ -181,6 +222,9 @@ final class Schema
                     'admin-theme-color-darker-10--rgb' => '70, 54, 93',
                     'admin-theme-color-darker-20' => '#3a2c4d',
                     'admin-theme-color-darker-20--rgb' => '58, 44, 77',
+                    'admin-theme-color-accent' => '#72aee6',
+                    'admin-theme-color-bg' => '#1d2327',
+                    'admin-theme-color-bg-accent' => '#2c3338',
                 ],
             ],
             'ocean' => [
@@ -203,6 +247,9 @@ final class Schema
                     'admin-theme-color-darker-10--rgb' => '87, 110, 116',
                     'admin-theme-color-darker-20' => '#4c6066',
                     'admin-theme-color-darker-20--rgb' => '76, 96, 102',
+                    'admin-theme-color-accent' => '#72aee6',
+                    'admin-theme-color-bg' => '#1d2327',
+                    'admin-theme-color-bg-accent' => '#2c3338',
                 ],
             ],
             'coffee' => [
@@ -225,6 +272,9 @@ final class Schema
                     'admin-theme-color-darker-10--rgb' => '56, 51, 48',
                     'admin-theme-color-darker-20' => '#2b2724',
                     'admin-theme-color-darker-20--rgb' => '43, 39, 36',
+                    'admin-theme-color-accent' => '#72aee6',
+                    'admin-theme-color-bg' => '#1d2327',
+                    'admin-theme-color-bg-accent' => '#2c3338',
                 ],
             ],
         ];

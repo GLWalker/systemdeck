@@ -131,6 +131,8 @@ jQuery(function ($) {
 	}
 
 	function sdFixDoubleOriginUrl() {
+		// Scoped media-modal URL safety: normalize accidental double-origin URLs
+		// during WP modal lifecycle without changing navigation behavior.
 		const origin = String(window.location.origin || "").replace(/\/+$/, "")
 		const href = String(window.location.href || "")
 		if (!origin || !href) return false
@@ -165,6 +167,17 @@ jQuery(function ($) {
 			)
 		}
 		return ""
+	}
+
+	function sdIsWpDefaultMediaIcon(url) {
+		const u = String(url || "").toLowerCase().trim()
+		if (!u) return true
+		if (u.includes("/wp-includes/images/media/")) return true
+		if (u.includes("/wp-includes/images/crystal/")) return true
+		if (u.includes("dashicons") && u.includes(".svg")) return true
+		if (u.endsWith("audio.png") || u.endsWith("audio.svg")) return true
+		if (u.endsWith("document.png") || u.endsWith("document.svg")) return true
+		return false
 	}
 
 	function extractBackgroundImageUrl($node) {
@@ -282,16 +295,14 @@ jQuery(function ($) {
 		const id = Number(attachmentId || 0)
 		if (!id) return
 
-		// Idempotency: Don't re-inject if we are already there for this ID
-		const existing = actions.find(".sd-vault-media-bridge-actions")
-		if (existing.length && existing.data("id") === id) return
+		// Idempotency: Don't re-inject if a marker already exists.
+		if (actions.find('[data-sd-vault-actions="1"]').length) return
 
-		existing.remove()
 		actions.append(
-			`<span class="sd-vault-media-bridge-actions" data-id="${id}"> | ` +
-				`<button class="button-link sd-bridge-copy-btn" type="button" data-id="${id}" style="color:#135e96; text-decoration:none;">Copy to Vault</button>` +
-				` | <button class="button-link sd-bridge-publish-btn" type="button" data-id="${id}" style="color:#d63638; text-decoration:none;">Publish to Vault</button>` +
-				`</span>`,
+			`<span class="sd-vault-media-bridge-actions" data-id="${id}" data-sd-vault-actions="1"> | ` +
+					`<button class="button-link sd-bridge-copy-btn" type="button" data-id="${id}" style="color:#135e96; text-decoration:none;">Copy to Vault</button>` +
+					` | <button class="button-link sd-bridge-publish-btn" type="button" data-id="${id}" style="color:#d63638; text-decoration:none;">Publish to Vault</button>` +
+					`</span>`,
 		)
 	}
 
@@ -330,6 +341,7 @@ jQuery(function ($) {
 			extractBackgroundImageUrl(thumbnailShell) ||
 			coerceArtworkUrl($el.find(".attachment-details .thumbnail img").first().attr("src")) ||
 			coerceArtworkUrl(sidebar.find("img").first().attr("src"))
+		const finalArtworkUrl = sdIsWpDefaultMediaIcon(artworkUrl) ? "" : artworkUrl
 
 		if (!isAudioLike) {
 			if (mediaHost.length) {
@@ -362,7 +374,7 @@ jQuery(function ($) {
 					id: id,
 					url: model.get("url"),
 					title: model.get("title") || filename,
-					artworkUrl,
+					artworkUrl: finalArtworkUrl,
 					type: isMidi ? "midi" : "audio",
 				}),
 			)
@@ -370,22 +382,8 @@ jQuery(function ($) {
 			mountCanonicalModalSurface(surface)
 		}
 
-		// Build Extension Panel
-		let html = `<div class="sd-vault-native-extension" data-id="${id}">`
-
-		html += `
-			<div class="sd-vault-extension-actions">
-				<button type="button" class="button-link sd-bridge-copy-btn" data-id="${id}">Copy to Vault</button> | 
-				<button type="button" class="button-link sd-bridge-publish-btn" data-id="${id}" style="color:#d63638;">Publish to Vault</button>
-			</div>
-		</div>`
-
-		const settings = sidebar.find(".settings").first()
-		if (settings.length) {
-			settings.after(html)
-		} else {
-			sidebar.find(".actions").first().before(html)
-		}
+		const actions = sidebar.find(".actions").first()
+		injectButtonIntoActions(actions, id)
 		sdFixDoubleOriginUrl()
 	}
 

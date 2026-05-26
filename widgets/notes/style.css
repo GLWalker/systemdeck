@@ -20,10 +20,6 @@
     overflow-y: auto;
 }
 
-.sd-modal-close:hover {
-    color: #d63638 !important;
-}
-
 #systemdeck .sd-note-view-modal .sd-note-content-render,
 #systemdeck .sd-note-view-modal .sd-note-content-render p,
 #systemdeck .sd-note-view-modal .sd-note-content-render li,
@@ -63,6 +59,12 @@
     color: #646970;
 }
 
+.sd-note-item.sd-note-comments-updated .column-comments,
+.sd-note-item.sd-note-comments-updated .post-com-count-wrapper {
+    outline: 1px solid rgba(34, 113, 177, 0.25);
+    outline-offset: 2px;
+}
+
 .sd-note-workspace-private {
     color: #8c8f94;
     font-size: 11px;
@@ -100,14 +102,6 @@
 
 .sd-checkbox-label:hover {
     color: #2271b1;
-}
-
-/* 4. Comments */
-.sd-note-reply {
-    margin-left: 34px;
-    border-left: 4px solid #dcdcde;
-    padding-left: 14px;
-    margin-top: 14px;
 }
 
 /* 6. CodeMirror Overrides */
@@ -282,10 +276,6 @@
 .sd-modal-header-actions {
     display: flex;
     align-items: center;
-}
-
-.sd-modal-body {
-    padding: 24px;
 }
 
 .sd-comments-heading {

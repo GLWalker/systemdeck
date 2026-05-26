@@ -126,7 +126,7 @@ Rules:
 Vault runtime stack includes:
 - WordPress media stack (`requires_wp_media() === true`)
 - `wp-mediaelement` compatibility via initialized media elements
-- Vault player/runtime assets (`sd-player-style`, `sd-audio-engine`, `sd-player-app`)
+- Core-owned player/runtime assets (`sd-player-style` => `assets/css/systemdeck-player.css`, `sd-player-app` => `assets/js/sd-player-app.js`, plus `sd-audio-engine` / `sd-playback-adapter`)
 - `sd-vault-media.css` for narrow fallback/alignment rules
 
 Do not:
